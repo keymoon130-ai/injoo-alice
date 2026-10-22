@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#050405">
+<title>人柱愛麗絲 · 망가진 꿈 (멀티)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@900&text=%E4%BA%BA%E6%9F%B1%E6%84%9B%E9%BA%97%E7%B5%B2&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;800&family=Nanum+Gothic+Coding:wght@400;700&family=VT323&display=swap">
+<style>
+/* 낡은 VHS 테이프 한 개가 화면 전체. 로비는 테이프 라벨처럼, 게임은 CRT 화면처럼. */
+:root{
+  --room:#050405; --panel:#0e0b0c; --line:#2a2325; --fg:#cfc6b6; --dim:#6f675e; --faint:#3d3734;
+  --blood:#9a1d1d; --blood-hi:#c43030; --ok:#7fae86; --pink:#ff9cc0;
+  --hanja:'Noto Serif KR','Nanum Myeongjo','Batang',serif;
+  --serif:'Nanum Myeongjo','Batang','AppleMyungjo',serif;
+  --mono:'Nanum Gothic Coding','D2Coding',ui-monospace,monospace;
+  --osd:'VT323',ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--room) radial-gradient(ellipse at 50% 35%,#120e10 0%,var(--room) 70%);color:var(--fg);font-family:var(--mono);font-size:14px;overflow:hidden;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button,input,select{font:inherit;color:inherit}
+button{background:#141012;border:1px solid var(--line);border-radius:3px;padding:10px 14px;cursor:pointer;letter-spacing:.06em;touch-action:manipulation}
+button:hover:not(:disabled){border-color:#5a4a4d}
+button:disabled{opacity:.35;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--blood-hi);outline-offset:2px}
+button.primary{background:#2a0d0f;border-color:#6d1a1d;color:#f1dcd6}
+button.on{background:#1d2a1f;border-color:#4f7a57;color:#cfe8d2}
+a.back{color:var(--dim)}
+a.back:hover{color:var(--fg)}
+button.link{background:none;border:0;padding:2px 4px;text-decoration:underline;color:var(--dim)}
+input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;padding:10px 12px;min-width:0}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow:auto}
+.title{text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+.hanja{font-family:var(--hanja);font-weight:900;font-size:clamp(44px,11vw,84px);letter-spacing:.04em;margin:0;line-height:1;color:#d6ccba;text-shadow:2px 0 rgba(150,20,20,.6),-1px 0 rgba(40,60,160,.35)}
+.sub{font-family:var(--serif);letter-spacing:.5em;color:var(--dim);margin:0;font-size:13px}
+.tag{font-family:var(--serif);color:#8d8478;margin:0}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+.stack{display:flex;flex-direction:column;gap:12px;width:min(360px,100%)}
+.stack label{display:flex;flex-direction:column;gap:6px;color:var(--dim);font-size:12px;letter-spacing:.12em}
+.devs button{min-width:140px;padding:18px 20px;font-size:16px}
+.err{color:var(--blood-hi);min-height:1.2em;margin:0;text-align:center}
+.hint{color:var(--dim);font-size:12px;margin:0;text-align:center}
+.chk{flex-direction:row!important;align-items:center;gap:8px!important;color:var(--fg)!important;font-size:14px!important;letter-spacing:0!important}
+.chk input{width:18px;height:18px;accent-color:#d9708f}
+/* lobby */
+#scLobby{justify-content:flex-start}
+.lobbyHead{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}
+.code{font-family:var(--osd);font-size:44px;letter-spacing:.3em;color:#f0e6d6;line-height:1}
+.lobbyGrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;width:min(900px,100%);flex:1;min-height:0}
+@media (max-width:720px){.lobbyGrid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
+.panel h3{margin:0;font-size:12px;letter-spacing:.2em;color:var(--dim);font-weight:400}
+#lbPlayers{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+#lbPlayers li{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:#0a0809}
+#lbPlayers .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:11px;padding:2px 6px;border-radius:2px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.badge.host{color:#e8d9a0;border-color:#5b5130}
+.badge.dream{color:#e5a0a0;border-color:#5a2526}
+.badge.ready{color:#cfe8d2;border-color:#3d6044;background:#14201a}
+.settings{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;font-size:13px;color:var(--dim)}
+.chat{min-height:220px}
+.chatlog{flex:1;overflow:auto;display:flex;flex-direction:column;gap:4px;font-size:13px;min-height:120px;max-height:40vh}
+.chatlog .sys{color:var(--dim);font-style:italic}
+.chatlog b{font-weight:700;color:#e5d9c6}
+.chatlog .r-dream b{color:#e08a8a}
+.chatform{display:flex;gap:8px}
+.chatform input{flex:1}
+/* game */
+#scGame{padding:0;background:#000;gap:0}
+.tv{position:relative;aspect-ratio:4/3;width:min(100vw,calc(100dvh*4/3));max-height:100dvh;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#cv{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
+.glass{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 30% 18%,rgba(255,255,255,.04),transparent 40%),radial-gradient(ellipse at 50% 50%,transparent 58%,rgba(0,0,0,.6) 100%);box-shadow:inset 0 0 40px rgba(0,0,0,.9)}
+#lockHint{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);font-size:12px;color:#bdb3a5;background:rgba(0,0,0,.55);padding:4px 10px;border-radius:3px;pointer-events:none}
+#gChatForm{position:absolute;left:3%;right:3%;bottom:16%;display:flex}
+#gChatIn{flex:1;background:rgba(0,0,0,.75);border-color:#4a3f42}
+#touch{position:absolute;inset:0;pointer-events:none}
+#joy{position:absolute;left:4%;bottom:6%;width:min(34vw,170px);aspect-ratio:1;border-radius:50%;border:2px solid rgba(220,210,200,.25);background:rgba(0,0,0,.25);pointer-events:auto;touch-action:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:42%;aspect-ratio:1;border-radius:50%;background:rgba(220,210,200,.35);transform:translate(-50%,-50%)}
+#btns{position:absolute;right:3%;bottom:5%;display:grid;grid-template-columns:auto auto;gap:10px;pointer-events:auto;align-items:end}
+#btns button{border-radius:50%;width:min(15vw,72px);aspect-ratio:1;padding:0;font-size:13px;background:rgba(20,16,18,.6);border:2px solid rgba(220,210,200,.3)}
+#btns #tAct{width:min(22vw,104px);grid-row:span 2;background:rgba(80,18,22,.6);border-color:rgba(230,140,140,.5);font-size:15px}
+#btns .small{width:min(12vw,54px);font-size:11px}
+#topBtns{position:absolute;right:3%;top:4%;display:flex;gap:8px;pointer-events:auto}
+#topBtns button{padding:6px 10px;font-size:12px;background:rgba(0,0,0,.5)}
+#endBox{position:absolute;inset:auto 0 8% 0;display:flex;justify-content:center;pointer-events:auto}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+
+<section id="scDevice" class="screen">
+  <div class="title"><h1 class="hanja">人柱愛麗絲</h1><p class="sub">망가진 꿈</p></div>
+  <p class="tag">어떤 기기로 플레이하나요?</p>
+  <div class="row devs">
+    <button type="button" data-dev="pc">컴퓨터</button>
+    <button type="button" data-dev="phone">폰 · 태블릿</button>
+  </div>
+  <p class="hint">폰을 고르면 화면 조이스틱으로 조작해요. 가로 화면을 추천해요.</p>
+</section>
+
+<section id="scHome" class="screen" hidden>
+  <div class="title"><h1 class="hanja">人柱愛麗絲</h1><p class="sub">망가진 꿈</p><p class="tag">한 명은 꿈이 되고, 나머지는 다섯 번째 앨리스가 된다.</p></div>
+  <form class="stack" id="homeForm" autocomplete="off">
+    <label>이름<input id="inName" maxlength="10" placeholder="최대 10자" required></label>
+    <button type="button" class="primary" id="btnCreate">방 만들기</button>
+    <div class="row" style="flex-wrap:nowrap"><input id="inCode" maxlength="4" placeholder="방 코드 4자리" style="flex:1;text-transform:uppercase;letter-spacing:.3em" aria-label="방 코드"><button type="submit" id="btnJoin">참가</button></div>
+    <label class="chk"><input type="checkbox" id="chkChicken"> 쫄보 모드 ♡ (나한테만 귀엽게 보여요)</label>
+    <p class="err" id="homeErr"></p>
+  </form>
+  <p class="hint">기기: <span id="devLabel"></span> <button type="button" class="link" id="btnDev">바꾸기</button></p>
+  <p class="hint"><a class="back" href="../">← 혼자 하기 (스토리 모드)</a></p>
+</section>
+
+<section id="scLobby" class="screen" hidden>
+  <div class="lobbyHead">
+    <span class="hint">방 코드</span><span class="code" id="lbCode">----</span>
+    <button type="button" id="btnCopy">코드 복사</button>
+    <button type="button" id="btnLeave">나가기</button>
+  </div>
+  <div class="lobbyGrid">
+    <div class="panel">
+      <h3>플레이어 <span id="lbCount"></span></h3>
+      <ul id="lbPlayers"></ul>
+      <div class="settings">
+        <span>꿈 인원</span><select id="selDreams" aria-label="꿈 인원"></select>
+        <span>최대 인원</span><select id="selMax" aria-label="최대 인원"></select>
+      </div>
+      <div class="row">
+        <button type="button" id="btnWant">꿈 하고 싶어요</button>
+        <button type="button" id="btnReady">준비</button>
+        <button type="button" class="primary" id="btnStart">시작</button>
+      </div>
+      <p class="hint" id="lbHint"></p>
+    </div>
+    <div class="panel chat">
+      <h3>채팅</h3>
+      <div class="chatlog" id="lbChat" aria-live="polite"></div>
+      <form class="chatform" id="lbChatForm" autocomplete="off"><input id="lbChatIn" maxlength="120" placeholder="메시지" aria-label="채팅 입력"><button>보내기</button></form>
+    </div>
+  </div>
+</section>
+
+<section id="scGame" class="screen" hidden>
+  <div class="tv" id="tv">
+    <canvas id="cv" width="400" height="300" aria-label="게임 화면"></canvas>
+    <div class="glass"></div>
+    <div id="lockHint" hidden>화면을 클릭하면 마우스로 둘러볼 수 있어요</div>
+    <div id="touch" hidden>
+      <div id="joy"><div id="joyKnob"></div></div>
+      <div id="btns">
+        <button type="button" class="small" id="tMap">지도</button>
+        <button type="button" id="tAct">행동</button>
+        <button type="button" class="small" id="tChat">채팅</button>
+        <button type="button" id="tDash">대시</button>
+      </div>
+    </div>
+    <form id="gChatForm" hidden autocomplete="off"><input id="gChatIn" maxlength="120" placeholder="채팅 입력 후 Enter · Esc 닫기" aria-label="게임 채팅"></form>
+    <div id="endBox" hidden><button type="button" id="btnBack">로비로</button></div>
+  </div>
+</section>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>

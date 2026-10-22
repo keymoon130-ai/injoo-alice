@@ -1,0 +1,17 @@
+name = "injoo-alice"
+main = "server/worker.js"
+compatibility_date = "2025-06-01"
+
+# public/ 폴더의 게임 화면을 같은 주소에서 함께 서비스한다 (무료)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+# 무료 플랜은 SQLite 기반 Durable Object만 쓸 수 있다
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
