@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#050405">
 <title>人柱愛麗絲 · 인주 앨리스</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -62,6 +62,22 @@ body{
 #nameInput{width:100%; background:transparent; border:0; border-bottom:1px solid #8a7f72; color:#e8dfd0; font-family:var(--serif); font-size:clamp(16px, 3.4vw, 26px); text-align:center; padding:6px 4px; outline:none; caret-color:#b31f1f;}
 #nameForm small{font-size:11px; color:#7a7166; letter-spacing:.1em}
 @media (max-width:520px){ .set{padding:7px; border-radius:16px} .tv{border-radius:10px} }
+#touchUI{position:absolute; inset:0; pointer-events:none}
+#touchUI button{pointer-events:auto; position:absolute; aspect-ratio:1; border-radius:50%; font-family:var(--mono); color:#e8dfd0; background:rgba(10,8,9,.45); border:2px solid rgba(230,220,205,.35); touch-action:none; -webkit-user-select:none; user-select:none; padding:0; line-height:1.2}
+#touchUI button:active{background:rgba(230,220,205,.25)}
+#tWalk{left:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px)}
+#tSlash{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(90,14,14,.5)!important; border-color:rgba(230,130,130,.55)!important}
+#tBack{right:28%; bottom:6%; width:12%; font-size:clamp(9px,2.4vw,12px)}
+.rot{display:none; font-size:11px; color:var(--label); letter-spacing:.08em; margin:0}
+@media (pointer:coarse){
+  body{padding-block:6px; gap:6px}
+  .set{width:min(100%, calc((100dvh - 58px) * 4 / 3)); padding:5px; border-radius:12px}
+  .tv{border-radius:8px}
+  .deck{width:min(100%, calc((100dvh - 58px) * 4 / 3)); font-size:9px}
+  .deck .brand{font-size:12px}
+  .deck button{padding:5px 8px}
+}
+@media (pointer:coarse) and (orientation:portrait){ .rot{display:block} }
 </style>
 </head>
 <body>
@@ -69,6 +85,11 @@ body{
   <div class="tv">
     <canvas id="c" width="400" height="300" aria-label="인주 앨리스 게임 화면"></canvas>
     <div class="glass"></div>
+    <div id="touchUI" hidden>
+      <button type="button" id="tWalk">걷기</button>
+      <button type="button" id="tBack">뒤돌아<br>보기</button>
+      <button type="button" id="tSlash">베기</button>
+    </div>
     <form id="nameForm" hidden autocomplete="off">
       <input id="nameInput" maxlength="10" aria-label="당신의 이름">
       <small>ENTER</small>
@@ -79,6 +100,7 @@ body{
   <span class="brand">HI-FI <b>●</b> STEREO VHS</span>
   <span class="btns"><button id="muteBtn" type="button">소리 끄기</button><button id="fsBtn" type="button">전체화면</button></span>
 </div>
+<p class="rot">가로로 돌리면 화면이 더 커져요</p>
 
 <script id="game">
 (function(){
@@ -96,6 +118,7 @@ const SERIF = "'Nanum Myeongjo', 'Batang', serif";
 const MONO = "'Nanum Gothic Coding', ui-monospace, monospace";
 const OSDF = "'VT323', ui-monospace, monospace";
 const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
 
 /* ---------------- storage ---------------- */
 const store = {
@@ -538,7 +561,7 @@ function Ch1(){
   const foes = [13, 23, 34, 45, 56, 67, 78, 90].map((z, i) => ({ z, x:(Math.random() - .5) * .5, alive:true, fall:0, i, said:false }));
   const drops = [];
   const S = {
-    game:true,
+    game:true, touch:'ch1',
     enter(){ setFx({ noise:.13, wobble:.7 }); drone(.1, 1, 3); stopOpening(3.5); },
     slash(){
       if (phase !== 'walk' || slashT < .35) return; slashT = 0; sfx.slash();
@@ -664,7 +687,7 @@ function Ch1(){
       if (flash > 0){ g.fillStyle = chicken ? `rgba(255,170,210,${flash * .35})` : `rgba(150,0,0,${flash * .45})`; g.fillRect(0, 0, W, H); }
       if (lookT > 0){ g.fillStyle = `rgba(0,0,0,${Math.sin(lookT / 1.2 * Math.PI) * .95})`; g.fillRect(0, 0, W, H); }
       if (ev && !chicken){ g.fillStyle = `rgba(0,0,0,${.25 + Math.sin(now * 6) * .1})`; g.fillRect(0, 0, W, H); }
-      if (hint > 0) txt('↑ 걷기   SPACE 베기   ↓ 뒤돌아보기', W / 2, 44, { size:11, color:`rgba(200,190,175,${Math.min(1, hint) * .8})`, font:MONO });
+      if (hint > 0) txt(TOUCH ? '걷기 버튼을 꾹 · 베기 · 뒤돌아보기' : '↑ 걷기   SPACE 베기   ↓ 뒤돌아보기', W / 2, 44, { size:11, color:`rgba(200,190,175,${Math.min(1, hint) * .8})`, font:MONO });
     }
   };
   return S;
@@ -1177,12 +1200,26 @@ function frame(ts){
   g.setTransform(1, 0, 0, 1, (Math.random() - .5) * fx.shake * sm, (Math.random() - .5) * fx.shake * sm);
   if (scene){ scene.t += dt; if (scene.update) scene.update(dt); }
   if (scene) scene.draw();
+  touchUI.hidden = !(TOUCH && scene && scene.touch === 'ch1');
   g.setTransform(1, 0, 0, 1, 0, 0);
   drawSubs(); drawOSD();
   post(dt);
   requestAnimationFrame(frame);
 }
 
+const touchUI = document.getElementById('touchUI');
+function vkey(id, k) {
+  const btn = document.getElementById(id);
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); initAudio();
+    keys[k] = true; if (scene && scene.key) scene.key(k, true);
+    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  const up = () => { keys[k] = false; };
+  btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('lostpointercapture', up);
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+}
+vkey('tWalk', 'ArrowUp'); vkey('tSlash', ' '); vkey('tBack', 'ArrowDown');
 document.getElementById('muteBtn').addEventListener('click', e => {
   A.muted = !A.muted; e.currentTarget.textContent = A.muted ? '소리 켜기' : '소리 끄기';
   if (A.master) A.master.gain.setTargetAtTime(A.muted ? 0 : .9, A.ctx.currentTime, .05);
