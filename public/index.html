@@ -67,6 +67,7 @@ body{
 #touchUI button:active{background:rgba(230,220,205,.25)}
 #tWalk{left:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px)}
 #tSlash{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(90,14,14,.5)!important; border-color:rgba(230,130,130,.55)!important}
+#tPoint{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(60,50,10,.5)!important; border-color:rgba(230,210,130,.55)!important}
 #tBack{right:28%; bottom:6%; width:12%; font-size:clamp(9px,2.4vw,12px)}
 .rot{display:none; font-size:11px; color:var(--label); letter-spacing:.08em; margin:0}
 @media (pointer:coarse){
@@ -86,9 +87,10 @@ body{
     <canvas id="c" width="400" height="300" aria-label="인주 앨리스 게임 화면"></canvas>
     <div class="glass"></div>
     <div id="touchUI" hidden>
-      <button type="button" id="tWalk">걷기</button>
-      <button type="button" id="tBack">뒤돌아<br>보기</button>
-      <button type="button" id="tSlash">베기</button>
+      <button type="button" id="tWalk" data-scene="ch1">걷기</button>
+      <button type="button" id="tBack" data-scene="ch1">뒤돌아<br>보기</button>
+      <button type="button" id="tSlash" data-scene="ch1">베기</button>
+      <button type="button" id="tPoint" data-scene="ch3">지목</button>
     </div>
     <form id="nameForm" hidden autocomplete="off">
       <input id="nameInput" maxlength="10" aria-label="당신의 이름">
@@ -119,6 +121,7 @@ const MONO = "'Nanum Gothic Coding', ui-monospace, monospace";
 const OSDF = "'VT323', ui-monospace, monospace";
 const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
+const vib = p => { try { if (navigator.vibrate) navigator.vibrate(chicken ? (Array.isArray(p) ? p.map(v => Math.max(1, v / 3 | 0)) : Math.max(1, p / 3 | 0)) : p); } catch (e) {} };
 
 /* ---------------- storage ---------------- */
 const store = {
@@ -432,7 +435,7 @@ function Rewind(next){
 }
 function Jump(next, dur = 1.1){
   return {
-    enter(){ osd.on = false; setFx({ noise:.35, ca:4, wobble:3, flicker:.15, track:1 }); sfx.screech(); fx.shake = 10; drone(0, 1, .1); },
+    enter(){ osd.on = false; setFx({ noise:.35, ca:4, wobble:3, flicker:.15, track:1 }); sfx.screech(); vib([220, 60, 320]); fx.shake = 10; drone(0, 1, .1); },
     exit(){ osd.on = true; },
     update(){ fx.shake = Math.max(fx.shake, reduced ? 2 : 7); if (this.t > dur) next(); },
     draw(){ g.fillStyle = '#1a0202'; g.fillRect(-20, -20, W + 40, H + 40);
@@ -443,7 +446,7 @@ function Jump(next, dur = 1.1){
 function CuteJump(next, dur = 1.1){
   return {
     game:true,
-    enter(){ setFx({ noise:.08, ca:1.5, wobble:1 }); sfx.boing(); fx.shake = 3; },
+    enter(){ setFx({ noise:.08, ca:1.5, wobble:1 }); sfx.boing(); vib(60); fx.shake = 3; },
     update(){ if (this.t > dur) next(); },
     draw(){
       g.fillStyle = '#ffd9e6'; g.fillRect(-20, -20, W + 40, H + 40);
@@ -568,7 +571,7 @@ function Ch1(){
       let best = null;
       for (const e of foes){ if (!e.alive) continue; const r = e.z - cam; if (r > 0 && r < 3.6 && (!best || r < best.z - cam)) best = e; }
       if (best){
-        best.alive = false; red = Math.min(1, red + 1 / 8); flash = 1; fx.glitch = .8; fx.shake = reduced ? 2 : 6; sfx.hit();
+        best.alive = false; red = Math.min(1, red + 1 / 8); flash = 1; fx.glitch = .8; fx.shake = reduced ? 2 : 6; sfx.hit(); vib(45);
         const n = 8 + Math.random() * 10; for (let k = 0; k < n; k++) drops.push({ x:Math.random() * W, y:Math.random() * H * .7, r:1 + Math.random() * 4, v:4 + Math.random() * 12, life:3 + Math.random() * 3 });
         if (best.i === 7) say('……', 2);
       }
@@ -696,7 +699,7 @@ function Ch1(){
 /* ================= CHAPTER 2 : THE BLUE SONG ================= */
 function Ch2(){
   const NOTES = [392, 466.16, 523.25, 622.25], LENS = [3, 4, 5, 6, 7];
-  const KW = 70, KG = 14, KX = 39, KY = 226, KH = 30;
+  const KW = 70, KG = 14, KX = 39, KY = TOUCH ? 210 : 226, KH = TOUCH ? 48 : 30;
   const seq = []; for (let i = 0; i < 7; i++){ let n; do { n = Math.random() * 4 | 0; } while (i > 0 && n === seq[i - 1] && Math.random() < .7); seq.push(n); }
   const order = [4, 1, 7, 2, 6, 0, 8, 3, 5];
   const conf = [];
@@ -715,7 +718,7 @@ function Ch2(){
           else { phase = 'pause'; pt = 0; say(`제 ${round + 1} 소절`, 2); if (round >= 2) turned = Math.max(turned, round); }
         }
       } else {
-        miss++; turned = Math.min(9, turned + 3); sfx.laugh(); fx.glitch = 1; fx.shake = reduced ? 1 : 4;
+        miss++; turned = Math.min(9, turned + 3); sfx.laugh(); vib([60, 40, 60]); fx.glitch = 1; fx.shake = reduced ? 1 : 4;
         if (miss >= 3){ die('노래가 멈췄다. 관객들이 일어섰다.', Ch2); return; }
         say(['틀렸어.', '다시. 처음부터.', '모두가 너를 보고 있어.'][miss - 1], 2.2); phase = 'pause'; pt = -.6;
       }
@@ -733,7 +736,7 @@ function Ch2(){
         ft += dt;
         for (const c of conf){ c.y += c.v * dt; c.r += dt * 5; }
         if (ft < 3.2){ autoT -= dt; if (autoT <= 0){ play(Math.random() * 4 | 0, ft * 120); autoT = .42 - ft * .11; } turned = 9; }
-        else if (!shot){ shot = true; sfx.gun(); white = chicken ? .5 : 1; if (chicken) for (let i = 0; i < 90; i++) conf.push({ x:Math.random() * W, y:-Math.random() * 160, v:30 + Math.random() * 60, c:['#ff8fb8', '#ffe27a', '#9fd8ff', '#b9f0b0', '#d9b8ff'][i % 5], r:Math.random() * 6 }); drone(0, 1, .05); fx.glitch = 2; fx.shake = reduced ? 3 : 14; }
+        else if (!shot){ shot = true; sfx.gun(); vib(400); white = chicken ? .5 : 1; if (chicken) for (let i = 0; i < 90; i++) conf.push({ x:Math.random() * W, y:-Math.random() * 160, v:30 + Math.random() * 60, c:['#ff8fb8', '#ffe27a', '#9fd8ff', '#b9f0b0', '#d9b8ff'][i % 5], r:Math.random() * 6 }); drone(0, 1, .05); fx.glitch = 2; fx.shake = reduced ? 3 : 14; }
         if (ft > 6.2 && ft - dt <= 6.2) say('노래는 끝나지 않았다.', 2.6);
         if (ft > 9 && ft - dt <= 9) say('부를 사람이 사라졌을 뿐.', 3);
         if (ft > 12.5) go(Card(T.e2, () => startChapter(3), { drone:.03 }));
@@ -846,11 +849,13 @@ function Ch3(){
     time -= 4; sfx.shh(); say('아니야.', 1.2);
   }
   return {
-    game:true,
+    game:true, touch:'ch3',
     enter(){ setFx({ noise:.12, wobble:.5 }); drone(.06, .9, 2); fly = chicken ? null : buzz(); },
     exit(){ fly && fly.stop(); },
     key(k){ if (k === ' ' || k === 'Enter') select(); },
-    pointer(t, x, y){ if (t === 'move' || t === 'down'){ L.x = x; L.y = y; } if (t === 'up' && now - ptr.t0 < .35 && Math.hypot(x - ptr.x0, y - ptr.y0) < 12) select(); },
+    pointer(t, x, y){
+      if (TOUCH){ if (t === 'down' || (t === 'move' && ptr.down)){ L.x = x; L.y = clamp(y - 44, 0, H); } return; }
+      if (t === 'move' || t === 'down'){ L.x = x; L.y = y; } if (t === 'up' && now - ptr.t0 < .35 && Math.hypot(x - ptr.x0, y - ptr.y0) < 12) select(); },
     update(dt){
       const sp = 150 * dt;
       if (keys.ArrowLeft) L.x -= sp; if (keys.ArrowRight) L.x += sp; if (keys.ArrowUp) L.y -= sp; if (keys.ArrowDown) L.y += sp;
@@ -858,7 +863,7 @@ function Ch3(){
       if (phase === 'search'){
         time -= dt; const rot = 1 - time / TT; fly && fly.set(.012 + rot * .05);
         off -= dt; if (time < TT * .4 && off <= 0 && Math.random() < dt * .5){ off = .12 + Math.random() * .25; sfx.stat(.1); }
-        if (!scareDone && time < TT * .55){ scareDone = true; scareT = .35; sfx.screech(); fx.glitch = 1.5; fx.shake = reduced ? 2 : 6; }
+        if (!scareDone && time < TT * .55){ scareDone = true; scareT = .35; sfx.screech(); vib([120, 40, 160]); fx.glitch = 1.5; fx.shake = reduced ? 2 : 6; }
         scareT -= dt;
         if (time <= 0){ die('촛불이 꺼졌다. 여왕이 당신을 찾아냈다.', Ch3); return; }
       } else {
@@ -936,6 +941,7 @@ function Ch3(){
       for (const a of an) if (a.f){ g.beginPath(); g.ellipse(a.x, a.y, a.r + 2, a.r * .8 + 2, -.15, 0, Math.PI * 2 - .4); g.stroke(); }
       if (phase === 'search'){
         txt(`찾은 것  ${found} / 4`, 16, 44, { size:11, color:'#7fae86', font:MONO, align:'left' });
+        if (TOUCH && time > TT - 8) txt('화면을 끌어 비추고, 지목 버튼으로 고르기', W / 2, 232, { size:11, color:'#cfc6b6', font:MONO });
         if (time < 15 && Math.floor(now * 3) % 2) txt('촛불이 꺼져간다', W - 16, 44, { size:11, color:'#c03030', font:MONO, align:'right' });
       }
     }
@@ -959,7 +965,7 @@ function Ch4(){
   gen();
   function tap(){
     if (phase !== 'dream') return;
-    meter += .075; fx.shake = reduced ? .5 : 2.5; sfx.thump();
+    meter += .075; fx.shake = reduced ? .5 : 2.5; sfx.thump(); vib(12);
     if (loop >= 3) meter = Math.min(.965, meter);
   }
   return {
@@ -970,7 +976,7 @@ function Ch4(){
     update(dt){
       if (phase === 'dream'){
         meter = Math.max(0, meter - DEC[loop] * dt);
-        if (loop < 3 && meter >= 1){ phase = 'wake'; pt = 0; sfx.gasp(); fx.glitch = 1.2; }
+        if (loop < 3 && meter >= 1){ phase = 'wake'; pt = 0; sfx.gasp(); vib(150); fx.glitch = 1.2; }
         if (loop >= 3){ finT += dt; if (meter > .93) st += dt; if (st > 2.5 || finT > 11){ phase = 'stuck'; pt = 0; drone(.18, 1.6, 6); } }
       } else if (phase === 'wake'){
         pt += dt;
@@ -1200,7 +1206,8 @@ function frame(ts){
   g.setTransform(1, 0, 0, 1, (Math.random() - .5) * fx.shake * sm, (Math.random() - .5) * fx.shake * sm);
   if (scene){ scene.t += dt; if (scene.update) scene.update(dt); }
   if (scene) scene.draw();
-  touchUI.hidden = !(TOUCH && scene && scene.touch === 'ch1');
+  touchUI.hidden = !TOUCH;
+  if (TOUCH) for (const b of touchBtns) b.hidden = !(scene && scene.touch === b.dataset.scene);
   g.setTransform(1, 0, 0, 1, 0, 0);
   drawSubs(); drawOSD();
   post(dt);
@@ -1219,7 +1226,8 @@ function vkey(id, k) {
   btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('lostpointercapture', up);
   btn.addEventListener('contextmenu', e => e.preventDefault());
 }
-vkey('tWalk', 'ArrowUp'); vkey('tSlash', ' '); vkey('tBack', 'ArrowDown');
+vkey('tWalk', 'ArrowUp'); vkey('tSlash', ' '); vkey('tBack', 'ArrowDown'); vkey('tPoint', ' ');
+const touchBtns = [...touchUI.querySelectorAll('button')];
 document.getElementById('muteBtn').addEventListener('click', e => {
   A.muted = !A.muted; e.currentTarget.textContent = A.muted ? '소리 켜기' : '소리 끄기';
   if (A.master) A.master.gain.setTargetAtTime(A.muted ? 0 : .9, A.ctx.currentTime, .05);
