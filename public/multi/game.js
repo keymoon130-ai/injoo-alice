@@ -504,6 +504,7 @@ function renderWorld(g, cam) {
     } else if (st === 3) {
       push(chick ? SPR.ghost : SPR.body, ip.x, ip.z, .55, 1.0, 1.3, 0, pl);
     } else {
+      if (st === 1 && Math.hypot(ip.x - cam.x, ip.z - cam.z) < 1.3) continue;
       push(SPR.alice, ip.x, ip.z, .55, 1.05, st === 1 ? .55 : 0, dream ? 1 : 0, pl);
     }
   }
@@ -639,9 +640,10 @@ joy.addEventListener('pointerdown', e => { e.preventDefault(); joyId = e.pointer
 joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) moveJoy(e); });
 const endJoy = e => { if (e.pointerId !== joyId) return; joyId = null; ctl.joyX = ctl.joyY = 0; knob.style.transform = 'translate(-50%,-50%)'; };
 joy.addEventListener('pointerup', endJoy); joy.addEventListener('pointercancel', endJoy);
+const ROT = () => document.body.classList.contains('rot90');
 function moveJoy(e) {
   const r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2;
-  let dx = (e.clientX - cx) / rad, dy = (e.clientY - cy) / rad; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
+  let dx = (e.clientX - cx) / rad, dy = (e.clientY - cy) / rad; if (ROT()) { const t = dx; dx = dy; dy = -t; } const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
   ctl.joyX = Math.abs(dx) < .12 ? 0 : dx; ctl.joyY = Math.abs(dy) < .12 ? 0 : dy;
   knob.style.transform = `translate(calc(-50% + ${dx * rad * .6}px), calc(-50% + ${dy * rad * .6}px))`;
 }
@@ -649,12 +651,13 @@ cv.addEventListener('pointerdown', e => {
   if (!game || device !== 'phone' || e.pointerType === 'mouse') return;
   initAudio();
   if (game.spectate) { cycleSpectate(); return; }
-  lookId = e.pointerId; lookX = e.clientX; try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  lookId = e.pointerId; lookX = ROT() ? e.clientY : e.clientX; try { cv.setPointerCapture(e.pointerId); } catch (_) {}
 });
 cv.addEventListener('pointermove', e => {
   if (e.pointerId !== lookId || !game) return;
   const r = cv.getBoundingClientRect();
-  game.yaw += (e.clientX - lookX) / r.width * 4.2; lookX = e.clientX;
+  const v = ROT() ? e.clientY : e.clientX, span = ROT() ? r.height : r.width;
+  game.yaw += (v - lookX) / span * 4.2; lookX = v;
 });
 const endLook = e => { if (e.pointerId === lookId) lookId = null; };
 cv.addEventListener('pointerup', endLook); cv.addEventListener('pointercancel', endLook);
@@ -666,6 +669,30 @@ hold($('tAct'), () => { ctl.touchAct = true; ctl.actLatch = true; if (game && ga
 hold($('tDash'), () => { ctl.dashQ = true; });
 hold($('tMap'), () => { if (game) game.mapOn = !game.mapOn; });
 hold($('tChat'), () => openChat());
+
+// 폰 가로 모드: 안드로이드는 전체화면+가로 고정, 안 되는 기기(아이폰)는 화면을 90도 돌린다
+const isPortrait = () => window.matchMedia && matchMedia('(orientation: portrait)').matches;
+let landMode = false;
+function syncOrient() { $('tOrient').textContent = landMode ? '세로로' : '가로 모드'; }
+async function goLandscape() {
+  try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  let locked = false;
+  try { if (document.fullscreenElement && screen.orientation && screen.orientation.lock) { await screen.orientation.lock('landscape'); locked = true; } } catch (e) {}
+  if (!locked && isPortrait()) document.body.classList.add('rot90');
+  landMode = true; syncOrient();
+}
+async function goPortrait() {
+  document.body.classList.remove('rot90');
+  try { if (document.fullscreenElement && screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); } catch (e) { try { screen.orientation.unlock(); } catch (_) {} }
+  landMode = false; syncOrient();
+}
+$('tOrient').addEventListener('click', e => { e.preventDefault(); initAudio(); landMode ? goPortrait() : goLandscape(); });
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && !document.body.classList.contains('rot90')) { landMode = false; syncOrient(); } });
+if (window.matchMedia) {
+  const mq = matchMedia('(orientation: portrait)');
+  const onOrient = () => { if (!mq.matches && document.body.classList.contains('rot90')) document.body.classList.remove('rot90'); };
+  mq.addEventListener ? mq.addEventListener('change', onOrient) : mq.addListener(onOrient);
+}
 
 function openChat() {
   if (!game) return;
@@ -709,7 +736,8 @@ function startGame(m) {
     smooth: { x: 0, z: 0 }, msgs: [], chat: [], mapOn: false, ended: null, meS: null,
     spectate: false, spectating: null, terrorCd: 4, heartT: 0, stepT: 0, bob: 0, phase: 0,
     stepTimers: new Map(), prevTp: TRACE_INFO.map(() => 0), prevRp: world.cells.map(() => 0), alerts: [],
-    cam: { x: m.me.x, z: m.me.z, yaw: m.me.yaw, bob: 0 }, mapImg: null, nearDream: 99, lastSnap: performance.now()
+    cam: { x: m.me.x, z: m.me.z, yaw: m.me.yaw, bob: 0 }, mapImg: null, nearDream: 99, lastSnap: performance.now(),
+    revealN: Math.floor((CFG.GAME_TIME - m.time) / CFG.REVEAL_EVERY), reveal: null
   };
   game.mapImg = buildMap(world);
   show('scGame');
@@ -722,6 +750,8 @@ function startGame(m) {
   initAudio(); drone(game.role === 'dream' ? .07 : .05, game.role === 'dream' ? .8 : 1, 2);
   fx.tr = game.role === 'dream' ? 1.12 : 1; fx.tg = game.role === 'dream' ? .82 : 1; fx.tb = game.role === 'dream' ? .82 : 1;
   sfx.bell();
+  $('tOrient').hidden = !phone; syncOrient();
+  if (phone && isPortrait() && !document.body.classList.contains('rot90')) say('오른쪽 위 [가로 모드]를 누르면 화면이 커져요', '#cfc6b6', 6);
 }
 function stopGame() {
   game = null; closeChat();
@@ -860,6 +890,63 @@ function buildMap(w) {
   x.putImageData(id, 0, 0);
   return c;
 }
+const ENTRANCES = [{ x: 40, z: 49.2 }, { x: 30.8, z: 43 }, { x: 49.2, z: 37.5 }];
+function prisonTarget(w, x, z) {
+  const inCastle = x > 31 && x < 49 && z > 31 && z < 49;
+  let cell = w.cells[0], cd = 1e9;
+  for (const c of w.cells) { const d = Math.hypot(x - c.door.x, z - c.door.z); if (d < cd) { cd = d; cell = c; } }
+  if (inCastle) return { x: cell.door.x, z: cell.door.z, dist: cd };
+  let best = ENTRANCES[0], bs = 1e9;
+  for (const e of ENTRANCES) { const s = Math.hypot(x - e.x, z - e.z) + Math.hypot(e.x - cell.door.x, e.z - cell.door.z); if (s < bs) { bs = s; best = e; } }
+  return { x: best.x, z: best.z, dist: bs };
+}
+function mapMarkers(g, ox, oy, k, big) {
+  const c = ctx, tnow = performance.now();
+  c.fillStyle = 'rgba(255,90,90,.95)';
+  for (const cl of g.world.cells) c.fillRect(ox + cl.x * k - (big ? 3 : 1.5), oy + cl.z * k - (big ? 2 : 1), big ? 6 : 3, big ? 4 : 2);
+  if (g.role === 'alice') {
+    c.font = `10px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    for (const p of g.players.values()) {
+      if (p.role !== 'alice' || p.id === myId || !p.cur || p.cur.s === 4) continue;
+      const ip = interp(p) || p.cur, s = p.cur.s;
+      const col = s === 0 ? '#9fe0ff' : s === 3 ? '#777' : '#ff6060';
+      const px = ox + ip.x * k, py = oy + ip.z * k;
+      c.fillStyle = '#000'; c.beginPath(); c.arc(px, py, big ? 4.5 : 2.6, 0, 7); c.fill();
+      c.fillStyle = col; c.beginPath(); c.arc(px, py, big ? 3.2 : 1.8, 0, 7); c.fill();
+      if (big) { c.fillStyle = '#000'; c.fillText(p.name, px + 1, py - 6); c.fillStyle = col; c.fillText(p.name, px, py - 7); }
+    }
+  } else if (g.reveal) {
+    const age = (tnow - g.reveal.t) / 1000;
+    if (age < CFG.REVEAL_SHOW) {
+      const a = 1 - age / CFG.REVEAL_SHOW, pr = (big ? 6 : 3.5) + Math.sin(now * 8) * (big ? 2 : 1);
+      for (const pt of g.reveal.pts) {
+        const px = ox + pt.x * k, py = oy + pt.z * k;
+        c.globalAlpha = a; c.strokeStyle = '#ff3030'; c.lineWidth = big ? 2 : 1.2;
+        c.beginPath(); c.arc(px, py, pr, 0, 7); c.stroke();
+        c.fillStyle = '#ff5050'; c.beginPath(); c.arc(px, py, big ? 2.5 : 1.4, 0, 7); c.fill();
+      }
+      c.globalAlpha = 1;
+    }
+  }
+}
+function drawMinimap(g) {
+  const S = 76, ox = 8, oy = 32, k = S / g.world.N, c = ctx, cam = g.cam;
+  c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(ox - 2, oy - 2, S + 4, S + 4);
+  c.imageSmoothingEnabled = false; c.globalAlpha = .75; c.drawImage(g.mapImg, ox, oy, S, S); c.globalAlpha = 1;
+  g.world.traces.forEach((t, i) => { if (g.tr[i]) return; c.fillStyle = t.color === '#4a64c8' ? '#8095ff' : t.color; c.fillRect(ox + t.x * k - 1.5, oy + t.z * k - 1.5, 3, 3); });
+  if (g.door) { c.fillStyle = '#fff'; c.beginPath(); c.arc(ox + g.door.x * k, oy + g.door.z * k, 2.5 + Math.sin(now * 5), 0, 7); c.fill(); }
+  mapMarkers(g, ox, oy, k, false);
+  c.save(); c.translate(ox + cam.x * k, oy + cam.z * k); c.rotate(cam.yaw);
+  c.fillStyle = g.role === 'dream' ? '#ff5050' : '#ffffff';
+  c.beginPath(); c.moveTo(4.5, 0); c.lineTo(-3, -3); c.lineTo(-1.5, 0); c.lineTo(-3, 3); c.closePath(); c.fill(); c.restore();
+  c.strokeStyle = 'rgba(220,210,200,.35)'; c.lineWidth = 1; c.strokeRect(ox - 1.5, oy - 1.5, S + 3, S + 3);
+  if (g.role === 'dream' && !(g.intro > 0)) {
+    const left = CFG.REVEAL_EVERY - ((CFG.GAME_TIME - g.T) % CFG.REVEAL_EVERY);
+    c.font = `10px 'Nanum Gothic Coding', monospace`; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    const txt = `감지까지 ${Math.ceil(left)}초`;
+    c.fillStyle = '#000'; c.fillText(txt, ox + 1, oy + S + 13); c.fillStyle = left < 4 ? '#ff6060' : '#c8a0a0'; c.fillText(txt, ox, oy + S + 12);
+  }
+}
 function drawMap(g, cam) {
   const S = 230, ox = (W - S) / 2, oy = (H - S) / 2 + 6, k = S / g.world.N;
   ctx.fillStyle = 'rgba(0,0,0,.72)'; ctx.fillRect(0, 0, W, H);
@@ -875,11 +962,13 @@ function drawMap(g, cam) {
   ctx.fillText('감옥', ox + 38.5 * k, oy + 33.5 * k);
   ctx.fillText('성문', ox + 40 * k, oy + 50.5 * k);
   if (g.door) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(ox + g.door.x * k, oy + g.door.z * k, 5 + Math.sin(now * 5) * 1.5, 0, 7); ctx.fill(); ctx.fillText('문', ox + g.door.x * k, oy + g.door.z * k - 11); }
+  mapMarkers(g, ox, oy, k, true);
+  ctx.textBaseline = 'middle';
   ctx.save(); ctx.translate(ox + cam.x * k, oy + cam.z * k); ctx.rotate(cam.yaw);
   ctx.fillStyle = g.role === 'dream' ? '#ff5050' : '#ffffff';
   ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-2, 0); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore();
   ctx.fillStyle = '#cfc6b6'; ctx.font = `12px 'Nanum Myeongjo', serif`; ctx.textAlign = 'center';
-  ctx.fillText(g.role === 'dream' ? '꿈의 지도 — 앨리스는 보이지 않는다' : '망가진 꿈의 지도', W / 2, oy - 14);
+  ctx.fillText(g.role === 'dream' ? `꿈의 지도 — ${CFG.REVEAL_EVERY}초마다 앨리스가 드러난다` : '망가진 꿈의 지도 — 파란 점: 동료, 빨간 점: 잡힌 동료', W / 2, oy - 14);
   ctx.font = `10px 'Nanum Gothic Coding', monospace`; ctx.fillStyle = '#8d8478';
   ctx.fillText(device === 'phone' ? '지도 버튼으로 닫기' : 'M 으로 닫기', W / 2, oy + S + 14);
 }
@@ -958,6 +1047,16 @@ function update(dt) {
       } else g.stepTimers.set(p.id, tm);
     }
   }
+  if (!(g.intro > 0) && !g.ended) {
+    const n = Math.floor((CFG.GAME_TIME - g.T) / CFG.REVEAL_EVERY);
+    if (n > g.revealN) {
+      g.revealN = n;
+      if (g.role === 'dream') {
+        g.reveal = { t: performance.now(), pts: [...g.players.values()].filter(p => p.role === 'alice' && p.cur && (p.cur.s === 0 || p.cur.s === 1)).map(p => { const ip = interp(p) || p.cur; return { x: ip.x, z: ip.z }; }) };
+        sfx.whisper(1.2); say('앨리스들의 위치가 드러났다 — 지도를 봐라', '#ff8080', 4);
+      } else if (!g.spectate) { sfx.whisper(1.2); say('꿈이 앨리스들의 위치를 느꼈다…', '#ff8080', 3); }
+    }
+  }
   fx.glitch = Math.max(0, fx.glitch - dt * 1.4);
 }
 
@@ -975,6 +1074,7 @@ function drawHud(g, tags) {
   else sh('PLAY ▶', 14, 26, '#f2f2ee', OSD);
   sh(fmtTime(g.T), W - 14, 26, g.T < 60 ? '#ff5a5a' : '#f2f2ee', OSD, 'right');
   sh(`${Math.round(rtt)}ms`, W - 14, H - 12, '#9a9488', `16px 'VT323', monospace`, 'right');
+  if (!g.mapOn && !g.ended) drawMinimap(g);
   // 흔적
   c.font = `bold 15px 'Nanum Myeongjo', serif`; c.textAlign = 'center';
   g.world.traces.forEach((t, i) => {
@@ -1029,8 +1129,18 @@ function drawHud(g, tags) {
     if (P.sn > 0) { prompt = '앨리스가 빠져나갔다… 움직일 수 없다'; pcol = '#ff8080'; }
     else if (P.carry) {
       const nearCell = w.cells.some(cl => Math.hypot(P.x - cl.door.x, P.z - cl.door.z) <= CFG.DEPOSIT_RANGE);
-      prompt = nearCell ? `${actKey} — 감옥에 가두기` : '앨리스를 성 감옥(북쪽 안쪽)까지 끌고 가라';
+      prompt = nearCell ? `${actKey} — 감옥에 가두기` : '앨리스를 성 감옥까지 끌고 가라';
       pcol = nearCell ? '#ff8080' : '#e8e0d0';
+      if (!nearCell) {
+        const tg = prisonTarget(w, P.x, P.z);
+        let rel = Math.atan2(tg.z - g.cam.z, tg.x - g.cam.x) - g.cam.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+        c.save(); c.translate(W / 2, 92); c.rotate(rel);
+        c.globalAlpha = .75 + .25 * Math.sin(now * 5);
+        c.fillStyle = 'rgba(0,0,0,.7)'; c.beginPath(); c.moveTo(0, -20); c.lineTo(-13, 6); c.lineTo(-4, 2); c.lineTo(-4, 16); c.lineTo(4, 16); c.lineTo(4, 2); c.lineTo(13, 6); c.closePath(); c.fill();
+        c.fillStyle = '#ff4040'; c.beginPath(); c.moveTo(0, -17); c.lineTo(-10, 4); c.lineTo(-3, 1); c.lineTo(-3, 13); c.lineTo(3, 13); c.lineTo(3, 1); c.lineTo(10, 4); c.closePath(); c.fill();
+        c.restore(); c.globalAlpha = 1;
+        sh(`감옥까지 ${Math.round(tg.dist)}m`, W / 2, 124, '#ff9090', KRS, 'center');
+      }
     } else {
       let canCatch = false;
       for (const p of g.players.values()) { if (p.role !== 'alice' || !p.cur || p.cur.s !== 0 || p.cur.im) continue; const ip = interp(p); if (ip && Math.hypot(ip.x - P.x, ip.z - P.z) < CFG.CATCH_RANGE) canCatch = true; }

@@ -25,7 +25,9 @@ export const CFG = {
   INTRO: 5,
   ESCAPE_R: 2.4,
   MAX_PLAYERS: 8,
-  MAX_DREAMS: 3
+  MAX_DREAMS: 3,
+  REVEAL_EVERY: 30,     // 꿈의 지도에 앨리스 위치가 드러나는 주기 (초)
+  REVEAL_SHOW: 6        // 드러난 위치가 지도에 남아 있는 시간 (초)
 };
 
 export const GR = { FOREST: 0, RED: 1, STONE: 2, BOARD: 3, GRASS: 4, RUG: 5 };
