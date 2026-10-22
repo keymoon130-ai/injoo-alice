@@ -79,9 +79,14 @@ body{
   .deck button{padding:5px 8px}
 }
 @media (pointer:coarse) and (orientation:portrait){ .rot{display:block} }
+#stage{display:flex; flex-direction:column; align-items:center; gap:inherit; width:100%}
+body.rot90 #stage{position:fixed; top:0; left:0; width:100vh; width:100dvh; height:100vw; height:100dvw; transform-origin:top left; transform:translateX(100vw) rotate(90deg); justify-content:center; gap:6px; padding:6px max(16px, env(safe-area-inset-top, 0px)); box-sizing:border-box}
+body.rot90 .set, body.rot90 .deck{width:min(100%, calc((100vw - 58px) * 4 / 3)); width:min(100%, calc((100dvw - 58px) * 4 / 3))}
+body.rot90 .rot{display:none!important}
 </style>
 </head>
 <body>
+<div id="stage">
 <div class="set" id="set">
   <div class="tv">
     <canvas id="c" width="400" height="300" aria-label="인주 앨리스 게임 화면"></canvas>
@@ -100,9 +105,10 @@ body{
 </div>
 <div class="deck">
   <span class="brand">HI-FI <b>●</b> STEREO VHS</span>
-  <span class="btns"><button id="muteBtn" type="button">소리 끄기</button><button id="fsBtn" type="button">전체화면</button></span>
+  <span class="btns"><button id="muteBtn" type="button">소리 끄기</button><button id="orientBtn" type="button" hidden>가로 모드</button><button id="fsBtn" type="button">전체화면</button></span>
 </div>
-<p class="rot">가로로 돌리면 화면이 더 커져요</p>
+<p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
+</div>
 
 <script id="game">
 (function(){
@@ -366,7 +372,7 @@ function drawFace(cx, cy, s, t, rot){
 /* ---------------- input ---------------- */
 const keys = {};
 const ptr = { down:false, t0:0, x:W / 2, y:H / 2, x0:0, y0:0 };
-function toCanvas(e){ const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; }
+function toCanvas(e){ const r = cv.getBoundingClientRect(); if (document.body.classList.contains('rot90')) return [(e.clientY - r.top) / r.height * W, (r.right - e.clientX) / r.width * H]; return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; }
 cv.addEventListener('pointerdown', e => {
   initAudio(); const [x, y] = toCanvas(e);
   ptr.down = true; ptr.t0 = now; ptr.x = x; ptr.y = y; ptr.x0 = x; ptr.y0 = y;
@@ -1232,10 +1238,46 @@ document.getElementById('muteBtn').addEventListener('click', e => {
   A.muted = !A.muted; e.currentTarget.textContent = A.muted ? '소리 켜기' : '소리 끄기';
   if (A.master) A.master.gain.setTargetAtTime(A.muted ? 0 : .9, A.ctx.currentTime, .05);
 });
-document.getElementById('fsBtn').addEventListener('click', () => {
+const orientBtn = document.getElementById('orientBtn'), fsBtn = document.getElementById('fsBtn');
+const isPortrait = () => window.matchMedia && matchMedia('(orientation: portrait)').matches;
+let landMode = false;
+function syncOrientUI(){
+  orientBtn.textContent = landMode ? '세로로 돌아가기' : '가로 모드';
+  fsBtn.textContent = document.fullscreenElement ? '전체화면 끄기' : '전체화면';
+}
+async function goLandscape(){
+  initAudio();
+  try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  let locked = false;
+  try { if (document.fullscreenElement && screen.orientation && screen.orientation.lock) { await screen.orientation.lock('landscape'); locked = true; } } catch (e) {}
+  if (!locked && isPortrait()) document.body.classList.add('rot90');
+  landMode = true; syncOrientUI();
+}
+async function goPortrait(){
+  document.body.classList.remove('rot90');
+  try { if (document.fullscreenElement && screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); } catch (e) { try { screen.orientation.unlock(); } catch (_) {} }
+  landMode = false; syncOrientUI();
+}
+if (TOUCH) { orientBtn.hidden = false; syncOrientUI(); }
+orientBtn.addEventListener('click', () => { landMode ? goPortrait() : goLandscape(); });
+fsBtn.addEventListener('click', async () => {
+  if (TOUCH) {
+    if (document.fullscreenElement) { document.body.classList.remove('rot90'); landMode = false; try { await document.exitFullscreen(); } catch (e) {} syncOrientUI(); }
+    else await goLandscape();
+    return;
+  }
   const el = document.getElementById('set');
   try{ if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); }catch(e){}
 });
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && !document.body.classList.contains('rot90')) landMode = false;
+  syncOrientUI();
+});
+if (window.matchMedia) {
+  const mq = matchMedia('(orientation: portrait)');
+  const onOrient = () => { if (!mq.matches && document.body.classList.contains('rot90')) { document.body.classList.remove('rot90'); } };
+  mq.addEventListener ? mq.addEventListener('change', onOrient) : mq.addListener(onOrient);
+}
 
 go(Boot());
 requestAnimationFrame(frame);
