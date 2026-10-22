@@ -10,7 +10,7 @@ export const CFG = {
   CARRY_MUL: 0.85,       // 앨리스를 들고 있을 때 꿈의 속도 배율
   DASH_SPEED: 9.5,
   DASH_TIME: 0.4,
-  DASH_CD: 10,           // 꿈의 대시: 10초에 한 번
+  DASH_CD: 6,            // 꿈의 대시: 6초에 한 번
   R: 0.28,               // 몸 반지름
   CATCH_RANGE: 1.4,
   DEPOSIT_RANGE: 2.8,
@@ -19,8 +19,9 @@ export const CFG = {
   RESCUE_TIME: 3,
   IMMUNE: 3,
   STUN: 2.5,
-  STRUGGLE_ADD: 0.07,
-  STRUGGLE_DECAY: 0.06,
+  STRUGGLE_ADD: 0.028,   // 몸부림 한 번에 차는 양
+  STRUGGLE_DECAY: 0.13,  // 1초마다 빠지는 양
+  STRUGGLE_GAP: 3,       // 연타 인정 간격 (입력 3번 = 0.1초) — 매크로 방지
   GAME_TIME: 780,        // 13분
   INTRO: 5,
   ESCAPE_R: 2.4,

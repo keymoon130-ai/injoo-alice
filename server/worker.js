@@ -259,7 +259,7 @@ export class Room {
         if (p.st === 0) {
           stepPlayer(w, p, { f: clamp(+inp.f || 0, -1, 1), s: clamp(+inp.s || 0, -1, 1), y: +inp.y || 0, d: inp.d ? 1 : 0 }, CFG.INPUT_DT);
           if (press && p.role === 'dream') this.dreamAct(p);
-        } else if (p.st === 1 && press) p.sg += CFG.STRUGGLE_ADD;
+        } else if (p.st === 1 && press && inp.q - (p.sgQ || 0) >= CFG.STRUGGLE_GAP) { p.sg += CFG.STRUGGLE_ADD; p.sgQ = inp.q; }
       }
       if (!p.on) { p.aHeld = 0; p.m = 0; }
     }

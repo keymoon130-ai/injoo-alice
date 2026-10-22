@@ -1167,7 +1167,7 @@ function drawHud(g, tags) {
     c.fillStyle = `rgba(0,0,0,${clamp(g.intro / 2, .3, .85)})`; c.fillRect(0, 0, W, H);
     sh(dream ? '당신은 작은 꿈' : '당신은 다섯 번째 앨리스', W / 2, 110, dream ? '#ff7070' : '#f0e8d8', `800 22px 'Nanum Myeongjo', serif`, 'center');
     const lines = dream
-      ? ['앨리스를 잡아 성 감옥까지 끌고 가 가두세요.', '감옥에 2분 갇힌 앨리스는 썩어 성 위에 걸립니다.', `${actKey}: 잡기·가두기   ${device === 'phone' ? '대시 버튼' : 'Shift'}: 대시 (10초)`, '13분을 버티거나 앨리스를 모두 잡으면 승리.']
+      ? ['앨리스를 잡아 성 감옥까지 끌고 가 가두세요.', '감옥에 2분 갇힌 앨리스는 썩어 성 위에 걸립니다.', `${actKey}: 잡기·가두기   ${device === 'phone' ? '대시 버튼' : 'Shift'}: 대시 (${CFG.DASH_CD}초)`, '13분을 버티거나 앨리스를 모두 잡으면 승리.']
       : ['숲 곳곳에 남은 이전 앨리스들의 흔적 5개를 찾으세요.', '모두 찾으면 하늘에 문이 열립니다. 13분 안에 탈출!', `${actKey} 꾹: 줍기·구출   ${device === 'phone' ? '지도 버튼' : 'M'}: 지도   ${device === 'phone' ? '' : 'WASD·마우스: 이동·시점'}`, '꿈이 가까워지면… 소리가 들립니다.'];
     lines.forEach((l, i) => sh(l, W / 2, 140 + i * 18, '#cfc6b6', KR, 'center'));
     sh(`${Math.ceil(g.intro)}`, W / 2, 228, '#ffffff', `32px 'VT323', monospace`, 'center');
