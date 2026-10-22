@@ -1,4 +1,4 @@
-name = "injoo-alice"
+name = "horroralice"
 main = "server/worker.js"
 compatibility_date = "2025-06-01"
 
