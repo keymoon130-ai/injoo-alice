@@ -105,7 +105,7 @@ body.rot90 .rot{display:none!important}
 </div>
 <div class="deck">
   <span class="brand">HI-FI <b>●</b> STEREO VHS</span>
-  <span class="btns"><button id="muteBtn" type="button">소리 끄기</button><button id="orientBtn" type="button" hidden>가로 모드</button><button id="fsBtn" type="button">전체화면</button></span>
+  <span class="btns"><button id="pauseBtn" type="button" hidden>■ 정지</button><button id="muteBtn" type="button">소리 끄기</button><button id="orientBtn" type="button" hidden>가로 모드</button><button id="fsBtn" type="button">전체화면</button></span>
 </div>
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
@@ -375,12 +375,13 @@ const ptr = { down:false, t0:0, x:W / 2, y:H / 2, x0:0, y0:0 };
 function toCanvas(e){ const r = cv.getBoundingClientRect(); if (document.body.classList.contains('rot90')) return [(e.clientY - r.top) / r.height * W, (r.right - e.clientX) / r.width * H]; return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; }
 cv.addEventListener('pointerdown', e => {
   initAudio(); const [x, y] = toCanvas(e);
+  if (paused) { pausePointer('down', x, y); return; }
   ptr.down = true; ptr.t0 = now; ptr.x = x; ptr.y = y; ptr.x0 = x; ptr.y0 = y;
   try{ cv.setPointerCapture(e.pointerId); }catch(_){}
   scene && scene.pointer && scene.pointer('down', x, y);
 });
-cv.addEventListener('pointermove', e => { const [x, y] = toCanvas(e); ptr.x = x; ptr.y = y; scene && scene.pointer && scene.pointer('move', x, y); });
-const pUp = e => { if (!ptr.down) return; const [x, y] = toCanvas(e); ptr.down = false; scene && scene.pointer && scene.pointer('up', x, y); };
+cv.addEventListener('pointermove', e => { const [x, y] = toCanvas(e); if (paused) { pausePointer('move', x, y); return; } ptr.x = x; ptr.y = y; scene && scene.pointer && scene.pointer('move', x, y); });
+const pUp = e => { if (paused || !ptr.down) return; const [x, y] = toCanvas(e); ptr.down = false; scene && scene.pointer && scene.pointer('up', x, y); };
 cv.addEventListener('pointerup', pUp); cv.addEventListener('pointercancel', pUp);
 window.addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
@@ -388,6 +389,13 @@ window.addEventListener('keydown', e => {
   initAudio();
   if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (paused) {
+    if (k === 'Escape' || k === 'p') setPause(false);
+    else if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'w' || k === 's') { pauseSel = 1 - pauseSel; sfx.tick(); }
+    else if (k === 'Enter' || k === ' ') pauseChoose(pauseSel);
+    return;
+  }
+  if ((k === 'Escape' || k === 'p') && canPause()) { e.preventDefault(); setPause(true); return; }
   const was = keys[k]; keys[k] = true;
   if (!was && scene && scene.key) scene.key(k, true);
 });
@@ -495,6 +503,7 @@ function startChapter(n){
 /* ---------------- boot & title ---------------- */
 function Boot(){
   return {
+    noPause:true,
     enter(){ osd.mode = 'VIDEO'; setFx({ noise:.05, flicker:.01, wobble:.3 }); },
     exit(){ osd.mode = 'PLAY ▶'; },
     start(){
@@ -518,6 +527,7 @@ function Title(){
   const HJ = "'Noto Serif KR', 'Nanum Myeongjo', 'Batang', serif";
   function toggle(){ chicken = !chicken; store.set('chicken', chicken); if (chicken){ sfx.boing(); drone(0, .7, .5); } else { sfx.clunk(); drone(.06, .7, 1.5); } }
   return {
+    noPause:true,
     enter(){
       setFx({ noise:.14, flicker:.06, wobble:.8 }); stopTrack(1.5); drone(.06, .7, 2);
       items = [{ toggle:true }, { l:'▶  처음부터 재생', f:() => startChapter(1) }];
@@ -1085,6 +1095,7 @@ const nameForm = document.getElementById('nameForm');
 const nameInput = document.getElementById('nameInput');
 function NameScene(){
   return {
+    noPause:true,
     enter(){ setFx({ noise:.12, flicker:.05 }); drone(.07, .7, 2); nameForm.hidden = false; nameInput.value = ''; setTimeout(() => { try{ nameInput.focus(); }catch(e){} }, 50); },
     exit(){ nameForm.hidden = true; nameInput.blur(); },
     submit(){ const v = nameInput.value.trim().slice(0, 10); playerName = v || '이름 없는 아이'; store.set('name', playerName); sfx.bell(); go(Invite()); },
@@ -1172,6 +1183,7 @@ function Room(){
 }
 function Eject(){
   return {
+    noPause:true,
     enter(){ osd.mode = 'EJECT ⏏'; setFx({ noise:.06, flicker:.01, wobble:.2 }); sfx.clunk(); drone(0, 1, .1); },
     exit(){ osd.mode = 'PLAY ▶'; },
     update(){ if (this.t > 3) { completed = true; store.set('done', true); go(Card(T.fin, () => go(Title()), { drone:.04, pitch:.6 })); } },
@@ -1197,11 +1209,44 @@ function drawSubs(){
   g.globalAlpha = a; outlined(subs.text, W / 2, H - 44, 13, '#efe8da'); g.globalAlpha = 1;
 }
 
+/* ---------------- 일시정지 ---------------- */
+let paused = false, pauseSel = 0;
+const PAUSE_ROWS = [{ l:'▶  계속하기', y:158 }, { l:'■  타이틀로 나가기', y:186 }];
+const canPause = () => !!(scene && !scene.noPause);
+function setPause(v){
+  if (v && !canPause()) return;
+  if (v === paused) return;
+  for (const k in keys) keys[k] = false; ptr.down = false;
+  if (v) { paused = true; pauseSel = 0; sfx.clunk(); setTimeout(() => { try { if (paused && A.ctx) A.ctx.suspend(); } catch (e) {} }, 140); }
+  else { paused = false; try { if (A.ctx) A.ctx.resume(); } catch (e) {} sfx.clunk(); }
+}
+function quitToTitle(){
+  paused = false;
+  try { if (A.ctx) A.ctx.resume(); } catch (e) {}
+  stopTrack(.3); sfx.clunk();
+  go(Static(.5, () => go(Title())));
+}
+function pauseChoose(i){ if (i === 0) setPause(false); else quitToTitle(); }
+function pausePointer(t, x, y){
+  PAUSE_ROWS.forEach((r, i) => {
+    if (y > r.y - 18 && y < r.y + 8 && x > 90 && x < 310) { if (t === 'move') pauseSel = i; if (t === 'down') { pauseSel = i; pauseChoose(i); } }
+  });
+}
+function drawPause(){
+  g.fillStyle = 'rgba(0,0,0,.72)'; g.fillRect(0, 0, W, H);
+  txt('일시정지', W / 2, 118, { size:20, color:'#e3dccf', w:800 });
+  PAUSE_ROWS.forEach((r, i) => txt((i === pauseSel ? '› ' : '  ') + r.l, W / 2, r.y, { size:14, color:i === pauseSel ? (i ? '#ff8a8a' : '#e9e0cf') : '#6f675e', font:MONO }));
+  txt('진행 상황은 장 단위로 저장돼요. 다시 하면 그 장 처음부터.', W / 2, 222, { size:10, color:'#7a7166', font:MONO });
+  txt(TOUCH ? '' : 'ESC: 계속하기', W / 2, 240, { size:10, color:'#5f5850', font:MONO });
+}
+const pauseBtn = document.getElementById('pauseBtn');
+pauseBtn.addEventListener('click', () => { initAudio(); paused ? setPause(false) : setPause(true); });
+
 /* ---------------- loop ---------------- */
 let last = performance.now();
 function frame(ts){
   const dt = Math.min(.05, (ts - last) / 1000); last = ts; now += dt;
-  tape += osd.mode.startsWith('◀') ? -dt * 30 : dt;
+  if (!paused) tape += osd.mode.startsWith('◀') ? -dt * 30 : dt;
   if (tape < 0) tape = 0;
   fx.glitch = Math.max(0, fx.glitch - dt * 1.6);
   fx.shake = Math.max(0, fx.shake - dt * 18);
@@ -1210,12 +1255,16 @@ function frame(ts){
   g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   const sm = reduced ? .3 : 1;
   g.setTransform(1, 0, 0, 1, (Math.random() - .5) * fx.shake * sm, (Math.random() - .5) * fx.shake * sm);
-  if (scene){ scene.t += dt; if (scene.update) scene.update(dt); }
+  if (scene && !paused){ scene.t += dt; if (scene.update) scene.update(dt); }
   if (scene) scene.draw();
   touchUI.hidden = !TOUCH;
-  if (TOUCH) for (const b of touchBtns) b.hidden = !(scene && scene.touch === b.dataset.scene);
+  if (TOUCH) for (const b of touchBtns) b.hidden = paused || !(scene && scene.touch === b.dataset.scene);
   g.setTransform(1, 0, 0, 1, 0, 0);
-  drawSubs(); drawOSD();
+  if (paused) drawPause();
+  pauseBtn.hidden = !canPause() && !paused;
+  pauseBtn.textContent = paused ? '▶ 계속' : '■ 정지';
+  if (paused) { const m = osd.mode; osd.mode = 'PAUSE ▮▮'; drawSubs(); drawOSD(); osd.mode = m; }
+  else { drawSubs(); drawOSD(); }
   post(dt);
   requestAnimationFrame(frame);
 }
