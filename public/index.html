@@ -115,7 +115,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="hard.js?v=3"></script>
+<script src="hard.js?v=4"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -545,13 +545,13 @@ function die(msg, factory){
 const T = {
   warn:[{ t:'※  경 고  ※', c:'#b52a2a', w:800 }, '', '이 영상은 1998년 10월,', '철거를 앞둔 어느 가정집 벽장에서', '회수된 VHS 테이프의 복원본입니다.', '', '테이프 라벨에는', { t:'「 앨리스 ─ 5 」', c:'#e2d8c6' }, '라고만 적혀 있었습니다.', '', { t:'시청 중 누군가 이름을 불러도', c:'#9a9084' }, { t:'대답하지 마십시오.', c:'#9a9084' }],
   pro:['옛날 옛적, 어느 곳에', '작은 꿈 하나가 있었습니다.', '', '아무도 그 꿈을 꾸어주지 않았습니다.', '잊혀지는 것이 무서웠던 꿈은', '한 가지 생각을 했습니다.', '', { t:'「 사람을 불러들이자. 」', c:'#c9bfae' }, { t:'「 그들이 나 대신 나라를 짓게 하자. 」', c:'#c9bfae' }, '', '그렇게 첫 번째 앨리스가', '숲으로 걸어 들어왔습니다.'],
-  i1:[{ t:'제 1 장', s:12, c:'#7a7268', f:'m' }, { t:'♠  붉 은  길', s:26, c:'#b42121', w:800 }, '', '첫 번째 앨리스는 용감했습니다.', '손에 쥔 검으로', '길을 막는 것들을 베어 넘기며', '숲 깊은 곳으로 나아갔습니다.', '', { t:'↑ / W  걷기     SPACE  베기     ↓  뒤돌아보기', s:11, c:'#8b8378', f:'m' }, { t:'터치: 길게 눌러 걷기 · 짧게 탭해서 베기', s:11, c:'#8b8378', f:'m' }],
+  i1:[{ t:'제 1 장', s:12, c:'#7a7268', f:'m' }, { t:'♠  붉 은  길', s:26, c:'#b42121', w:800 }, '', '첫 번째 앨리스는 용감했습니다.', '손에 쥔 검으로', '길을 막는 것들을 베어 넘기며', '숲 깊은 곳으로 나아갔습니다.'],
   e1:['그녀가 지나간 자리에는', '붉은 길 하나만 남았습니다.', '', '숲은 그녀를 놓아주지 않았습니다.', '지금도 나무들 사이 어딘가에', '그녀가 서 있다고 합니다.', '', { t:'다음 사람의 길을 막고서.', c:'#b42121' }],
-  i2:[{ t:'제 2 장', s:12, c:'#7a7268', f:'m' }, { t:'♦  푸 른  노 래', s:26, c:'#4a64c8', w:800 }, '', '두 번째 앨리스는 노래를 불렀습니다.', '그의 노래는 나라를 가득 채웠고', '사람들은 귀를 기울였습니다.', '', { t:'처음에는.', c:'#8d8478' }, '', { t:'오르골이 들려주는 선율을 그대로 따라 치십시오', s:11, c:'#8b8378', f:'m' }, { t:'1 2 3 4 키, 또는 건반을 터치', s:11, c:'#8b8378', f:'m' }],
+  i2:[{ t:'제 2 장', s:12, c:'#7a7268', f:'m' }, { t:'♦  푸 른  노 래', s:26, c:'#4a64c8', w:800 }, '', '두 번째 앨리스는 노래를 불렀습니다.', '그의 노래는 나라를 가득 채웠고', '사람들은 귀를 기울였습니다.', '', { t:'처음에는.', c:'#8d8478' }],
   e2:['관객은 끝까지 자리를', '떠나지 않았습니다.', '', '텅 빈 무대 위에는', '장미 한 송이만이', { t:'붉게 피어 있었다고 합니다.', c:'#b42121' }],
-  i3:[{ t:'제 3 장', s:12, c:'#7a7268', f:'m' }, { t:'♥  초 록 의  여 왕', s:26, c:'#3e8a4c', w:800 }, '', '세 번째 앨리스는 아름다웠습니다.', '사람들은 그녀를 여왕이라 불렀고', '그녀는 뒤틀린 나라의 왕좌에 앉았습니다.', '', { t:'하지만 아름다운 것은 썩기 마련입니다.', c:'#8d8478' }, '', { t:'빛을 움직여 방 안의 "틀린 것" 네 개를 찾으십시오', s:11, c:'#8b8378', f:'m' }, { t:'마우스·터치·방향키로 비추고, 클릭·탭·SPACE로 지목', s:11, c:'#8b8378', f:'m' }, { t:'초가 다 타기 전에', s:11, c:'#b42121', f:'m' }],
+  i3:[{ t:'제 3 장', s:12, c:'#7a7268', f:'m' }, { t:'♥  초 록 의  여 왕', s:26, c:'#3e8a4c', w:800 }, '', '세 번째 앨리스는 아름다웠습니다.', '사람들은 그녀를 여왕이라 불렀고', '그녀는 뒤틀린 나라의 왕좌에 앉았습니다.', '', { t:'하지만 아름다운 것은 썩기 마련입니다.', c:'#8d8478' }, '', { t:'초가 다 타기 전에.', s:11, c:'#b42121', f:'m' }],
   e3:['여왕은 끝내 거울 앞을', '떠나지 못했습니다.', '', '그 나라의 왕좌는 지금도', '비어 있지 않습니다.', '', { t:'무언가가 그 위에 앉아', c:'#3e8a4c' }, { t:'다음 손님을 기다리고 있습니다.', c:'#3e8a4c' }],
-  i4:[{ t:'제 4 장', s:12, c:'#7a7268', f:'m' }, { t:'♣  노 란  쌍 둥 이', s:26, c:'#b49b2e', w:800 }, '', '네 번째 앨리스는 둘이었습니다.', '호기심 많은 남매는', '숲을 지나고, 성에 들어가', '다과회에 초대를 받았습니다.', '', { t:'그리고 그것은 꿈이었습니다.', c:'#8d8478' }, '', { t:'SPACE / 클릭 / 탭 연타  —  꿈에서 깨어나십시오', s:11, c:'#8b8378', f:'m' }],
+  i4:[{ t:'제 4 장', s:12, c:'#7a7268', f:'m' }, { t:'♣  노 란  쌍 둥 이', s:26, c:'#b49b2e', w:800 }, '', '네 번째 앨리스는 둘이었습니다.', '호기심 많은 남매는', '숲을 지나고, 성에 들어가', '다과회에 초대를 받았습니다.', '', { t:'그리고 그것은 꿈이었습니다.', c:'#8d8478' }],
   e4:['남매는 끝내 깨어나지 못했습니다.', '', '식탁 위에는', '주인 없는 초대장 한 장이', '남아 있었습니다.', '', { t:'받는 사람 ─', c:'#b42121' }],
   i5:[{ t:'최 종 장', s:12, c:'#7a7268', f:'m' }, { t:'?  다 섯 번 째  앨 리 스', s:24, c:'#e6e1d8', w:800, j:true }, '', '네 명의 앨리스는 꿈속에 남았습니다.', '그래도 꿈은 아직 배가 고픕니다.', '', '이 테이프를 여기까지 본 당신에게', '하나만 묻겠습니다.'],
   fin:['꿈은', { t:'다섯 번째 앨리스를 찾았습니다.', c:'#e6e1d8' }, '', { t:'─ 기록 끝 ─', c:'#7a7268', f:'m', s:12 }, '', { t:'이 테이프를 다른 사람에게', c:'#8d8478' }, { t:'넘기지 마십시오.', c:'#8d8478' }]
@@ -648,7 +648,7 @@ function Title(){
 /* ================= CHAPTER 1 : THE RED PATH ================= */
 function Ch1(){
   const GOAL = 100, F = 150, CAMH = 1.25;
-  let cam = 0, speed = 0, bob = 0, stepAcc = 0, red = 0, slashT = 9, flash = 0, phase = 'walk', endT = 0, evCool = 9, ev = null, evN = 0, lookT = 0, hint = 7;
+  let cam = 0, speed = 0, bob = 0, stepAcc = 0, red = 0, slashT = 9, flash = 0, phase = 'walk', endT = 0, evCool = 9, ev = null, evN = 0, lookT = 0, idle = 0, walked = false, slashed = false, demoT = -1;
   const trees = [];
   for (let z = 1; z < GOAL + 40; z += .5 + Math.random() * .7){
     const side = Math.random() < .5 ? -1 : 1;
@@ -663,7 +663,7 @@ function Ch1(){
     game:true, touch:'ch1',
     enter(){ setFx({ noise:.13, wobble:.7 }); drone(.1, 1, 3); stopOpening(3.5); },
     slash(){
-      if (phase !== 'walk' || slashT < .35) return; slashT = 0; sfx.slash();
+      if (phase !== 'walk' || slashT < .35) return; slashT = 0; slashed = true; sfx.slash();
       let best = null;
       for (const e of foes){ if (!e.alive) continue; const r = e.z - cam; if (r > 0 && r < 3.6 && (!best || r < best.z - cam)) best = e; }
       if (best){
@@ -680,7 +680,7 @@ function Ch1(){
     key(k){ if (k === ' ' || k === 'Enter' || k === 'x' || k === 'j') this.slash(); if (k === 'ArrowDown' || k === 's') this.look(); },
     pointer(t){ if (t === 'up' && now - ptr.t0 < .2) this.slash(); },
     update(dt){
-      slashT += dt; flash = Math.max(0, flash - dt * 2.2); lookT = Math.max(0, lookT - dt); hint -= dt;
+      slashT += dt; flash = Math.max(0, flash - dt * 2.2); lookT = Math.max(0, lookT - dt);
       for (let i = drops.length - 1; i >= 0; i--){ const d = drops[i]; d.y += (chicken ? -d.v * .8 : d.v) * dt; d.life -= dt; if (d.life <= 0) drops.splice(i, 1); }
       for (const e of foes) if (!e.alive) e.fall = Math.min(1, e.fall + dt * 2);
       if (Math.random() < dt * .1) sfx.snap();
@@ -688,6 +688,13 @@ function Ch1(){
         const fwd = (keys.ArrowUp || keys.w || (ptr.down && now - ptr.t0 > .2)) && lookT <= 0;
         speed += ((fwd ? 2.2 : 0) - speed) * Math.min(1, dt * 4);
         cam += speed * dt;
+        if (speed > .3) { walked = true; idle = 0; } else idle += dt;
+        if (!walked && idle > 4 && demoT < 0) demoT = 0;
+        if (demoT >= 0) { demoT += dt; if (demoT > 3.2) demoT = walked ? -9 : -1; if (!walked && demoT < 0) idle = 1.5; }
+        { const nf = foes.find(f => f.alive && f.z - cam < 4.2);
+          if (!walked && idle > 6) hint(TOUCH ? '▶ 걷기 버튼을 꾹' : '▶ ↑ / W  꾹');
+          else if (nf && !slashed) hint(TOUCH ? '● 베기' : '● SPACE');
+          else hint(null); }
         if (speed > .3){ bob += dt * speed * 3.2; stepAcc += speed * dt; if (stepAcc > 1.1){ stepAcc = 0; sfx.step(); } }
         if (cam >= GOAL){ cam = GOAL; phase = 'trapped'; endT = 0; speed = 0; drone(.22, 1.4, 6); return; }
         let nearFoe = 99;
@@ -786,7 +793,17 @@ function Ch1(){
       if (flash > 0){ g.fillStyle = chicken ? `rgba(255,170,210,${flash * .35})` : `rgba(150,0,0,${flash * .45})`; g.fillRect(0, 0, W, H); }
       if (lookT > 0){ g.fillStyle = `rgba(0,0,0,${Math.sin(lookT / 1.2 * Math.PI) * .95})`; g.fillRect(0, 0, W, H); }
       if (ev && !chicken){ g.fillStyle = `rgba(0,0,0,${.25 + Math.sin(now * 6) * .1})`; g.fillRect(0, 0, W, H); }
-      if (hint > 0) txt(TOUCH ? '걷기 버튼을 꾹 · 베기 · 뒤돌아보기' : '↑ 걷기   SPACE 베기   ↓ 뒤돌아보기', W / 2, 44, { size:11, color:`rgba(200,190,175,${Math.min(1, hint) * .8})`, font:MONO });
+      if (demoT >= 0 && phase === 'walk'){ // 첫 번째 앨리스의 잔상이 앞으로 걸어가 검을 휘두른다
+        const k = clamp(demoT / 3, 0, 1), sc = lerp(1.25, .35, k), x = W / 2 + Math.sin(demoT * 5) * 3 * sc, y = H + 30 - k * 150;
+        g.save(); g.globalAlpha = (chicken ? .45 : .28) * Math.sin(k * Math.PI);
+        poly([x - 26 * sc, y, x + 26 * sc, y, x + 12 * sc, y - 70 * sc, x - 12 * sc, y - 70 * sc], chicken ? '#ffd3e3' : '#c8c0d0');
+        ell(x, y - 84 * sc, 13 * sc, 15 * sc, chicken ? '#ffe6ee' : '#d8d0e0');
+        g.fillStyle = chicken ? '#ffb0cc' : '#b8b0c0'; g.fillRect(x - 15 * sc, y - 96 * sc, 30 * sc, 10 * sc); g.fillRect(x - 15 * sc, y - 90 * sc, 6 * sc, 40 * sc); g.fillRect(x + 9 * sc, y - 90 * sc, 6 * sc, 40 * sc);
+        const sw = demoT > 1.9 && demoT < 2.4 ? -1.6 * Math.sin((demoT - 1.9) / .5 * Math.PI) : 0;
+        g.translate(x + 22 * sc, y - 50 * sc); g.rotate(-.4 + sw); g.fillStyle = chicken ? '#ffc0d8' : '#e0e0f0'; g.fillRect(-1.5 * sc, -80 * sc, 3 * sc, 80 * sc);
+        g.restore();
+        if (demoT > 1.9 && demoT - frameDt <= 1.9) sfx.slash();
+      }
     }
   };
   return S;
@@ -799,13 +816,13 @@ function Ch2(){
   const seq = []; for (let i = 0; i < 7; i++){ let n; do { n = Math.random() * 4 | 0; } while (i > 0 && n === seq[i - 1] && Math.random() < .7); seq.push(n); }
   const order = [4, 1, 7, 2, 6, 0, 8, 3, 5];
   const conf = [];
-  let round = 0, phase = 'pause', pt = -.6, idx = 0, miss = 0, lit = -1, litT = 0, turned = 0, ft = 0, shot = false, white = 0, autoT = 0;
+  let round = 0, phase = 'pause', pt = -.6, idx = 0, miss = 0, lit = -1, litT = 0, turned = 0, ft = 0, shot = false, white = 0, autoT = 0, waitT = 0, pressed = false;
   function play(n, extra = 0){ const cents = (Math.random() - .5) * (round * 30 + miss * 45 + extra); sfx.music(NOTES[n], cents); lit = n; litT = .32; }
   return {
     game:true,
     enter(){ setFx({ noise:.12, ca:1.4, wobble:.5 }); drone(.04, .8, 2); say('제 1 소절', 2); },
     press(n){
-      if (phase !== 'input') return; play(n);
+      if (phase !== 'input') return; play(n); pressed = true; waitT = 0;
       if (seq[idx] === n){
         idx++;
         if (idx >= LENS[round]){
@@ -823,12 +840,14 @@ function Ch2(){
     pointer(t, x, y){ if (t !== 'down') return; for (let i = 0; i < 4; i++){ const kx = KX + i * (KW + KG); if (x >= kx - 4 && x <= kx + KW + 4 && y >= KY - 14 && y <= KY + KH + 10) this.press(i); } },
     update(dt){
       litT -= dt; if (litT <= 0) lit = -1; white = Math.max(0, white - dt * 1.5);
+      if (phase !== 'input') hint(null);
       if (phase === 'pause'){ pt += dt; if (pt > 1.3){ phase = 'listen'; pt = 0; idx = 0; } }
       else if (phase === 'listen'){
         pt += dt; const gap = .62 - round * .04;
         if (idx < LENS[round] && pt >= idx * gap){ play(seq[idx]); idx++; }
-        else if (idx >= LENS[round] && pt >= idx * gap + .15){ phase = 'input'; idx = 0; }
-      } else if (phase === 'finale'){
+        else if (idx >= LENS[round] && pt >= idx * gap + .15){ phase = 'input'; idx = 0; waitT = 0; }
+      } else if (phase === 'input'){ waitT += dt; if (!pressed && waitT > 5) hint(TOUCH ? '♪ 빛난 건반을 순서대로' : '♪ 1 2 3 4'); else hint(null); }
+      else if (phase === 'finale'){
         ft += dt;
         for (const c of conf){ c.y += c.v * dt; c.r += dt * 5; }
         if (ft < 3.2){ autoT -= dt; if (autoT <= 0){ play(Math.random() * 4 | 0, ft * 120); autoT = .42 - ft * .11; } turned = 9; }
@@ -899,11 +918,12 @@ function Ch2(){
       }
       for (let i = 0; i < 4; i++){
         const kx = KX + i * (KW + KG), on = lit === i;
-        g.fillStyle = on ? '#9fb4ff' : '#141a36'; g.fillRect(kx, KY, KW, KH);
+        const pulse = phase === 'input' && !pressed && round === 0 && idx === 0 && waitT > 3 && i === seq[0] ? .25 + .25 * Math.sin(now * 5) : 0;
+        g.fillStyle = on ? '#9fb4ff' : pulse ? `rgba(110,130,220,${.3 + pulse})` : '#141a36'; g.fillRect(kx, KY, KW, KH);
         g.fillStyle = on ? '#e4eaff' : '#2a3462'; g.fillRect(kx, KY, KW, 2);
         txt(String(i + 1), kx + KW / 2, KY + 23, { size:16, color:on ? '#0b1030' : '#6c7ab8', font:OSDF, shadow:false });
       }
-      const label = phase === 'listen' ? '듣는 중…' : phase === 'input' ? `따라 치십시오  ${idx} / ${LENS[round]}` : phase === 'finale' ? '' : '';
+      const label = phase === 'listen' ? '♪ …' : phase === 'input' ? `${idx} / ${LENS[round]}` : '';
       if (label) txt(label, W / 2, 44, { size:12, color:'#a9b4e6', font:MONO });
       txt('♦'.repeat(round) + '◇'.repeat(Math.max(0, 5 - round)), W / 2, 62, { size:11, color:'#4a5aa0', font:SERIF });
       if (miss > 0 && Math.random() < .03 * miss) fx.glitch = .5;
@@ -935,8 +955,9 @@ function Ch3(o = {}){
     { id:'wardrobe', x:328, y:118, r:20, f:false }
   ];
   const blot = Array.from({ length:42 }, () => ({ x:Math.random() * W, y:Math.random() * 205, r:4 + Math.random() * 16, th:Math.random() }));
-  let found = 0;
+  let found = 0, twitchT = 0, twitched = false, selN = 0;
   function select(){
+    selN++;
     if (phase !== 'search') return;
     for (const a of an){ if (!a.f && Math.hypot(a.x - L.x, a.y - L.y) < a.r + 8){ a.f = true; found++; fx.glitch = 1; sfx.sting(); sfx.whisper(1.2, (a.x - 200) / 200);
       say(['거울 속 그녀가 웃고 있다.', '초상화가 피를 흘린다.', '창밖에 무언가 붙어 있다.', '옷장 틈에서 누가 보고 있다.'][an.indexOf(a)], 2.6);
@@ -961,7 +982,9 @@ function Ch3(o = {}){
         time -= dt; const rot = 1 - time / TT; fly && fly.set(.012 + rot * .05);
         off -= dt; if (time < TT * .4 && off <= 0 && Math.random() < dt * .5){ off = .12 + Math.random() * .25; sfx.stat(.1); }
         if (!scareDone && time < TT * .55){ scareDone = true; scareT = .35; sfx.screech(); vib([120, 40, 160]); fx.glitch = 1.5; fx.shake = reduced ? 2 : 6; }
-        scareT -= dt;
+        scareT -= dt; twitchT = Math.max(0, twitchT - dt);
+        if (!an[1].f && Math.hypot(L.x - an[1].x, L.y - an[1].y) < 40){ if (!twitched){ twitched = true; twitchT = .7; sfx.whisper(1, -.4); fx.glitch = .5; } else if (Math.random() < dt * .6) twitchT = .35; }
+        if (selN === 0 && this.t > 9) hint(TOUCH ? '☞ 끌어서 비추고 · 지목' : '☞ 이상한 곳을 비추고 클릭'); else if (found === 0 && this.t > 25 && !twitched) hint('☞ 왼쪽 위 초상화…'); else hint(null);
         if (time <= 0){ die('촛불이 꺼졌다. 여왕이 당신을 찾아냈다.', () => Ch3(o)); return; }
       } else {
         endT += dt; fly && fly.set(.08);
@@ -993,7 +1016,7 @@ function Ch3(o = {}){
       // portrait
       g.fillStyle = '#4e3f16'; g.fillRect(104, 28, 48, 66); g.fillStyle = '#1b1712'; g.fillRect(108, 32, 40, 58);
       ell(128, 80, 18, 18, '#16301f'); ell(128, 58, 12, 15, '#c4bba7'); g.fillStyle = '#16301f'; g.fillRect(114, 42, 28, 8); g.fillRect(113, 46, 5, 30); g.fillRect(138, 46, 5, 30);
-      ell(123, 57, 2.6, 3, '#050303'); ell(133, 57, 2.6, 3, '#050303');
+      { const tw = twitchT > 0 ? (Math.random() - .5) * 3 : 0, ey = twitchT > 0 ? 1.5 : 0; ell(123 + tw, 57 + ey, 2.6, 3, '#050303'); ell(133 + tw, 57 + ey, 2.6, 3, '#050303'); if (twitchT > 0 && !chicken){ ell(123 + tw, 57 + ey, .8, .8, '#e8e0d0'); ell(133 + tw, 57 + ey, .8, .8, '#e8e0d0'); } }
       g.fillStyle = chicken ? '#8cc4ff' : '#6a0b0b'; g.fillRect(122, 59, 1.5, 10 + rot * 18); g.fillRect(132.5, 59, 1.5, 7 + rot * 22);
       // mirror
       g.beginPath(); g.ellipse(200, 108, 46, 64, 0, 0, Math.PI * 2); g.fillStyle = '#5a4818'; g.fill();
@@ -1043,7 +1066,6 @@ function Ch3(o = {}){
       for (const a of an) if (a.f){ g.beginPath(); g.ellipse(a.x, a.y, a.r + 2, a.r * .8 + 2, -.15, 0, Math.PI * 2 - .4); g.stroke(); }
       if (phase === 'search'){
         txt(`찾은 것  ${found} / 4`, 16, 44, { size:11, color:'#7fae86', font:MONO, align:'left' });
-        if (TOUCH && time > TT - 8) txt('화면을 끌어 비추고, 지목 버튼으로 고르기', W / 2, 232, { size:11, color:'#cfc6b6', font:MONO });
         if (time < 15 && Math.floor(now * 3) % 2) txt('촛불이 꺼져간다', W - 16, 44, { size:11, color:'#c03030', font:MONO, align:'right' });
       }
     }
@@ -1054,7 +1076,7 @@ function Ch3(o = {}){
 function Ch4(){
   const DEC = [.24, .36, .5, .55];
   const LOOPSUB = ['…다시, 다과회.', '손님이 늘었다.', '깨어나는 법을 잊어버렸다.'];
-  let loop = 0, meter = 0, phase = 'dream', pt = 0, st = 0, finT = 0, cracks = [];
+  let loop = 0, meter = 0, phase = 'dream', pt = 0, st = 0, finT = 0, cracks = [], tapIdle = 0, blink = 0;
   function gen(){
     cracks = [];
     for (let i = 0; i < 8; i++){
@@ -1067,7 +1089,7 @@ function Ch4(){
   gen();
   function tap(){
     if (phase !== 'dream') return;
-    meter += .075; fx.shake = reduced ? .5 : 2.5; sfx.thump(); vib(12);
+    meter += .075; tapIdle = 0; blink = 1; fx.shake = reduced ? .5 : 2.5; sfx.thump(); vib(12);
     if (loop >= 3) meter = Math.min(.965, meter);
   }
   return {
@@ -1076,6 +1098,8 @@ function Ch4(){
     key(k){ if (k === ' ' || k === 'Enter') tap(); },
     pointer(t){ if (t === 'down') tap(); },
     update(dt){
+      tapIdle += dt;
+      if (phase === 'dream'){ if (tapIdle > 4 && meter < .15 && loop === 0) hint(TOUCH ? '● 화면을 계속 두드려' : '● SPACE 연타'); else hint(null); }
       if (phase === 'dream'){
         meter = Math.max(0, meter - DEC[loop] * dt);
         if (loop < 3 && meter >= 1){ phase = 'wake'; pt = 0; sfx.gasp(); vib(150); fx.glitch = 1.2; }
@@ -1165,12 +1189,13 @@ function Ch4(){
       let used = 0;
       for (const c of cracks){ g.beginPath(); g.moveTo(c[0][0], c[0][1]); for (let k = 1; k < c.length && used < segs; k++, used++) g.lineTo(c[k][0], c[k][1]); g.stroke(); if (used >= segs) break; }
       // eyelids
-      const lid = phase === 'stuck' ? Math.min(1, pt / 9) * 110 : 0;
+      blink = Math.max(0, blink - frameDt * 3);
+      const lid = phase === 'stuck' ? Math.min(1, pt / 9) * 110 : phase === 'dream' ? Math.max(0, (1 - meter * 1.3) * 78 + Math.sin(now * 1.3) * 8 - blink * 55) : 0;
       if (lid > 0){ g.fillStyle = '#000'; g.fillRect(-20, -20, W + 40, lid + 20); g.fillRect(-20, H - lid, W + 40, lid + 20); }
       // meter
       g.strokeStyle = '#6d6250'; g.lineWidth = 1; g.strokeRect(100.5, 50.5, 200, 7);
       g.fillStyle = phase === 'stuck' ? '#5a1010' : '#d8cfb8'; g.fillRect(102, 52, 196 * meter, 4);
-      txt(phase === 'stuck' ? '일어날 수 없다' : '연타해서  일어나', W / 2, 44, { size:11, color:phase === 'stuck' ? '#b02525' : '#a69c88', font:MONO });
+      if (phase === 'stuck') txt('일어날 수 없다', W / 2, 44, { size:11, color:'#b02525', font:MONO });
       txt('♣'.repeat(Math.min(lp, 3)), W - 18, 72, { size:11, color:'#8a7a2a', align:'right' });
     }
   };
@@ -1330,8 +1355,9 @@ pauseBtn.addEventListener('click', () => { initAudio(); paused ? setPause(false)
 
 /* ---------------- loop ---------------- */
 let last = performance.now();
+let frameDt = 0;
 function frame(ts){
-  const dt = Math.min(.05, (ts - last) / 1000); last = ts; now += dt;
+  const dt = Math.min(.05, (ts - last) / 1000); last = ts; now += dt; frameDt = dt;
   if (!paused) tape += osd.mode.startsWith('◀') ? -dt * 30 : dt;
   if (tape < 0) tape = 0;
   fx.glitch = Math.max(0, fx.glitch - dt * 1.6);
