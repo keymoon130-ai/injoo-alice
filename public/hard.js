@@ -579,6 +579,223 @@ function HCh1() {
   return S;
 }
 
-return { HCh1, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
+
+/* =========================================================
+   하드 2장 : 푸른 노래 — 텅 빈 극장, 보지 않을 때만 움직이는 관객
+   ========================================================= */
+function buildTheaterSprites() {
+  if (SP.th) return; SP.th = true;
+  const seat = (x, who) => {
+    x.fillStyle = '#1a0d10'; x.fillRect(3, 16, 2, 4); x.fillRect(11, 16, 2, 4);
+    if (who === 'man') { E2(x, 8, 4.2, 3.2, 3.8, '#c2ab88'); x.fillStyle = '#9a8566'; x.fillRect(6.6, 7.5, 2.8, 2); E2(x, 8, 11, 6.4, 3.4, '#b09a78'); }
+    if (who === 'hair') { E2(x, 8, 4.4, 3.3, 3.9, '#141012'); E2(x, 8, 11, 6.2, 3.2, '#2a2430'); }
+    x.fillStyle = '#5a1420'; x.beginPath(); x.moveTo(1, 18); x.lineTo(1, 8); x.quadraticCurveTo(8, 4, 15, 8); x.lineTo(15, 18); x.closePath(); x.fill();
+    x.fillStyle = '#3e0c16'; x.fillRect(1, 15, 14, 3);
+    x.strokeStyle = '#a88a3a'; x.lineWidth = .6; x.beginPath(); x.moveTo(1, 18); x.lineTo(1, 8); x.quadraticCurveTo(8, 4, 15, 8); x.lineTo(15, 18); x.stroke();
+  };
+  SP.seat = canvasSprite(16, 20, x => seat(x), null, 2);
+  SP.seatMan = canvasSprite(16, 20, x => seat(x, 'man'), null, 2);
+  SP.seatHair = canvasSprite(16, 20, x => seat(x, 'hair'), null, 2);
+  const mann = (x, turn) => {
+    const sk = '#c9b28c', dk = '#7d6a4e';
+    x.fillStyle = sk; P2(x, [9, 20, 15, 20, 16, 34, 8, 34], sk);
+    P2(x, [8, 34, 16, 34, 15, 38, 9, 38], dk);
+    x.strokeStyle = sk; x.lineWidth = 2.2; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(10.5, 38); x.lineTo(10, 62); x.moveTo(13.5, 38); x.lineTo(14, 62); x.stroke();
+    if (turn) { x.beginPath(); x.moveTo(9, 21); x.lineTo(4, 30); x.lineTo(3, 22); x.moveTo(15, 21); x.lineTo(20, 30); x.lineTo(21, 22); x.stroke(); }
+    else { x.beginPath(); x.moveTo(9, 21); x.lineTo(7, 33); x.lineTo(7.5, 43); x.moveTo(15, 21); x.lineTo(17, 33); x.lineTo(16.5, 43); x.stroke(); }
+    for (const [jx, jy] of [[10.3, 49], [13.7, 49], [9, 21], [15, 21]]) E2(x, jx, jy, 1.3, 1.3, dk);
+    x.fillStyle = sk; x.fillRect(11.2, 16, 1.6, 4);
+    x.save(); x.translate(12, 10); x.rotate(turn ? -.35 : .12); E2(x, 0, 0, 4.4, 5.8, '#d6c09a'); E2(x, -1.6, -.6, 1.3, 1.7, '#100a08'); E2(x, 1.6, -.6, 1.3, 1.7, '#100a08');
+    if (turn) { x.fillStyle = '#100a08'; x.fillRect(-1.6, 2.4, 3.2, 1.1); x.fillStyle = '#6a0808'; x.fillRect(-1.9, .6, .5, 4); x.fillRect(1.5, .6, .5, 5); }
+    x.strokeStyle = 'rgba(80,60,40,.6)'; x.lineWidth = .4; x.beginPath(); x.moveTo(0, -5.5); x.lineTo(.4, -1); x.stroke(); x.restore();
+  };
+  SP.mann = canvasSprite(24, 64, x => mann(x, false), x => { E2(x, 10.6, 9.4, .45, .45, '#e8e4ff'); E2(x, 13.6, 9.6, .45, .45, '#e8e4ff'); }, 3);
+  SP.mannT = canvasSprite(24, 64, x => mann(x, true), x => { E2(x, 10.3, 9.9, .5, .5, '#ffffff'); E2(x, 13.4, 8.7, .5, .5, '#ffffff'); }, 3);
+  SP.piano = canvasSprite(48, 34, x => {
+    x.fillStyle = '#050407'; x.beginPath(); x.moveTo(2, 14); x.lineTo(46, 14); x.quadraticCurveTo(46, 4, 30, 6); x.quadraticCurveTo(14, 2, 2, 8); x.closePath(); x.fill();
+    x.fillStyle = '#0b0a10'; x.fillRect(2, 14, 44, 8); x.fillStyle = '#e9e4d8'; x.fillRect(4, 15, 40, 4);
+    x.fillStyle = '#111'; for (let i = 0; i < 20; i++) x.fillRect(5 + i * 2, 15, .4, 4); for (let i = 0; i < 20; i++) if (i % 7 !== 2 && i % 7 !== 6) x.fillRect(5.6 + i * 2, 15, 1.1, 2.4);
+    x.fillStyle = '#050407'; x.fillRect(5, 22, 2, 12); x.fillRect(41, 22, 2, 12); x.fillRect(23, 22, 2, 10);
+    x.fillStyle = '#3a2618'; x.fillRect(19, 1, 10, 5); x.fillStyle = '#2a1a12'; x.fillRect(19, 4, 10, 2);
+  }, x => { x.fillStyle = '#e6c25a'; x.fillRect(19, 3, 10, .7); P2(x, [23, 1, 25, 1, 24, -2], '#dfe2f0'); }, 2);
+  SP.cGhost = canvasSprite(40, 48, x => ghostOn(x, 20, 18, 16, { col: '#e9f0ff' }), null, 2);
+  SP.cGhostT = canvasSprite(40, 48, x => ghostOn(x, 20, 18, 16, { col: '#ffe4ef', boo: true }), null, 2);
+}
+function drawRose(b, ch) {
+  g.strokeStyle = '#1a2a1a'; g.lineWidth = 2; g.beginPath(); g.moveTo(W / 2, 160); g.quadraticCurveTo(W / 2 + 8, 210, W / 2 - 2, 260 * b + 160 * (1 - b)); g.stroke();
+  for (let L = 0; L < 5; L++) {
+    const lb = clamp(b * 1.6 - L * .18, 0, 1); if (!lb) continue;
+    const rr = (6 + L * 7) * lb, n = 5 + L;
+    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + L * .7 + now() * .05; ell(W / 2 + Math.cos(a) * rr * .6, 150 + Math.sin(a) * rr * .45, rr * .55, rr * .38, ch ? `rgb(${255 - L * 18},${130 + L * 12},${180 + L * 8})` : `rgb(${120 - L * 14},8,${14 + L * 6})`); }
+  }
+  ell(W / 2, 150, 6 * b, 5 * b, '#2a0206');
+}
+function HCh2() {
+  buildSprites(); buildTheaterSprites();
+  const N = 40;
+  const FT = [{ col: [40, 22, 30], tex: 'carpet' }, { col: [70, 50, 32], tex: 'board' }, { col: [30, 30, 40] }];
+  const WT = [null, { col: [44, 46, 70] }, { col: [40, 38, 120], tex: 'curtain', h: 1.6 }, { col: [66, 46, 32], tex: 'wood', h: 1.3 }];
+  const e = Engine({ N, indoor: true, WT, FT, wallH: 1.3, fogD: 15, fogC: [4, 4, 9], amb: .34, ceilC: [24, 22, 46], lantern: 3.4, lanternC: [.7, .72, .85] });
+  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    const k = z * N + x;
+    if (x < 3 || x > 36 || z < 3 || z > 37) { e.wall[k] = (z < 3 && x >= 3 && x <= 36) ? 2 : 3; continue; }
+    e.floor[k] = z < 10 ? 1 : 0;
+    if (z === 37) e.wall[k] = 3;
+  }
+  for (let x = 3; x <= 36; x++) e.wall[2 * N + x] = 2;
+  // 무대 양옆 막
+  for (let z = 3; z < 9; z++) { e.wall[z * N + 3] = 2; e.wall[z * N + 36] = 2; }
+  const seats = [];
+  for (let row = 0; row < 10; row++) {
+    const z = 13 + row * 2;
+    for (const [x0, x1] of [[6, 17], [23, 34]]) for (let x = x0; x <= x1; x++) {
+      e.block[z * N + x] = 1;
+      const r = hash(x * 3, z * 5);
+      seats.push({ x: x + .5, z: z + .5, who: r < 120 ? 'man' : r < 170 ? 'hair' : null });
+    }
+  }
+  // 조명: 무대 스포트라이트 + 벽 등
+  e.lights.push({ x: 20, z: 7.2, r: 6.5, i: 1.5, c: [.75, .82, 1] });
+  for (let z = 12; z <= 34; z += 5) { e.lights.push({ x: 4, z, r: 4, i: .8, c: [.55, .6, 1] }); e.lights.push({ x: 35.5, z, r: 4, i: .8, c: [.55, .6, 1] }); }
+  for (let z = 14; z <= 34; z += 6) e.lights.push({ x: 20.5, z, r: 3.5, i: .45, c: [.7, .6, .7] });
+  e.bake();
+  const cam = { x: 20.5, z: 35.2, yaw: -Math.PI / 2, bob: 0 };
+  // 깨어 있는 관객
+  const aw = [];
+  const addAw = (x, z) => aw.push({ x, z, moved: 0, seenAt: null, creak: 0 });
+  addAw(20.5, 24.5); addAw(4.6, 30); addAw(35.4, 21); addAw(35.4, 35.5);
+  // 흐름장 (플레이어를 향한 최단 경로)
+  const fdist = new Int16Array(N * N); let flowT = 0;
+  const pass = k => !e.wall[k] && !e.block[k];
+  function flow() {
+    fdist.fill(-1); const q = []; const s0 = (cam.z | 0) * N + (cam.x | 0); fdist[s0] = 0; q.push(s0);
+    for (let h = 0; h < q.length; h++) { const k = q[h], x = k % N, z = (k / N) | 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (!e.inb(nx, nz)) continue; const nk = nz * N + nx; if (fdist[nk] >= 0 || !pass(nk)) continue; fdist[nk] = fdist[k] + 1; q.push(nk); } }
+  }
+  function stepTo(m, sp) {
+    const x = m.x | 0, z = m.z | 0, k = z * N + x;
+    let tx = cam.x, tz = cam.z;
+    if (fdist[k] > 1) { let best = fdist[k], bk = -1; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (!e.inb(nx, nz)) continue; const nk = nz * N + nx; if (fdist[nk] >= 0 && fdist[nk] < best) { best = fdist[nk]; bk = nk; } } if (bk >= 0) { tx = bk % N + .5; tz = ((bk / N) | 0) + .5; } }
+    const d = Math.hypot(tx - m.x, tz - m.z) || 1, mv = Math.min(d, sp);
+    m.x += (tx - m.x) / d * mv; m.z += (tz - m.z) / d * mv; m.moved += mv;
+  }
+  const inView = m => { const dx = m.x - cam.x, dz = m.z - cam.z, d = Math.hypot(dx, dz); if (d > 13) return false; const rel = Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)); return rel < .66 && e.los(cam.x, cam.z, m.x, m.z); };
+  const NOTES = [392, 466.16, 523.25, 622.25, 698.46], LENS = [5, 6, 7];
+  const seq = []; for (let i = 0; i < 7; i++) { let n; do { n = Math.random() * 5 | 0; } while (i > 0 && n === seq[i - 1]); seq.push(n); }
+  const KW = 60, KG = 10, KX = (W - (5 * KW + 4 * KG)) / 2, KY = TOUCH ? 206 : 222, KH = TOUCH ? 52 : 34;
+  let phase = 'walk', bob = 0, stepAcc = 0, noticed = false, idle = 0, turned = false, round = 0, pp = 'pause', pt = -.4, idx = 0, miss = 0, lit = -1, litT = 0, rear = 0, ft = 0, shot = false, white = 0, autoT = 0, scareT = 0, lastLook = 0;
+  const crowd = [];
+  function play(n, extra = 0) { const cents = (Math.random() - .5) * (round * 30 + miss * 60 + extra); sfx.music(NOTES[n], cents); lit = n; litT = .3; }
+  const creak = (pan = 0) => { nz(.5, { type: 'bandpass', f: 380 + Math.random() * 200, f2: 220, q: 6, vol: .22, a: .05, pan }); osc('sawtooth', 90 + Math.random() * 40, .35, { vol: .05, f2: 60, pan }); };
+  const S = {
+    game: true, fp: true, touch: 'h3d', act: '연주', noAct: true,
+    get noJoy() { return phase !== 'walk'; },
+    dbg: { cam, aw, get phase() { return phase; }, set phase(v) { phase = v; }, startPerf: () => S.startPerf(), get round() { return round; }, seq },
+    enter() { setFx({ noise: .11, ca: 1.3, wobble: .45 }); drone(.05, .8, 2); say('무대 위에서 오르골이 울리고 있다.', 3); },
+    exit() { exitLock(); api.hint(null); },
+    startPerf() {
+      phase = 'perf'; pp = 'pause'; pt = -.6; idx = 0; exitLock(); api.hint(null);
+      cam.x = 20.5; cam.z = 9.6; cam.yaw = -Math.PI / 2; cam.bob = 0;
+      for (const m of aw) { const d = Math.hypot(m.x - cam.x, m.z - cam.z); if (d < 6) { m.x = cam.x + (m.x - cam.x) / (d || 1) * 6; m.z = Math.min(36, cam.z + 6); } }
+      // 앞줄 관객들이 소리 없이 일어선다
+      let n = 0; for (const s of seats) { if (s.who && s.z < 20 && n < 6 && Math.random() < .5) { s.who = null; addAw(s.x, s.z + 1); n++; } }
+      say('제 1 소절', 2); setTimeout(() => creak(-.6), 900); setTimeout(() => creak(.6), 1500);
+    },
+    press(n) {
+      if (phase !== 'perf' || pp !== 'input') return; play(n);
+      if (seq[idx] === n) {
+        idx++;
+        if (idx >= LENS[round]) { round++; if (round >= LENS.length) { phase = 'finale'; ft = 0; this.makeCrowd(); } else { pp = 'pause'; pt = 0; say(`제 ${round + 1} 소절`, 2); } }
+      } else {
+        miss++; sfx.laugh(); vib([60, 40, 60]); fx.glitch = 1.2; fx.shake = api.reduced ? 1 : 5;
+        for (const m of aw) { const d = Math.hypot(m.x - cam.x, m.z - cam.z); const nd = Math.max(2.2, d * .45); m.x = cam.x + (m.x - cam.x) / d * nd; m.z = cam.z + (m.z - cam.z) / d * nd; m.t = 1; }
+        rear = .85; sfx.screech();
+        if (miss >= 3) { setTimeout(() => api.die('노래가 멈췄다. 관객들이 바로 뒤에 서 있었다.', HCh2), 700); pp = 'dead'; return; }
+        say(['틀렸어. 모두가 너를 보고 있어.', '다시. 처음부터. 더 가까이.'][miss - 1], 2.4); pp = 'pause'; pt = -.6;
+      }
+    },
+    makeCrowd() { for (let i = 0; i < 22; i++) { const a = Math.PI / 2 + (i / 21 - .5) * 2.4, r = 1.6 + (i % 3) * .8; crowd.push({ x: cam.x + Math.cos(a) * r, z: cam.z + Math.sin(a) * r }); } },
+    key(k) { const n = '12345'.indexOf(k); if (n >= 0) this.press(n); },
+    pointer(t, x, y) {
+      if (phase === 'walk') { fpPointer(cam, t, x); return; }
+      if (t !== 'down' || phase !== 'perf') return;
+      for (let i = 0; i < 5; i++) { const kx = KX + i * (KW + KG); if (x >= kx - 4 && x <= kx + KW + 4 && y >= KY - 16 && y <= KY + KH + 12) this.press(i); }
+    },
+    update(dt) {
+      litT -= dt; if (litT <= 0) lit = -1; rear = Math.max(0, rear - dt); white = Math.max(0, white - dt * 1.4); scareT = Math.max(0, scareT - dt);
+      e.flick = .94 + Math.sin(now() * 7) * .03;
+      flowT -= dt; if (flowT <= 0) { flowT = .3; flow(); }
+      if (phase === 'walk') {
+        const c = fpControls(cam, dt, { speed: 2 });
+        if (c.moving) { e.move(cam, c.vx, c.vz, .22); bob += dt * 7; stepAcc += dt; if (stepAcc > .5) { stepAcc = 0; sfx.step(); } }
+        cam.bob = Math.sin(bob) * (c.moving ? 1.6 : 0);
+        idle = c.moving ? 0 : idle + dt;
+        const yawNow = cam.yaw; if (Math.abs(angDiff(yawNow - lastLook)) > 1.2) { turned = true; } if (this.t < .2) lastLook = yawNow;
+        for (const m of aw) {
+          const vis = inView(m), d = Math.hypot(m.x - cam.x, m.z - cam.z);
+          if (!vis) { const before = m.moved; stepTo(m, .85 * dt); m.creak -= dt; if (d < 7 && m.creak <= 0) { m.creak = 1.2 + Math.random(); creak(clamp(Math.sin(angDiff(Math.atan2(m.z - cam.z, m.x - cam.x) - cam.yaw)), -1, 1) * .8); } if (m.seenAt == null) m.seenAt = before; }
+          else if (m.seenAt != null) { if (m.moved - m.seenAt > 1.4 && !noticed) { noticed = true; say('…방금 저 자리에 있었나?', 2.8); sfx.sting(); } m.seenAt = null; }
+          if (d < .85) { api.die('뒤에 서 있던 관객이 어깨를 붙잡았다.', HCh2); return; }
+        }
+        if (idle > 5 && this.t < 30) api.hint(TOUCH ? '◀ 왼쪽 원으로 걷기 · 화면을 끌어 둘러보기 ▶' : '▶ W / ↑  걷기   ·   마우스·← →  둘러보기');
+        else if (!noticed && !turned && this.t > 14) api.hint(TOUCH ? '↻ 화면을 끌어 뒤를 돌아봐' : '↻ 뒤를 돌아봐');
+        else api.hint(null);
+        if (cam.z < 10.4 && Math.abs(cam.x - 20.5) < 2.4) this.startPerf();
+      } else if (phase === 'perf') {
+        for (const m of aw) { stepTo(m, .1 * dt); if (Math.hypot(m.x - cam.x, m.z - cam.z) < 1.05 && pp !== 'dead') { pp = 'dead'; api.die('연주를 멈출 수 없었다. 관객이 너무 가까웠다.', HCh2); return; } }
+        if (Math.random() < dt * .25) creak((Math.random() - .5) * 1.6);
+        if (pp === 'pause') { pt += dt; if (pt > 1.2) { pp = 'listen'; pt = 0; idx = 0; } }
+        else if (pp === 'listen') { pt += dt; const gap = .52 - round * .05; if (idx < LENS[round] && pt >= idx * gap) { play(seq[idx]); idx++; } else if (idx >= LENS[round] && pt >= idx * gap + .15) { pp = 'input'; idx = 0; pt = 0; } }
+        else if (pp === 'input') { pt += dt; if (pt > 6 && idx === 0) api.hint(TOUCH ? '♪ 빛났던 건반을 순서대로 눌러' : '♪ 1 2 3 4 5 — 빛났던 순서대로'); }
+        if (pp !== 'input') api.hint(null);
+      } else if (phase === 'finale') {
+        ft += dt; api.hint(null);
+        if (ft < 3) { autoT -= dt; if (autoT <= 0) { play(Math.random() * 5 | 0, ft * 140); autoT = .4 - ft * .1; } nz(.3, { type: 'bandpass', f: 1800, q: .5, vol: .05 + ft * .05 }); }
+        if (ft > 2.4 && ft < 4) cam.yaw = lerp(-Math.PI / 2, Math.PI / 2, clamp((ft - 2.4) / 1.2, 0, 1));
+        if (ft > 4.2 && !shot) { shot = true; sfx.gun(); vib(400); white = chicken() ? .5 : 1; drone(0, 1, .05); fx.glitch = 2; fx.shake = api.reduced ? 3 : 14; }
+        if (ft > 7 && ft - dt <= 7) say('노래는 끝나지 않았다.', 2.6);
+        if (ft > 10 && ft - dt <= 10) say('부를 사람이 사라졌을 뿐.', 3);
+        if (ft > 13.5) go(Card(T.e2, () => api.startChapter(3), { drone: .03 }));
+      }
+    },
+    sprites() {
+      const ch = chicken(), list = [];
+      for (const s of seats) list.push({ spr: s.who === 'man' ? SP.seatMan : s.who === 'hair' ? SP.seatHair : SP.seat, x: s.x, z: s.z, w: .8, h: 1, y0: 0 });
+      for (const m of aw) list.push({ spr: ch ? (m.t ? SP.cGhostT : SP.cGhost) : (m.t ? SP.mannT : SP.mann), x: m.x, z: m.z, w: ch ? .8 : .6, h: ch ? .95 : 1.7, y0: ch ? .35 : 0, glow: rear > 0 ? .8 : 0 });
+      for (const m of crowd) list.push({ spr: ch ? SP.cGhostT : SP.mannT, x: m.x, z: m.z, w: ch ? .8 : .6, h: ch ? .95 : 1.7, y0: ch ? .35 : 0 });
+      list.push({ spr: SP.piano, x: 20.5, z: 6.6, w: 2.2, h: 1.1, y0: 0, glow: phase === 'walk' ? .55 : 0 });
+      return list;
+    },
+    draw() {
+      const ch = chicken();
+      if (phase === 'finale' && ft >= 4.2) {
+        g.fillStyle = ch ? '#120d22' : '#000'; g.fillRect(-20, -20, W + 40, H + 40);
+        const b = clamp((ft - 6) / 5, 0, 1); if (b > 0) drawRose(b, ch);
+        if (white > 0) { g.fillStyle = `rgba(255,255,255,${white})`; g.fillRect(0, 0, W, H); }
+        return;
+      }
+      if (rear > 0) { const rc = { x: cam.x, z: cam.z, yaw: cam.yaw + Math.PI, bob: 0 }; e.render(rc, this.sprites()); g.fillStyle = 'rgba(120,0,0,.18)'; g.fillRect(0, 0, W, H); txt('▶ 뒤', 20, 52, { size: 11, color: '#ff8080', font: MONO, align: 'left' }); return; }
+      e.render(cam, this.sprites());
+      if (phase === 'perf') {
+        const v = g.createLinearGradient(0, H * .55, 0, H); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.75)'); g.fillStyle = v; g.fillRect(0, 0, W, H);
+        for (let i = 0; i < 5; i++) {
+          const kx = KX + i * (KW + KG), on = lit === i;
+          g.fillStyle = on ? '#9fb4ff' : '#141a36'; g.fillRect(kx, KY, KW, KH);
+          g.fillStyle = on ? '#e4eaff' : '#2a3462'; g.fillRect(kx, KY, KW, 2);
+          txt(String(i + 1), kx + KW / 2, KY + KH / 2 + 6, { size: 16, color: on ? '#0b1030' : '#6c7ab8', font: api.OSDF || MONO, shadow: false });
+        }
+        const label = pp === 'listen' ? '듣는 중…' : pp === 'input' ? `${idx} / ${LENS[round]}` : '';
+        if (label) txt(label, W / 2, KY - 22, { size: 12, color: '#a9b4e6', font: MONO });
+        txt('♦'.repeat(round) + '◇'.repeat(Math.max(0, 3 - round)), W / 2, 62, { size: 11, color: '#4a5aa0', font: SERIF });
+        const near = Math.min(...aw.map(m => Math.hypot(m.x - cam.x, m.z - cam.z)));
+        if (!ch && near < 5) { const k = clamp(1 - (near - 1) / 4, 0, 1); g.fillStyle = `rgba(0,0,0,${k * .35 * (.6 + .4 * Math.sin(now() * 6))})`; g.fillRect(0, 0, W, H); }
+      }
+      if (white > 0) { g.fillStyle = `rgba(255,255,255,${white})`; g.fillRect(0, 0, W, H); }
+    }
+  };
+  return S;
+}
+
+return { HCh1, HCh2, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
 };
 })();
