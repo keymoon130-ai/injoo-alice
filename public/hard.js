@@ -1071,10 +1071,13 @@ function HCh4(opt = {}) {
 /* =========================================================
    히든 테이프 「 앨리스 ─ 0 」 : 가정용 캠코더 영상
    ========================================================= */
+let tapeFont = false;
+try { const ff = new FontFace('GaeguTape', "url('fonts/gaegu-tape.woff2')", { weight: '700' }); ff.load().then(f => { document.fonts.add(f); tapeFont = true; }).catch(() => {}); } catch (_) {}
 function crayon(x, y, str, size, col, rot = 0, o = {}) {
   g.save(); g.translate(x, y); g.rotate(rot);
-  g.font = `${o.w || 800} ${size}px 'Nanum Myeongjo', serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  for (let i = 0; i < 4; i++) { g.globalAlpha = (o.a == null ? 1 : o.a) * (.35 + i * .12); g.fillStyle = col; g.fillText(str, (hash(i, size | 0) / 255 - .5) * 1.6, (hash(size | 0, i + 3) / 255 - .5) * 1.6); }
+  g.font = o.hand && tapeFont ? `700 ${size * 1.25}px GaeguTape, 'Nanum Gothic Coding', sans-serif` : `${o.w || 800} ${size}px 'Nanum Myeongjo', serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const reps = o.hand ? 2 : 4;
+  for (let i = 0; i < reps; i++) { g.globalAlpha = (o.a == null ? 1 : o.a) * (o.hand ? (i ? .45 : .95) : (.35 + i * .12)); g.fillStyle = col; g.fillText(str, (hash(i, size | 0) / 255 - .5) * 1.6, (hash(size | 0, i + 3) / 255 - .5) * 1.6); }
   g.restore();
 }
 function crayLine(pts, col, w = 2) {
@@ -1099,7 +1102,7 @@ function kidDrawing(x, y, w, h, rot) {
   g.fillStyle = '#fff'; g.fillRect(X(.29), Y(.55), 1.5, 1.5); g.fillRect(X(.31), Y(.55), 1.5, 1.5);
   // 아이 자신
   crayLine([[X(.22), Y(.5)], [X(.22), Y(.72)]], '#d04080', 2); g.strokeStyle = '#a05030'; g.lineWidth = 1.2; g.beginPath(); g.arc(X(.22), Y(.46), w * .025, 0, 7); g.stroke();
-  crayon(X(.31), Y(.32), '작은꿈', h * .1, '#141014', -.08, { w: 400 });
+  crayon(X(.31), Y(.32), '작은꿈', h * .1, '#141014', -.08, { w: 400, hand: true });
   g.restore();
 }
 function room(mode, t) {
@@ -1241,8 +1244,8 @@ function TapeScene(next) {
         room('morning', k);
         g.fillStyle = '#5a3e26'; g.fillRect(254, 38, 92, 152);
         const cols = ['#b01818', '#141014', '#2a3a9a', '#b01818', '#6a1a6a'];
-        const n = Math.min(70, 14 + k * 9);
-        for (let i = 0; i < n; i++) { const x = hash(i, 3) / 255 * W, y = 8 + hash(i, 9) / 255 * 186, sz = 8 + hash(i, 5) % 22; crayon(x, y, '잊지 마', sz, cols[i % 5], (hash(i, 7) / 255 - .5) * .6, { a: .9 }); }
+        const n = Math.min(26, 6 + k * 4);
+        for (let i = 0; i < n; i++) { const x = 30 + (i * 67 % 340) + (hash(i, 3) / 255 - .5) * 30, y = 20 + ((i * 37) % 170) + (hash(i, 9) / 255 - .5) * 16, sz = 16 + hash(i, 5) % 20; crayon(x, y, '잊지 마', sz, cols[i % 5], (hash(i, 7) / 255 - .5) * .6, { a: .9, hand: true }); }
         for (let i = 0; i < 4; i++) { g.save(); g.translate(60 + i * 70, 250 + (i % 2) * 18); g.rotate(-.3 + i * .25); g.fillStyle = '#ece4cf'; g.fillRect(-16, -11, 32, 22); crayLine([[-10, 6], [-4, -6], [2, 6]], '#2f8a3a', 1.5); g.restore(); }
         camOSD(true, 'MAR.03 1991', 'AM 7:12');
         return;
