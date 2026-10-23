@@ -2,7 +2,7 @@
 // 방 하나 = Durable Object 하나. 그 방의 모든 플레이어가 같은 객체에 연결되므로
 // 위치·잡힘·감옥·흔적·문을 전부 서버 한 곳에서 판정한다 (권위 서버).
 
-import { CFG, TRACE_INFO, genWorld, stepPlayer, collide } from '../public/multi/shared.js';
+import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide } from '../public/multi/shared.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
@@ -43,7 +43,7 @@ export class Room {
     this.inited = false; this.code = '';
     this.players = new Map(); this.order = [];
     this.host = null;
-    this.settings = { dreams: 1, max: 8 };
+    this.settings = { dreams: 1, max: 8, map: 'random' };
     this.phase = 'lobby';
     this.g = null; this.loop = null; this.backTimer = null;
   }
@@ -131,6 +131,7 @@ export class Room {
         if (this.phase !== 'lobby' || p.id !== this.host) return;
         this.settings.max = clamp(m.max | 0 || this.settings.max, Math.max(2, this.players.size), CFG.MAX_PLAYERS);
         this.settings.dreams = clamp(m.dreams | 0 || this.settings.dreams, 1, Math.min(CFG.MAX_DREAMS, this.settings.max - 1));
+        if (m.map === 'random' || MAPS.includes(m.map)) this.settings.map = m.map;
         this.pushLobby();
         break;
       case 'start':
@@ -159,7 +160,7 @@ export class Room {
   startMsg(p) {
     const g = this.g;
     return {
-      type: 'start', seed: g.seed, you: p.id, intro: g.intro, time: g.time,
+      type: 'start', seed: g.seed, map: g.map, you: p.id, intro: g.intro, time: g.time,
       players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role })),
       me: { x: p.x, z: p.z, yaw: p.yaw, seq: p.seq }
     };
@@ -169,7 +170,8 @@ export class Room {
     clearTimeout(this.backTimer);
     const ids = this.order.filter(id => this.players.has(id));
     const seed = (Math.random() * 2147483647) | 0;
-    const w = genWorld(seed);
+    const map = this.settings.map === 'random' || !MAPS.includes(this.settings.map) ? MAPS[(Math.random() * MAPS.length) | 0] : this.settings.map;
+    const w = genWorld(seed, map);
     const pool = [...shuffle(ids.filter(id => this.players.get(id).want)), ...shuffle(ids.filter(id => !this.players.get(id).want))];
     const dreams = new Set(pool.slice(0, this.settings.dreams));
     const spA = shuffle(w.spawnA.slice());
@@ -185,7 +187,7 @@ export class Room {
       });
     }
     this.g = {
-      seed, w, time: CFG.GAME_TIME, intro: CFG.INTRO, t: 0,
+      seed, map, w, time: CFG.GAME_TIME, intro: CFG.INTRO, t: 0,
       tp: TRACE_INFO.map(() => 0), tr: TRACE_INFO.map(() => 0), tby: TRACE_INFO.map(() => null),
       rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0
     };

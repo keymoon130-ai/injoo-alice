@@ -26,14 +26,16 @@ export const CFG = {
   INTRO: 10,
   ESCAPE_R: 2.4,
   MAX_PLAYERS: 8,
-  MAX_DREAMS: 3,
+  MAX_DREAMS: 7,         // 꿈은 (전체 인원 - 1)명까지
   REVEAL_EVERY: 30,     // 꿈의 지도에 앨리스 위치가 드러나는 주기 (초)
   REVEAL_SHOW: 6        // 드러난 위치가 지도에 남아 있는 시간 (초)
 };
 
-export const GR = { FOREST: 0, RED: 1, STONE: 2, BOARD: 3, GRASS: 4, RUG: 5 };
-export const WL = { NONE: 0, WALL: 1, TOWER: 2, CELL: 3, BARS: 4, CURTAIN: 5 };
-export const WALL_H = [0, 1.7, 2.6, 1.4, 0, 2.2];
+export const GR = { FOREST: 0, RED: 1, STONE: 2, BOARD: 3, GRASS: 4, RUG: 5, CARPET: 6, YCARPET: 7, DARK: 8 };
+export const WL = { NONE: 0, WALL: 1, TOWER: 2, CELL: 3, BARS: 4, CURTAIN: 5, VELVET: 6, YPAPER: 7, PILLAR: 8 };
+export const WALL_H = [0, 1.7, 2.6, 1.4, 0, 2.2, 2.4, 1.6, 1.6];
+export const MAPS = ['forest', 'theater', 'tea'];
+export const MAP_NAMES = { random: '랜덤', forest: '숲', theater: '푸른 앨리스의 극장', tea: '노란 앨리스의 다과회 실' };
 
 export const TRACE_INFO = [
   { kind: 'sword',    suit: '♠', color: '#b42121', name: '붉은 앨리스의 검',     dur: 3 },
@@ -60,7 +62,135 @@ function segDist(px, pz, ax, az, bx, bz) {
   return Math.sqrt(dx * dx + dz * dz);
 }
 
-export function genWorld(seed) {
+export function genWorld(seed, map) {
+  if (map === 'theater') return genTheater(seed);
+  if (map === 'tea') return genTea(seed);
+  return genForest(seed);
+}
+
+// 공통: 성 감옥처럼 창살 달린 감옥 세 칸 (북쪽이 안쪽, 남쪽이 문)
+function buildCells(N, wall, setW, zBars, xs, sepWall) {
+  const cells = [];
+  for (const [x0, x1] of xs) {
+    for (let x = x0; x <= x1; x++) setW(x, zBars, WL.BARS);
+    cells.push({ x: (x0 + x1 + 1) / 2, z: zBars - 1.5, door: { x: (x0 + x1 + 1) / 2, z: zBars + 1.4 } });
+  }
+  for (let i = 0; i <= xs.length; i++) { const x = i < xs.length ? xs[i][0] - 1 : xs[xs.length - 1][1] + 1; for (let z = zBars - 4; z <= zBars; z++) setW(x, z, sepWall); }
+  return cells;
+}
+function finishTrees(N, list) {
+  const treeCells = new Array(N * N);
+  for (const t of list) { const ci = (t.z | 0) * N + (t.x | 0); (treeCells[ci] || (treeCells[ci] = [])).push(t); }
+  return treeCells;
+}
+
+/* ---------------- 푸른 앨리스의 극장 ---------------- */
+function genTheater(seed) {
+  const N = CFG.N, r = mulberry32(seed >>> 0);
+  const ground = new Uint8Array(N * N).fill(GR.CARPET), wall = new Uint8Array(N * N).fill(WL.VELVET);
+  const I = (x, z) => z * N + x;
+  const setW = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) wall[I(x, z)] = t; };
+  const setG = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) ground[I(x, z)] = t; };
+  const carve = (x0, z0, x1, z1, g) => { for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { setW(x, z, 0); if (g != null) setG(x, z, g); } };
+  carve(10, 23, 70, 60, GR.CARPET);       // 객석
+  carve(14, 13, 66, 22, GR.BOARD);        // 무대
+  carve(10, 9, 70, 11, GR.DARK);          // 무대 뒤 복도
+  carve(15, 12, 16, 12, GR.DARK); carve(64, 12, 65, 12, GR.DARK);     // 무대 옆 통로
+  for (let x = 17; x <= 63; x++) setW(x, 12, WL.CURTAIN);
+  carve(31, 3, 47, 8, GR.STONE);          // 무대 아래 감옥
+  const cells = buildCells(N, wall, setW, 8, [[33, 35], [37, 39], [41, 43]], WL.WALL);
+  for (let x = 31; x <= 47; x++) if (x < 32 || x > 44) setW(x, 8, WL.WALL);
+  carve(3, 2, 9, 9, GR.RUG); carve(71, 2, 77, 9, GR.RUG);           // 분장실
+  carve(3, 10, 8, 66, GR.DARK); carve(72, 10, 77, 66, GR.DARK);      // 양옆 발코니 복도
+  for (const z of [10]) { carve(9, z, 9, z + 1, GR.DARK); carve(71, z, 71, z + 1, GR.DARK); }
+  for (const z of [29, 30, 44, 45, 56, 57]) { setW(9, z, 0); setG(9, z, GR.DARK); setW(71, z, 0); setG(71, z, GR.DARK); }
+  carve(10, 62, 70, 77, GR.RUG);          // 로비
+  for (const [x0, x1] of [[19, 22], [38, 42], [58, 61]]) carve(x0, 61, x1, 61, GR.CARPET);
+  for (const z of [63, 64]) { setW(9, z, 0); setG(9, z, GR.DARK); setW(71, z, 0); setG(71, z, GR.DARK); }
+  for (const x of [20, 30, 50, 60]) for (const z of [66, 72]) setW(x, z, WL.PILLAR);
+  // 객석 의자 (부딪히지만 앉은 높이라 시야는 막지 않는다)
+  const seats = [], mann = [];
+  for (let z = 27; z <= 56; z += 2) for (const [x0, x1] of [[13, 36], [44, 67]]) for (let x = x0; x <= x1; x++) {
+    const sx = x + .5, sz = z + .5; seats.push({ x: sx, z: sz, r: .38, s: 0, seat: true });
+    if (r() < .14) mann.push({ x: sx, z: sz - .05 });
+  }
+  const traces = [
+    { x: 6, z: 5 }, { x: 40, z: 24.6 }, { x: 74, z: 5 }, { x: 16, z: 73 }, { x: 64, z: 73 }
+  ].map((p, i) => ({ id: i, ...TRACE_INFO[i], x: p.x + (r() - .5) * .8, z: p.z + (r() - .5) * .4 }));
+  const props = [];
+  for (const m of mann) props.push({ kind: 'mann', x: m.x, z: m.z });
+  for (const s of seats) props.push({ kind: 'seat', x: s.x, z: s.z });
+  const displays = []; for (const dx of [-14, 14, -18, 18, -22, 22, -10, 10]) displays.push({ x: 40 + dx, z: 21.4 });
+  for (const d of displays) props.push({ kind: 'pole', x: d.x, z: d.z });
+  for (let x = 33; x <= 43; x++) if (wall[I(x, 8)] === WL.BARS) props.push({ kind: 'bars', x: x + .5, z: 8.5 });
+  const spawnA = [[20, 70], [30, 75], [50, 75], [60, 70], [5.5, 30], [74.5, 30], [5.5, 50], [74.5, 50]].map(([x, z]) => ({ x, z }));
+  const spawnD = [{ x: 38, z: 17 }, { x: 42, z: 17 }, { x: 40, z: 20 }, { x: 34, z: 15 }, { x: 46, z: 15 }, { x: 30, z: 18 }, { x: 50, z: 18 }];
+  const doorCands = [{ x: 40, z: 17 }, { x: 40, z: 74 }, { x: 5.5, z: 62 }, { x: 74.5, z: 62 }];
+  return { seed, N, map: 'theater', indoor: true, ground, wall, trees: seats, treeCells: finishTrees(N, seats), cells, displays, traces, props, spawnA, spawnD, doorCands, path: [],
+    labels: [{ t: '무대', x: 40, z: 17 }, { t: '감옥 (무대 아래)', x: 39, z: 5.5 }, { t: '객석', x: 40, z: 42 }, { t: '로비', x: 40, z: 70 }, { t: '분장실', x: 6, z: 5 }, { t: '분장실', x: 74, z: 5 }] };
+}
+
+/* ---------------- 노란 앨리스의 다과회 실 (끝없이 이어지는 노란 방) ---------------- */
+function genTea(seed) {
+  const N = CFG.N, r = mulberry32(seed >>> 0);
+  const ground = new Uint8Array(N * N).fill(GR.YCARPET), wall = new Uint8Array(N * N);
+  const I = (x, z) => z * N + x;
+  const setW = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) wall[I(x, z)] = t; };
+  const setG = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) ground[I(x, z)] = t; };
+  const R = 8, S = 10; // 8x8 개의 방, 한 변 10칸
+  for (let i = 0; i < N; i++) { setW(i, 0, WL.YPAPER); setW(i, N - 1, WL.YPAPER); setW(0, i, WL.YPAPER); setW(N - 1, i, WL.YPAPER); }
+  for (let k = 1; k < R; k++) for (let i = 0; i < N; i++) { setW(k * S, i, WL.YPAPER); setW(i, k * S, WL.YPAPER); }
+  // 미로 (모든 방이 이어지게) + 고리 몇 개
+  const vis = new Uint8Array(R * R), open = (ax, az, bx, bz) => {
+    const w = 2 + (r() < .35 ? 1 : 0);
+    if (ax !== bx) { const x = Math.max(ax, bx) * S, z0 = Math.min(az, bz) * S + 2 + ((r() * (S - 3 - w)) | 0); for (let z = z0; z < z0 + w; z++) setW(x, z, 0); }
+    else { const z = Math.max(az, bz) * S, x0 = ax * S + 2 + ((r() * (S - 3 - w)) | 0); for (let x = x0; x < x0 + w; x++) setW(x, z, 0); }
+  };
+  const stack = [[0, 0]]; vis[0] = 1;
+  while (stack.length) {
+    const [cx, cz] = stack[stack.length - 1];
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => [cx + dx, cz + dz]).filter(([x, z]) => x >= 0 && z >= 0 && x < R && z < R && !vis[z * R + x]);
+    if (!nb.length) { stack.pop(); continue; }
+    const [nx, nz] = nb[(r() * nb.length) | 0]; vis[nz * R + nx] = 1; open(cx, cz, nx, nz); stack.push([nx, nz]);
+  }
+  for (let k = 0; k < 26; k++) { const x = (r() * R) | 0, z = (r() * R) | 0; if (r() < .5 && x < R - 1) open(x, z, x + 1, z); else if (z < R - 1) open(x, z, x, z + 1); }
+  // 가운데: 문 없는 방의 긴 식탁 (감옥)
+  for (let z = 31; z <= 49; z++) for (let x = 31; x <= 49; x++) { setW(x, z, 0); }
+  for (let i = 30; i <= 50; i++) { setW(i, 30, WL.YPAPER); setW(30, i, WL.YPAPER); setW(50, i, WL.YPAPER); setW(i, 50, WL.YPAPER); }
+  for (const [x, z] of [[39, 50], [40, 50], [41, 50], [30, 44], [30, 45], [50, 44], [50, 45]]) setW(x, z, 0);
+  for (let z = 31; z <= 34; z++) for (let x = 31; x <= 49; x++) setG(x, z, GR.RUG);
+  const cells = buildCells(N, wall, setW, 35, [[33, 35], [37, 39], [41, 43]], WL.YPAPER);
+  for (let x = 31; x <= 49; x++) if (wall[I(x, 35)] === 0 && (x < 32 || x > 44)) setW(x, 35, WL.YPAPER);
+  // 방마다 기둥·가구
+  const rooms = [];
+  for (let z = 0; z < R; z++) for (let x = 0; x < R; x++) { if (x >= 3 && x <= 4 && z >= 3 && z <= 4) continue; rooms.push({ x: x * S + 5, z: z * S + 5, ix: x, iz: z }); }
+  const props = [];
+  for (const rm of rooms) {
+    const q = r();
+    if (q < .22) { setW(rm.x - 1, rm.z - 1, WL.PILLAR); }
+    else if (q < .48) { for (let k = 0; k < 4; k++) props.push({ kind: 'table', x: rm.x - 1.5 + k, z: rm.z }); for (let k = 0; k < 4; k++) { props.push({ kind: 'chair', x: rm.x - 1.5 + k, z: rm.z - 1.1 }); props.push({ kind: 'chair', x: rm.x - 1.5 + k, z: rm.z + 1.1 }); } }
+    else if (q < .58) props.push({ kind: 'chair', x: rm.x + (r() - .5) * 4, z: rm.z + (r() - .5) * 4 });
+  }
+  for (let k = 0; k < 6; k++) props.push({ kind: 'table', x: 37.5 + k, z: 32.5 });
+  // 흔적: 가운데에서 멀리, 서로 떨어진 방에
+  const far = rooms.filter(rm => Math.hypot(rm.x - 40, rm.z - 40) > 18).sort(() => r() - .5);
+  const picks = []; for (const rm of far) { if (picks.every(p => Math.hypot(p.x - rm.x, p.z - rm.z) > 22)) picks.push(rm); if (picks.length >= 5) break; }
+  while (picks.length < 5) picks.push(far[picks.length]);
+  const traces = picks.map((p, i) => ({ id: i, ...TRACE_INFO[i], x: p.x + .5, z: p.z + .5 }));
+  for (const t of traces) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { if (wall[I((t.x | 0) + dx, (t.z | 0) + dz)] === WL.PILLAR) setW((t.x | 0) + dx, (t.z | 0) + dz, 0); }
+  const used = new Set(picks);
+  const spawnA = rooms.filter(rm => !used.has(rm) && Math.hypot(rm.x - 40, rm.z - 40) > 20).sort(() => r() - .5).slice(0, 8).map(rm => ({ x: rm.x + .5, z: rm.z + 2.5 }));
+  for (const sp of spawnA) setW(sp.x | 0, sp.z | 0, 0);
+  const spawnD = [{ x: 40, z: 45 }, { x: 37, z: 46 }, { x: 43, z: 46 }, { x: 35, z: 43 }, { x: 45, z: 43 }, { x: 40, z: 48 }, { x: 38, z: 41 }];
+  const doorCands = [{ x: 5, z: 5 }, { x: 75, z: 5 }, { x: 5, z: 75 }, { x: 75, z: 75 }];
+  const displays = []; for (const dx of [-6, 6, -8, 8, -4, 4, -2, 2]) displays.push({ x: 40 + dx, z: 48.6 });
+  for (const d of displays) props.push({ kind: 'pole', x: d.x, z: d.z });
+  for (let x = 33; x <= 43; x++) if (wall[I(x, 35)] === WL.BARS) props.push({ kind: 'bars', x: x + .5, z: 35.5 });
+  return { seed, N, map: 'tea', indoor: true, fogOfWar: true, ground, wall, trees: [], treeCells: new Array(N * N), cells, displays, traces, props, spawnA, spawnD, doorCands, path: [],
+    labels: [{ t: '긴 식탁 (감옥)', x: 39, z: 32.5 }] };
+}
+
+function genForest(seed) {
   const N = CFG.N, r = mulberry32(seed >>> 0);
   const ground = new Uint8Array(N * N), wall = new Uint8Array(N * N);
   const I = (x, z) => z * N + x;
@@ -166,7 +296,7 @@ export function genWorld(seed) {
     (treeCells[ci] || (treeCells[ci] = [])).push(t);
   }
 
-  return { seed, N, ground, wall, trees, treeCells, cells, displays, traces, props, spawnA, spawnD, doorCands, castle: { x0: C0, z0: C0, x1: C1 + 1, z1: C1 + 1, cx: 40, cz: 40 }, path };
+  return { seed, N, map: 'forest', labels: [{ t: '감옥', x: 38.5, z: 33.5 }, { t: '성문', x: 40, z: 50.5 }], ground, wall, trees, treeCells, cells, displays, traces, props, spawnA, spawnD, doorCands, castle: { x0: C0, z0: C0, x1: C1 + 1, z1: C1 + 1, cx: 40, cz: 40 }, path };
 }
 
 export function solid(w, x, z) {
