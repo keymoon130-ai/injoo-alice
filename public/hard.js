@@ -443,7 +443,7 @@ function HCh1() {
   const foes = [];
   for (let i = 10; i < PL - 6; i += 9 + (R() * 3 | 0)) { const p = path[i]; foes.push({ x: p.x + (R() - .5) * .4, z: p.z + (R() - .5) * .4, alive: true, fall: 0, i, mode: 'stand', said: false, sp: .7 }); }
   // 숲에서 튀어나오는 것 (갑툭튀)
-  const ambush = [Math.floor(PL * .4), Math.floor(PL * .75)].map(i => ({ i, done: false, warn: -1 }));
+  const ambush = []; // 옆에서 튀어나오는 괴물은 뺐다 (숲으로 들어가면 나오는 괴물 떼만 남김)
   const LINES = ['…길을 비켜줄게.', '아파.', '왜 베었어?', '우리도 앨리스였어.', '촛불을 따라가.', '길이 점점 빨개지네.', '벗어나면 안 돼.', '너도 곧 여기 서게 될 거야.', '돌아갈 길은 없어.', '…안녕, 나.', '거의 다 왔어.', '끝까지 가.', '…'];
   const cam = { x: path[0].x, z: path[0].z, yaw: Math.atan2(path[3].z - path[0].z, path[3].x - path[0].x), bob: 0 };
   let warnAt = null, prog = 0, slashT = 9, flash = 0, phase = 'walk', endT = 0, bob = 0, stepAcc = 0, warnT = 0, offT = 0, horde = null, warned = false, kills = 0, scareT = 0, idleT = 0, slashed = false, moved = false, hintSaid = false, firstSeen = false;
