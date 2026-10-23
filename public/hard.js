@@ -1161,14 +1161,35 @@ function camOSD(rec, date, time, night) {
 }
 function TapeScene(next) {
   const name = api.playerName() || '이름 없는 아이';
-  const T0 = 1.6, S2 = 22, S3 = 37, S4 = 55, S5 = 66, END = 78;
+  const T0 = 1.6, S2 = 24, S3 = 39, S4 = 57, S5 = 68, END = 80;
+  // 소리 없이 자막으로만: [ ] 는 소리 묘사, 나머지는 대사. 한 글자씩 타자 치듯 나온다.
   const subsAt = [
-    [T0 + .6, '「 찍고 있어? …안녕! 이거 봐, 내가 그렸어. 」', 3.4], [T0 + 4.4, '「 여기는 숲이고, 이건 노래하는 극장이고… 」', 3.4],
-    [T0 + 8.2, '「 이건 성이고, 여기서 다과회를 해. 」', 3], [T0 + 11.6, '「 그리고 이건… 내 친구 작은 꿈이야. 」', 3.6],
-    [T0 + 15.6, '「 꿈이는 내가 안 꿔 주면 없어진대. 그래서 매일 꿔 줘. 」', 3.8],
-    [S2 + 1.5, '「 엄마, 그만 찍어. 」', 2.4], [S2 + 4.6, '「 …이제 그런 거 안 믿어. 나 열한 살이야. 」', 3.4], [S2 + 9.2, '「 …안녕. 」', 2.4],
-    [S5 + 2, '', .1]
+    [T0 + .3, '[ 테이프 돌아가는 소리 ]', 1.6, 'cc'],
+    [T0 + 2, '찍고 있어? …안녕!', 2.4], [T0 + 4.5, '이거 봐, 내가 그렸어.', 2.4],
+    [T0 + 7.1, '여기는 숲이고, 이건 노래하는 극장이고…', 3], [T0 + 10.3, '이건 성. 여기서 다과회를 해.', 2.8],
+    [T0 + 13.4, '그리고 이건…', 1.6], [T0 + 15.1, '내 친구, 작은 꿈이야.', 2.6, 'warm'],
+    [T0 + 17.9, '꿈이는 내가 안 꿔 주면 없어진대.', 2.6], [T0 + 20.2, '그래서 매일 꿔 줘.', 1.8, 'warm'],
+    [S2 + .4, '[ 4년 뒤 ]', 1.6, 'cc'],
+    [S2 + 2.2, '엄마, 그만 찍어.', 2.2], [S2 + 4.8, '…이제 그런 거 안 믿어.', 2.4], [S2 + 7.4, '나 열한 살이야.', 2], [S2 + 10.2, '…안녕.', 2.4, 'quiet'],
+    [S3 + 1.5, '[ 아무도 없다 ]', 3, 'cc'], [S3 + 6, '[ 삐걱 ]', 1.8, 'cc'],
+    [S3 + 9, '[ 무언가 종이를 긁는 소리 ]', 3, 'cc'], [S3 + 12.6, '…꿔 줘.', 2, 'other'], [S3 + 14.8, '꿔 줘 꿔 줘 꿔 줘 꿔 줘', 2.4, 'other'],
+    [S4 + 1.2, '[ 방에 아무도 없다 ]', 2.6, 'cc'], [S4 + 5.4, '[ 멀리서 부르는 소리 ]', 2.6, 'cc'],
+    [S5 + 2.5, '[ 테이프 한 개 ]', 2.4, 'cc'], [S5 + 6.4, '…다음은 너야.', 3, 'other']
   ];
+  const cap = { text: '', kind: '', t0: 0, dur: 0 };
+  function drawCap(t) {
+    const age = t - cap.t0; if (!cap.text || age > cap.dur + .3) return;
+    const n = cap.kind === 'cc' ? cap.text.length : Math.min(cap.text.length, Math.floor(age * 16));
+    const str = cap.text.slice(0, n);
+    const a = clamp(Math.min(age * 4, (cap.dur + .3 - age) * 3), 0, 1);
+    g.save(); g.globalAlpha = a;
+    g.font = `${cap.kind === 'cc' ? 400 : 700} ${cap.kind === 'cc' ? 12 : 14}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const w = g.measureText(cap.text).width + 16, y = H - 62 + (cap.kind === 'other' ? (Math.random() - .5) * 2 : 0);
+    g.fillStyle = 'rgba(0,0,0,.78)'; g.fillRect(W / 2 - w / 2, y - 11, w, 22);
+    g.fillStyle = cap.kind === 'cc' ? '#bdb7a8' : cap.kind === 'other' ? (chicken() ? '#ff9ec4' : '#e02424') : cap.kind === 'warm' ? '#ffe9b0' : cap.kind === 'quiet' ? '#a8a4a0' : '#f4f0e6';
+    g.fillText(str, W / 2 + (cap.kind === 'other' ? (Math.random() - .5) * 2 : 0), y);
+    g.restore();
+  }
   let si = 0, scratchT = 0;
   const S = {
     noPause: true,
@@ -1176,7 +1197,7 @@ function TapeScene(next) {
     exit() { api.osd.on = true; },
     update(dt) {
       const t = this.t;
-      while (si < subsAt.length && t >= subsAt[si][0]) { if (subsAt[si][1]) say(subsAt[si][1], subsAt[si][2]); si++; }
+      while (si < subsAt.length && t >= subsAt[si][0]) { const q = subsAt[si]; cap.text = q[1]; cap.dur = q[2]; cap.kind = q[3] || ''; cap.t0 = q[0]; if (cap.kind === 'other') { fx.glitch = .8; } else sfx.tick(); si++; }
       if (t > T0 && t < S2 && Math.random() < dt * .4) sfx.music([523.25, 587.33, 659.25, 783.99][Math.random() * 4 | 0], 10);
       if (t >= S3 && t < S4) {
         scratchT -= dt;
@@ -1189,7 +1210,8 @@ function TapeScene(next) {
       if (t > END) next ? next() : go(api.Title());
     },
     key() {}, pointer() {},
-    draw() {
+    draw() { this.drawScene(); drawCap(this.t); },
+    drawScene() {
       const t = this.t;
       if (t < T0) { // 재생 시작
         g.fillStyle = '#1430a6'; g.fillRect(-20, -20, W + 40, H + 40);
