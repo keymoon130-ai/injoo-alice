@@ -441,7 +441,7 @@ function HCh1() {
   e.bake();
   // 그것들: 길을 막고 서 있다
   const foes = [];
-  for (let i = 10; i < PL - 6; i += 9 + (R() * 3 | 0)) { const p = path[i]; foes.push({ x: p.x + (R() - .5) * .4, z: p.z + (R() - .5) * .4, alive: true, fall: 0, i, mode: 'stand', said: false, sp: .7 }); }
+  for (let i = 10; i < PL - 6; i += 9 + (R() * 3 | 0)) { const p = path[i]; foes.push({ x: p.x + (R() - .5) * .4, z: p.z + (R() - .5) * .4, alive: true, fall: 0, i, fi: i, mode: 'stand', said: false, sp: .7 }); }
   // 숲에서 튀어나오는 것 (갑툭튀)
   const ambush = []; // 옆에서 튀어나오는 괴물은 뺐다 (숲으로 들어가면 나오는 괴물 떼만 남김)
   const LINES = ['…길을 비켜줄게.', '아파.', '왜 베었어?', '우리도 앨리스였어.', '촛불을 따라가.', '길이 점점 빨개지네.', '벗어나면 안 돼.', '너도 곧 여기 서게 될 거야.', '돌아갈 길은 없어.', '…안녕, 나.', '거의 다 왔어.', '끝까지 가.', '…'];
@@ -501,11 +501,18 @@ function HCh1() {
           if (!f.alive) continue;
           const fd = Math.hypot(f.x - cam.x, f.z - cam.z);
           if (!firstSeen && fd < 7) { firstSeen = true; }
-          if (fd < 6.5 && f.mode === 'stand') { f.mode = 'come'; sfx.whisper(1.4, 0); }
-          if (f.mode === 'come' || f.mode === 'rush') {
-            if (f.wait > 0) { f.wait -= dt; continue; }
-            const sp = (f.mode === 'rush' ? 1.9 : f.sp + kills * .02) * dt;
-            const ox = f.x, oz = f.z; const p = { x: f.x, z: f.z }; e.move(p, (cam.x - f.x) / fd * sp, (cam.z - f.z) / fd * sp, .2); f.x = p.x; f.z = p.z; if (ox === f.x && oz === f.z && fd > 1) { f.x += (cam.x - f.x) / fd * sp; f.z += (cam.z - f.z) / fd * sp; }
+          // 길 위에서, 내 앞쪽 가까이 있을 때만 깨어난다 (숲을 가로질러 오지 않음)
+          if (f.mode === 'stand' && fd < 6.5 && f.fi - pi > -2 && f.fi - pi < 9) { f.mode = 'come'; sfx.whisper(1.4, 0); }
+          if (f.mode === 'come') {
+            const sp = (f.sp + kills * .02) * dt;
+            let tx = cam.x, tz = cam.z;
+            if (Math.abs(f.fi - pi) > 1 || d > 1.3) { // 촛불 길을 따라 한 칸씩
+              const nx = path[f.fi]; if (Math.hypot(nx.x - f.x, nx.z - f.z) < .25 && f.fi !== pi) f.fi += f.fi > pi ? -1 : 1;
+              tx = path[f.fi].x; tz = path[f.fi].z;
+              if (Math.abs(f.fi - pi) <= 1) { tx = cam.x; tz = cam.z; }
+            }
+            const td = Math.hypot(tx - f.x, tz - f.z) || 1, mv = Math.min(td, sp);
+            f.x += (tx - f.x) / td * mv; f.z += (tz - f.z) / td * mv;
           }
           if (fd < .72) { api.die(f.mode === 'rush' ? '숲에서 무언가가 튀어나왔다.' : '그것이 당신을 붙잡았다.', HCh1); return; }
         }
