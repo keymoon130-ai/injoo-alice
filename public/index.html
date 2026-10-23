@@ -115,7 +115,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="hard.js?v=8"></script>
+<script src="hard.js?v=9"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -148,6 +148,11 @@ let hard = false;
 let hprog = store.get('hprog', 1);
 let hdone = store.get('hdone', false);
 let hardSeen = store.get('hardSeen', false);
+let endings = store.get('endings', {});            // normal / hardBad / hardTrue / archive
+let hroute = store.get('hroute', 'bad');           // 하드 4장에서 고른 길
+let hasTape = store.get('tape', false), tapeSeen = store.get('tapeSeen', false), tapePending = store.get('tapePending', false);
+let bright = store.get('bright', 2);               // 밝기 0~4
+const BRIGHT = [[.72, -4], [.86, -2], [1, 0], [1.2, 7], [1.45, 16]];
 
 /* ---------------- audio ---------------- */
 const A = { ctx:null, master:null, noise:null, drone:null, muted:false };
@@ -338,6 +343,7 @@ let now = 0, tape = 2591;
 for (let i = 3; i < out.data.length; i += 4) out.data[i] = 255;
 
 function post(dt){
+  const BR = BRIGHT[bright] || BRIGHT[2];
   const sd = g.getImageData(0, 0, W, H).data, d = out.data;
   const soft = chicken && scene && scene.game ? .55 : 1;
   const ns = (fx.noise + fx.glitch * .5) * 255 * soft;
@@ -355,15 +361,15 @@ function post(dt){
     if (band.life > 0 && y >= band.y && y < band.y + band.h){ sh += band.s + (Math.random() * 4 | 0); extra = .5; }
     if (y > H - 6){ sh += 7 + (Math.random() * 9 | 0); extra = .9; }
     const rd = Math.abs(y - roll), rb = rd < 18 ? (1 - rd / 18) * 13 : 0;
-    const sl = (y & 1) ? .8 : 1, k = sl * fl, row = y * W, amp = ns + extra * 220;
+    const sl = (y & 1) ? .8 : 1, k = sl * fl * BR[0], row = y * W, amp = ns + extra * 220, bo = BR[1];
     for (let x = 0; x < W; x++){
       let sx = x - sh; if (sx < 0) sx = 0; else if (sx >= W) sx = W - 1;
       let xr = sx + ca; if (xr >= W) xr = W - 1;
       let xb = sx - ca; if (xb < 0) xb = 0;
       const n = (Math.random() - .5) * amp + rb, o = (row + x) * 4;
-      d[o]     = (sd[(row + xr) * 4] + n) * k;
-      d[o + 1] = (sd[(row + sx) * 4 + 1] + n) * k;
-      d[o + 2] = (sd[(row + xb) * 4 + 2] + n) * k;
+      d[o]     = (sd[(row + xr) * 4] + n) * k + bo;
+      d[o + 1] = (sd[(row + sx) * 4 + 1] + n) * k + bo;
+      d[o + 2] = (sd[(row + xb) * 4 + 2] + n) * k + bo;
     }
   }
   octx.putImageData(out, 0, 0);
@@ -446,7 +452,9 @@ window.addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (paused) {
     if (k === 'Escape' || k === 'p') setPause(false);
-    else if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'w' || k === 's') { pauseSel = 1 - pauseSel; sfx.tick(); }
+    else if (k === 'ArrowUp' || k === 'w') { pauseSel = (pauseSel + 2) % 3; sfx.tick(); }
+    else if (k === 'ArrowDown' || k === 's') { pauseSel = (pauseSel + 1) % 3; sfx.tick(); }
+    else if ((k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') && pauseSel === 1) { bright = k === 'ArrowLeft' || k === 'a' ? Math.max(0, bright - 1) : Math.min(4, bright + 1); store.set('bright', bright); sfx.tick(); }
     else if (k === 'Enter' || k === ' ') pauseChoose(pauseSel);
     return;
   }
@@ -552,6 +560,7 @@ const T = {
   i3:[{ t:'제 3 장', s:12, c:'#7a7268', f:'m' }, { t:'♥  초 록 의  여 왕', s:26, c:'#3e8a4c', w:800 }, '', '세 번째 앨리스는 아름다웠습니다.', '사람들은 그녀를 여왕이라 불렀고', '그녀는 뒤틀린 나라의 왕좌에 앉았습니다.', '', { t:'하지만 아름다운 것은 썩기 마련입니다.', c:'#8d8478' }, '', { t:'초가 다 타기 전에.', s:11, c:'#b42121', f:'m' }],
   e3:['여왕은 끝내 거울 앞을', '떠나지 못했습니다.', '', '그 나라의 왕좌는 지금도', '비어 있지 않습니다.', '', { t:'무언가가 그 위에 앉아', c:'#3e8a4c' }, { t:'다음 손님을 기다리고 있습니다.', c:'#3e8a4c' }],
   i4:[{ t:'제 4 장', s:12, c:'#7a7268', f:'m' }, { t:'♣  노 란  쌍 둥 이', s:26, c:'#b49b2e', w:800 }, '', '네 번째 앨리스는 둘이었습니다.', '호기심 많은 남매는', '숲을 지나고, 성에 들어가', '다과회에 초대를 받았습니다.', '', { t:'그리고 그것은 꿈이었습니다.', c:'#8d8478' }],
+  e4t:['붉은 검사는 다시 한 번', '길을 막아섰습니다.', '', '이번에는 누군가를', '지키기 위해서.', '', '다과회의 문이 열렸습니다.', '', { t:'…그래도 꿈은 아직 배가 고픕니다.', c:'#b42121' }],
   e4:['남매는 끝내 깨어나지 못했습니다.', '', '식탁 위에는', '주인 없는 초대장 한 장이', '남아 있었습니다.', '', { t:'받는 사람 ─', c:'#b42121' }],
   i5:[{ t:'최 종 장', s:12, c:'#7a7268', f:'m' }, { t:'?  다 섯 번 째  앨 리 스', s:24, c:'#e6e1d8', w:800, j:true }, '', '네 명의 앨리스는 꿈속에 남았습니다.', '그래도 꿈은 아직 배가 고픕니다.', '', '이 테이프를 여기까지 본 당신에게', '하나만 묻겠습니다.'],
   fin:['꿈은', { t:'다섯 번째 앨리스를 찾았습니다.', c:'#e6e1d8' }, '', { t:'─ 기록 끝 ─', c:'#7a7268', f:'m', s:12 }, '', { t:'이 테이프를 다른 사람에게', c:'#8d8478' }, { t:'넘기지 마십시오.', c:'#8d8478' }]
@@ -566,6 +575,117 @@ function startChapter(n){
   else if (n === 3) go(Card(T.i3, () => go(Ch3({ hard:!!H_ })), { drone:.05 }));
   else if (n === 4) go(Card(T.i4, () => go(H_ && HARD.HCh4 ? HARD.HCh4() : Ch4()), { drone:.05 }));
   else go(Card(T.i5, () => go(NameScene()), { drone:.07, pitch:.7 }));
+}
+
+/* ---------------- 기록 · 설정 ---------------- */
+const B32 = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function packSave(){
+  let v = 0;
+  v |= (clamp(progress, 1, 5) - 1); v |= (clamp(hprog, 1, 5) - 1) << 3;
+  v |= (completed ? 1 : 0) << 6; v |= (hdone ? 1 : 0) << 7;
+  v |= (endings.normal ? 1 : 0) << 8; v |= (endings.hardBad ? 1 : 0) << 9; v |= (endings.hardTrue ? 1 : 0) << 10; v |= (endings.archive ? 1 : 0) << 11;
+  v |= (hasTape ? 1 : 0) << 12; v |= (tapeSeen ? 1 : 0) << 13; v |= (chicken ? 1 : 0) << 14; v |= (hardSeen ? 1 : 0) << 15;
+  return v;
+}
+function sumOf(v){ let h = 0x9e3779b1 ^ v; for (let i = 0; i < 3; i++){ h = Math.imul(h ^ (h >>> 15), 0x85ebca6b); h ^= h >>> 13; } return (h >>> 0) & 0xffffff; }
+function saveCode(){
+  const v = packSave(), c = sumOf(v), bits = [];
+  for (let i = 0; i < 16; i++) bits.push((v >> i) & 1); for (let i = 0; i < 24; i++) bits.push((c >> i) & 1);
+  let out = ''; for (let i = 0; i < 40; i += 5){ let n = 0; for (let j = 0; j < 5; j++) n |= bits[i + j] << j; out += B32[n]; }
+  return `ALICE-${out.slice(0, 4)}-${out.slice(4)}`;
+}
+function loadCode(str){
+  const t = String(str || '').toUpperCase().replace(/^ALICE/, '').replace(/[^A-Z0-9]/g, '').replace(/0/g, 'O').replace(/1/g, 'I');
+  if (t.length !== 8) return false;
+  const bits = [];
+  for (const ch of t){ const n = B32.indexOf(ch === 'O' ? 'Q' : ch === 'I' ? 'J' : ch); if (n < 0) return false; for (let j = 0; j < 5; j++) bits.push((n >> j) & 1); }
+  let v = 0, c = 0; for (let i = 0; i < 16; i++) v |= bits[i] << i; for (let i = 0; i < 24; i++) c |= bits[16 + i] << i;
+  if ((c >>> 0) !== sumOf(v)) return false;
+  progress = (v & 7) + 1; hprog = ((v >> 3) & 7) + 1; completed = !!(v >> 6 & 1); hdone = !!(v >> 7 & 1);
+  endings = {}; if (v >> 8 & 1) endings.normal = 1; if (v >> 9 & 1) endings.hardBad = 1; if (v >> 10 & 1) endings.hardTrue = 1; if (v >> 11 & 1) endings.archive = 1;
+  hasTape = !!(v >> 12 & 1); tapeSeen = !!(v >> 13 & 1); chicken = !!(v >> 14 & 1); hardSeen = !!(v >> 15 & 1);
+  store.set('prog', progress); store.set('hprog', hprog); store.set('done', completed); store.set('hdone', hdone); store.set('endings', endings);
+  store.set('tape', hasTape); store.set('tapeSeen', tapeSeen); store.set('chicken', chicken); store.set('hardSeen', hardSeen); store.set('tapePending', false); tapePending = false;
+  return true;
+}
+const ENDS = [
+  { id:'normal', name:'일반 엔딩', sub:'꿈은 다섯 번째 앨리스를 찾았다', col:'#d6ccba', tag:'' },
+  { id:'hardBad', name:'하드 ─ 배드 엔딩', sub:'닫힌 문', col:'#d23030', tag:'BAD' },
+  { id:'hardTrue', name:'하드 ─ 진엔딩', sub:'다시 한 번 길을 막아선 검사', col:'#f0d890', tag:'TRUE' },
+  { id:'archive', name:'기록 보관소 ─ 앨리스 0', sub:'다시 보기', col:'#9fb4ff', tag:'TAPE' }
+];
+function Options(){
+  let sel = 0, msg = '', msgT = 0, mode = 'menu';
+  const rows = () => [
+    ...ENDS.map(e => ({ end:e })),
+    { bright:true },
+    { l:'진행 이어하기 코드', f:() => { mode = 'code'; sfx.clunk(); } },
+    { l:'‹  돌아가기', f:() => go(Title()) }
+  ];
+  const ry = i => 66 + i * 26 + (i >= 4 ? 10 : 0);
+  return {
+    noPause:true,
+    enter(){ setFx({ noise:.1, flicker:.03 }); },
+    exit(){ nameForm.hidden = true; nameInput.blur(); },
+    choose(i){
+      const r = rows()[i]; if (!r) return;
+      if (r.end){ if (r.end.id === 'archive' && endings.archive && HARD){ sfx.clunk(); go(HARD.TapeScene(() => go(Options()))); } else sfx.tick(); return; }
+      if (r.bright){ bright = (bright + 1) % 5; store.set('bright', bright); sfx.tick(); return; }
+      r.f();
+    },
+    submit(){
+      const ok = loadCode(nameInput.value); nameForm.hidden = true; nameInput.blur(); mode = 'code';
+      msg = ok ? '진행 상황을 불러왔습니다.' : '코드가 맞지 않아요. 다시 확인해 주세요.'; msgT = 3; ok ? sfx.bell() : sfx.shh();
+    },
+    key(k){
+      if (mode === 'code'){ if (k === 'Escape' || k === 'Backspace'){ mode = 'menu'; nameForm.hidden = true; } else if (k === 'Enter' && nameForm.hidden) this.openInput(); return; }
+      const n = rows().length;
+      if (k === 'ArrowUp' || k === 'w'){ sel = (sel + n - 1) % n; sfx.tick(); }
+      else if (k === 'ArrowDown' || k === 's'){ sel = (sel + 1) % n; sfx.tick(); }
+      else if ((k === 'ArrowLeft' || k === 'a') && rows()[sel].bright){ bright = Math.max(0, bright - 1); store.set('bright', bright); sfx.tick(); }
+      else if ((k === 'ArrowRight' || k === 'd') && rows()[sel].bright){ bright = Math.min(4, bright + 1); store.set('bright', bright); sfx.tick(); }
+      else if (k === 'Enter' || k === ' ') this.choose(sel);
+      else if (k === 'Escape') go(Title());
+    },
+    openInput(){ nameForm.hidden = false; nameInput.value = ''; nameInput.maxLength = 16; nameInput.placeholder = 'ALICE-XXXX-XXXX'; setTimeout(() => { try{ nameInput.focus(); }catch(_){} }, 30); },
+    pointer(t, x, y){
+      if (t !== 'down' && t !== 'move') return;
+      if (mode === 'code'){
+        if (t !== 'down') return;
+        if (y > 236 && y < 262 && x < 200) { this.openInput(); return; }
+        if (y > 236 && y < 262 && x >= 200) { mode = 'menu'; nameForm.hidden = true; return; }
+        return;
+      }
+      rows().forEach((r, i) => { const yy = ry(i); if (y > yy - 15 && y < yy + 9){ if (t === 'move') sel = i; else { sel = i; if (r.bright){ bright = x < W / 2 ? Math.max(0, bright - 1) : Math.min(4, bright + 1); store.set('bright', bright); sfx.tick(); } else this.choose(i); } } });
+    },
+    update(dt){ msgT -= dt; },
+    draw(){
+      g.fillStyle = '#030303'; g.fillRect(-20, -20, W + 40, H + 40);
+      if (mode === 'code'){
+        txt('진행 이어하기', W / 2, 62, { size:16, color:'#e3dccf', w:800 });
+        txt('이 기기의 코드', W / 2, 98, { size:11, color:'#7a7166', font:MONO });
+        txt(saveCode(), W / 2, 126, { size:22, color:'#f2ece0', font:OSDF });
+        txt('다른 기기에서 이 코드를 입력하면 진행이 옮겨집니다.', W / 2, 156, { size:10, color:'#8d8478', font:MONO });
+        txt('(이름은 옮겨지지 않아요)', W / 2, 172, { size:10, color:'#5f5850', font:MONO });
+        if (nameForm.hidden){ txt('▶ 코드 입력하기', 110, 254, { size:13, color:'#e9e0cf', font:MONO }); txt('‹ 돌아가기', 290, 254, { size:13, color:'#8d8478', font:MONO }); }
+        if (msgT > 0) txt(msg, W / 2, 210, { size:12, color:msg.startsWith('진행') ? '#cfe8d2' : '#ff8080', font:MONO });
+        return;
+      }
+      txt('기록 · 설정', W / 2, 38, { size:15, color:'#e3dccf', w:800 });
+      rows().forEach((r, i) => {
+        const y = ry(i), on = i === sel;
+        if (r.end){
+          const seen = !!endings[r.end.id];
+          txt((on ? '› ' : '  ') + (seen ? r.end.name : '? ? ?'), 60, y, { size:13, color:seen ? r.end.col : '#3a3430', font:MONO, align:'left' });
+          if (seen) { txt(r.end.sub, 60 + 16, y + 12, { size:9, color:'#6f675e', font:MONO, align:'left' }); if (r.end.tag) txt(r.end.tag, W - 56, y, { size:14, color:r.end.col, font:OSDF, align:'right' }); }
+        } else if (r.bright){
+          txt(`${on ? '› ' : '  '}밝기   ◀  ${'■'.repeat(bright + 1)}${'□'.repeat(4 - bright)}  ▶`, 60, y, { size:13, color:on ? '#e9e0cf' : '#6f675e', font:MONO, align:'left' });
+        } else txt((on ? '› ' : '  ') + r.l, 60, y, { size:13, color:on ? '#e9e0cf' : '#6f675e', font:MONO, align:'left' });
+      });
+      // 밝기 확인용 회색 띠
+      for (let i = 0; i < 6; i++){ g.fillStyle = `rgb(${i * 10},${i * 10},${i * 11})`; g.fillRect(250 + i * 14, ry(4) - 9, 12, 10); }
+    }
+  };
 }
 
 /* ---------------- boot & title ---------------- */
@@ -590,10 +710,11 @@ function Boot(){
     }
   };
 }
-function Title(){
-  let sel = 1, items = [], flashT = 0, unlockT = 0, lockMsgT = 0;
+function Title(opt = {}){
+  let sel = 1, items = [], flashT = 0, unlockT = 0, lockMsgT = 0, idleT = 0, meltT = 0;
   const HJ = "'Noto Serif KR', 'Nanum Myeongjo', 'Batang', serif";
-  const rowY = i => items.length > 5 ? 190 + i * 17 : items.length > 4 ? 192 + i * 19 : 194 + i * 21;
+  const tight = () => items.length > 5;
+  const rowY = i => items.length > 6 ? 180 + i * 13.8 : items.length > 5 ? 186 + i * 16 : items.length > 4 ? 192 + i * 19 : 194 + i * 21;
   function toggle(){ chicken = !chicken; store.set('chicken', chicken); if (chicken){ sfx.boing(); drone(0, .7, .5); } else { sfx.clunk(); drone(.06, .7, 1.5); } }
   return {
     noPause:true,
@@ -609,36 +730,53 @@ function Title(){
         if (!hardSeen){ hardSeen = true; store.set('hardSeen', true); unlockT = 5.5; sel = items.findIndex(it => it.hard); }
       }
       items.push({ l:'▶  멀티플레이 — 망가진 꿈', f:() => { try{ localStorage.setItem('injoo_m_chicken', JSON.stringify(chicken)); }catch(e){} stopTrack(.3); location.href = 'multi/'; } });
+      items.push({ l:'▶  기록 · 설정', f:() => go(Options()) });
+      idleT = 0; meltT = 0;
     },
-    choose(i){ if (this.t < .4) return; if (items[i].toggle){ toggle(); return; } if (items[i].locked){ sfx.shh(); fx.glitch = .5; lockMsgT = 2.4; return; } sfx.clunk(); items[i].f(); },
+    choose(i){ if (this.t < .4 || meltT > 0) return; idleT = 0; if (items[i].toggle){ toggle(); return; } if (items[i].locked){ sfx.shh(); fx.glitch = .5; lockMsgT = 2.4; return; } sfx.clunk(); items[i].f(); },
     key(k){
+      if (meltT > 0) return; idleT = 0;
       if (k === 'ArrowUp' || k === 'w'){ sel = (sel + items.length - 1) % items.length; sfx.tick(); }
       else if (k === 'ArrowDown' || k === 's'){ sel = (sel + 1) % items.length; sfx.tick(); }
       else if ((k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') && items[sel].toggle) toggle();
       else if (k === 'Enter' || k === ' ') this.choose(sel);
     },
-    pointer(t, x, y){ for (let i = 0; i < items.length; i++){ const iy = rowY(i); if (y > iy - 16 && y < iy + 7 && x > 60 && x < 340){ if (t === 'move') sel = i; if (t === 'down'){ sel = i; this.choose(i); } } } },
-    update(dt){ flashT -= dt; lockMsgT -= dt; if (!chicken && Math.random() < dt * .1) flashT = .07; if (!chicken && Math.random() < dt * .05) fx.glitch = .6;
+    pointer(t, x, y){ if (meltT > 0) return; if (t === 'down') idleT = 0; for (let i = 0; i < items.length; i++){ const iy = rowY(i); if (y > iy - (tight() ? 12 : 16) && y < iy + (tight() ? 3 : 7) && x > 60 && x < 340){ if (t === 'move') sel = i; if (t === 'down'){ sel = i; this.choose(i); } } } },
+    update(dt){
+      idleT += dt;
+      if (tapePending && HARD && HARD.TapeScene && unlockT <= 0 && meltT === 0 && idleT > 5){ meltT = .001; sfx.rew(); drone(0, 1, .3); stopTrack(.5); }
+      if (meltT > 0){ meltT += dt; fx.glitch = Math.max(fx.glitch, .4 + meltT * .6); fx.wobble = .8 + meltT * 3; if (Math.random() < dt * 6) sfx.stat(.1);
+        if (meltT > 3.2){ tapePending = false; store.set('tapePending', false); go(HARD.TapeScene(() => { tapeSeen = true; store.set('tapeSeen', true); endings.archive = 1; store.set('endings', endings); go(Title({ forget:true })); })); } return; }
+      flashT -= dt; lockMsgT -= dt; if (!chicken && Math.random() < dt * .1) flashT = .07; if (!chicken && Math.random() < dt * .05) fx.glitch = .6;
       if (unlockT > 0){ const was = unlockT; unlockT -= dt; if (was > 5.3 && unlockT <= 5.3){ fx.glitch = 2.2; fx.shake = 8; sfx.stat(.6); sfx.sting(); } if (Math.random() < dt * 3) fx.glitch = Math.max(fx.glitch, .5); } },
     draw(){
       g.fillStyle = '#030303'; g.fillRect(-20, -20, W + 40, H + 40);
       if (flashT > 0){ g.globalAlpha = .35; drawFace(W / 2, 140, .9, now, false); g.globalAlpha = 1; }
-      txt('꿈에게 바쳐진 다섯 개의 기둥', W / 2, 52, { size:11, color:'#5f5850' });
+      if (opt.forget && this.t < 3.5 && Math.floor(this.t * 9) % 4) txt('잊 지 마', W / 2 + (Math.random() - .5) * 3, 52, { size:12, color:'#b01818', w:800 });
+      else txt('꿈에게 바쳐진 다섯 개의 기둥', W / 2, 52, { size:11, color:'#5f5850' });
       txt('人柱愛麗絲', W / 2 + 2 + Math.random() * 1.5, 104, { size:48, color:'rgba(150,20,20,.55)', w:900, font:HJ, shadow:false });
       txt('人柱愛麗絲', W / 2, 103, { size:48, color:'#d6ccba', w:900, font:HJ });
       txt('인 주 앨 리 스', W / 2, 128, { size:13, color:'#8d8478' });
       const suits = ['♠', '♦', '♥', '♣', '?'], cols = ['#a82222', '#4058b8', '#357f44', '#a8922e', '#e2ded6'];
-      for (let i = 0; i < 5; i++){ const lit = i < 4 ? progress > i + 1 : completed; txt(suits[i], W / 2 + (i - 2) * 34, 160, { size:18, color:lit ? cols[i] : '#2b2826', font:SERIF }); }
-      if (completed && playerName) txt(`다섯 번째 앨리스 — ${playerName}`, W / 2, 178, { size:10, color:'#8f2424', font:MONO });
+      const sy = tight() ? 152 : 160;
+      for (let i = 0; i < 5; i++){ const lit = i < 4 ? progress > i + 1 : completed; txt(suits[i], W / 2 + (i - 2) * 34, sy, { size:tight() ? 15 : 18, color:lit ? cols[i] : '#2b2826', font:SERIF }); }
+      if (completed && playerName) txt(`다섯 번째 앨리스 — ${playerName}`, W / 2, tight() ? 168 : 178, { size:10, color:'#8f2424', font:MONO });
       items.forEach((it, i) => {
         const on = i === sel, y = rowY(i);
-        if (it.toggle) txt(`${on ? '› ' : '  '}모드   ◀  ${chicken ? '쫄보 모드 ♡' : '일반 모드'}  ▶`, W / 2, y, { size:13, color:chicken ? (on ? '#ffadc9' : '#b07088') : (on ? '#e9e0cf' : '#6f675e'), font:MONO });
+        const fs = tight() ? 12 : 14;
+        if (it.toggle) txt(`${on ? '› ' : '  '}모드   ◀  ${chicken ? '쫄보 모드 ♡' : '일반 모드'}  ▶`, W / 2, y, { size:tight() ? 12 : 13, color:chicken ? (on ? '#ffadc9' : '#b07088') : (on ? '#e9e0cf' : '#6f675e'), font:MONO });
         else if (it.locked) txt((on ? '› ' : '  ') + it.l, W / 2, y, { size:13, color:on ? '#5a5048' : '#36302c', font:MONO });
-        else if (it.hard) txt((on ? '› ' : '  ') + it.l, W / 2 + (unlockT > 0 ? (Math.random() - .5) * 3 : 0), y, { size:14, color:on ? '#ff7070' : '#8a3030', font:MONO });
-        else txt((on ? '› ' : '  ') + it.l, W / 2, y, { size:14, color:on ? '#e9e0cf' : '#6f675e', font:MONO });
+        else if (it.hard) txt((on ? '› ' : '  ') + it.l, W / 2 + (unlockT > 0 ? (Math.random() - .5) * 3 : 0), y, { size:fs, color:on ? '#ff7070' : '#8a3030', font:MONO });
+        else txt((on ? '› ' : '  ') + it.l, W / 2, y, { size:fs, color:on ? '#e9e0cf' : '#6f675e', font:MONO });
       });
+      if (meltT > 0){ // 메뉴가 녹아내린다
+        const k = Math.min(1, meltT / 2.6);
+        for (let i = 0; i < 60; i++){ const x = (i * 53) % W + Math.sin(i) * 4, len = k * (40 + (i * 37) % 160); g.fillStyle = `rgba(${chicken ? '255,140,190' : '110,0,0'},${.5 * k})`; g.fillRect(x, 170 + (i * 13) % 30, 2 + i % 3, len); }
+        g.fillStyle = `rgba(0,0,0,${k * .6})`; g.fillRect(0, 0, W, H);
+        if (meltT > 1.6) txt('▶ PLAY', 16 + (Math.random() - .5) * 3, 30, { size:14, color:'#eef1ff', font:MONO, align:'left' });
+      }
       if (chicken) cuteGhost(W - 40, 214, 12, { ph:1 });
-      if (!(completed && playerName)) txt(chicken ? '불 켜고 해도 괜찮아요 ♡' : '불을 끄고, 혼자서 플레이하십시오', W / 2, 178, { size:10, color:chicken ? '#9a6478' : '#4f4943', font:MONO });
+      if (!(completed && playerName)) txt(chicken ? '불 켜고 해도 괜찮아요 ♡' : '불을 끄고, 혼자서 플레이하십시오', W / 2, tight() ? 168 : 178, { size:10, color:chicken ? '#9a6478' : '#4f4943', font:MONO });
       if (lockMsgT > 0){ g.globalAlpha = Math.min(1, lockMsgT); txt('아직 볼 수 없는 테이프입니다.', W / 2, H - 46, { size:12, color:'#8d8478', font:MONO }); g.globalAlpha = 1; }
       if (unlockT > 0 && unlockT < 5.3){ const a = Math.min(1, unlockT, (5.3 - unlockT) * 2); g.globalAlpha = a; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, 128, W, 36); txt('테이프가 하나 더 있습니다.', W / 2 + (Math.random() - .5) * 2, 152, { size:16, color:'#d22a2a', w:800 }); g.globalAlpha = 1; }
     }
@@ -1207,9 +1345,9 @@ const nameInput = document.getElementById('nameInput');
 function NameScene(){
   return {
     noPause:true,
-    enter(){ setFx({ noise:.12, flicker:.05 }); drone(.07, .7, 2); nameForm.hidden = false; nameInput.value = ''; setTimeout(() => { try{ nameInput.focus(); }catch(e){} }, 50); },
+    enter(){ setFx({ noise:.12, flicker:.05 }); drone(.07, .7, 2); nameForm.hidden = false; nameInput.value = ''; nameInput.maxLength = 10; nameInput.placeholder = ''; setTimeout(() => { try{ nameInput.focus(); }catch(e){} }, 50); },
     exit(){ nameForm.hidden = true; nameInput.blur(); },
-    submit(){ const v = nameInput.value.trim().slice(0, 10); playerName = v || '이름 없는 아이'; store.set('name', playerName); sfx.bell(); go(Invite()); },
+    submit(){ const v = nameInput.value.trim().slice(0, 10); playerName = v || '이름 없는 아이'; store.set('name', playerName); sfx.bell(); if (hard && HARD && HARD.RedWords) go(HARD.RedWords(() => go(Eject()))); else go(Invite()); },
     pointer(t){ if (t === 'down') try{ nameInput.focus(); }catch(e){} },
     draw(){
       g.fillStyle = '#030303'; g.fillRect(-20, -20, W + 40, H + 40);
@@ -1297,7 +1435,7 @@ function Eject(){
     noPause:true,
     enter(){ osd.mode = 'EJECT ⏏'; setFx({ noise:.06, flicker:.01, wobble:.2 }); sfx.clunk(); drone(0, 1, .1); },
     exit(){ osd.mode = 'PLAY ▶'; },
-    update(){ if (this.t > 3) { if (hard){ hdone = true; store.set('hdone', true); } completed = true; store.set('done', true); go(Card(T.fin, () => go(Title()), { drone:.04, pitch:.6 })); } },
+    update(){ if (this.t > 3) { if (hard){ hdone = true; store.set('hdone', true); endings[hroute === 'true' ? 'hardTrue' : 'hardBad'] = 1; } else endings.normal = 1; store.set('endings', endings); if (hasTape && !tapeSeen){ tapePending = true; store.set('tapePending', true); } completed = true; store.set('done', true); go(Card(T.fin, () => go(Title()), { drone:.04, pitch:.6 })); } },
     draw(){ g.fillStyle = '#1430a6'; g.fillRect(-20, -20, W + 40, H + 40); txt('테이프가 없습니다', W / 2, 150, { size:16, color:'#e8ecff', font:MONO }); }
   };
 }
@@ -1322,7 +1460,7 @@ function drawSubs(){
 
 /* ---------------- 일시정지 ---------------- */
 let paused = false, pauseSel = 0;
-const PAUSE_ROWS = [{ l:'▶  계속하기', y:158 }, { l:'■  타이틀로 나가기', y:186 }];
+const PAUSE_ROWS = [{ l:'▶  계속하기', y:150 }, { bright:true, y:176 }, { l:'■  타이틀로 나가기', y:202 }];
 const canPause = () => !!(scene && !scene.noPause);
 function setPause(v){
   if (v && !canPause()) return;
@@ -1337,18 +1475,18 @@ function quitToTitle(){
   stopTrack(.3); sfx.clunk();
   go(Static(.5, () => go(Title())));
 }
-function pauseChoose(i){ if (i === 0) setPause(false); else quitToTitle(); }
+function pauseChoose(i, x){ if (i === 0) setPause(false); else if (i === 1){ bright = x != null && x < W / 2 ? Math.max(0, bright - 1) : (x != null ? Math.min(4, bright + 1) : (bright + 1) % 5); store.set('bright', bright); sfx.tick(); } else quitToTitle(); }
 function pausePointer(t, x, y){
   PAUSE_ROWS.forEach((r, i) => {
-    if (y > r.y - 18 && y < r.y + 8 && x > 90 && x < 310) { if (t === 'move') pauseSel = i; if (t === 'down') { pauseSel = i; pauseChoose(i); } }
+    if (y > r.y - 18 && y < r.y + 8 && x > 70 && x < 330) { if (t === 'move') pauseSel = i; if (t === 'down') { pauseSel = i; pauseChoose(i, x); } }
   });
 }
 function drawPause(){
   g.fillStyle = 'rgba(0,0,0,.72)'; g.fillRect(0, 0, W, H);
   txt('일시정지', W / 2, 118, { size:20, color:'#e3dccf', w:800 });
-  PAUSE_ROWS.forEach((r, i) => txt((i === pauseSel ? '› ' : '  ') + r.l, W / 2, r.y, { size:14, color:i === pauseSel ? (i ? '#ff8a8a' : '#e9e0cf') : '#6f675e', font:MONO }));
-  txt('진행 상황은 장 단위로 저장돼요. 다시 하면 그 장 처음부터.', W / 2, 222, { size:10, color:'#7a7166', font:MONO });
-  txt(TOUCH ? '' : 'ESC: 계속하기', W / 2, 240, { size:10, color:'#5f5850', font:MONO });
+  PAUSE_ROWS.forEach((r, i) => txt((i === pauseSel ? '› ' : '  ') + (r.bright ? `밝기  ◀ ${'■'.repeat(bright + 1)}${'□'.repeat(4 - bright)} ▶` : r.l), W / 2, r.y, { size:14, color:i === pauseSel ? (i === 2 ? '#ff8a8a' : '#e9e0cf') : '#6f675e', font:MONO }));
+  txt('진행 상황은 장 단위로 저장돼요. 다시 하면 그 장 처음부터.', W / 2, 232, { size:10, color:'#7a7166', font:MONO });
+  txt(TOUCH ? '' : 'ESC: 계속하기', W / 2, 248, { size:10, color:'#5f5850', font:MONO });
 }
 const pauseBtn = document.getElementById('pauseBtn');
 pauseBtn.addEventListener('click', () => { initAudio(); paused ? setPause(false) : setPause(true); });
@@ -1460,12 +1598,13 @@ if (window.matchMedia) {
 const HARD = window.InjooHard ? window.InjooHard({
   W, H, g, cv, keys, ptr, joy, sfx, osc, nz, fx, setFx, drone, say, go, Card, T, txt, ell, poly, cuteGhost, drawFace, heart, vib, MONO, SERIF, OSDF, TOUCH, reduced, hint, stopOpening, playTrack, stopTrack,
   chicken:() => chicken, now:() => now, scene:() => scene, paused:() => paused, osd, playerName:() => playerName, Title:() => Title(), Static,
-  die:(m, f) => die(m, f), startChapter:n => startChapter(n), Jump, CuteJump, darkness, rgb
+  die:(m, f) => die(m, f), startChapter:n => startChapter(n), Jump, CuteJump, darkness, rgb,
+  setRoute:r => { hroute = r; store.set('hroute', r); }, gotTape:() => { hasTape = true; store.set('tape', true); }
 }) : null;
 go(Boot());
 requestAnimationFrame(frame);
 ['touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => { initAudio(); }, { passive:true }));
-window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
+window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, Options, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
 })();
 </script>
 
