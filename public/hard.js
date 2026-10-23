@@ -446,7 +446,7 @@ function HCh1() {
   const ambush = [Math.floor(PL * .4), Math.floor(PL * .75)].map(i => ({ i, done: false, warn: -1 }));
   const LINES = ['…길을 비켜줄게.', '아파.', '왜 베었어?', '우리도 앨리스였어.', '촛불을 따라가.', '길이 점점 빨개지네.', '벗어나면 안 돼.', '너도 곧 여기 서게 될 거야.', '돌아갈 길은 없어.', '…안녕, 나.', '거의 다 왔어.', '끝까지 가.', '…'];
   const cam = { x: path[0].x, z: path[0].z, yaw: Math.atan2(path[3].z - path[0].z, path[3].x - path[0].x), bob: 0 };
-  let prog = 0, slashT = 9, flash = 0, phase = 'walk', endT = 0, bob = 0, stepAcc = 0, warnT = 0, offT = 0, horde = null, warned = false, kills = 0, scareT = 0, idleT = 0, slashed = false, moved = false, hintSaid = false, firstSeen = false;
+  let warnAt = null, prog = 0, slashT = 9, flash = 0, phase = 'walk', endT = 0, bob = 0, stepAcc = 0, warnT = 0, offT = 0, horde = null, warned = false, kills = 0, scareT = 0, idleT = 0, slashed = false, moved = false, hintSaid = false, firstSeen = false;
   const drops = [];
   const S = {
     game: true, fp: true, touch: 'h3d', act: '베기',
@@ -511,18 +511,23 @@ function HCh1() {
         }
         for (const a of ambush) {
           if (a.done || prog < a.i || foes.some(f => f.alive && f.mode === 'rush')) continue;
-          if (a.warn < 0) { // 먼저 덤불이 바스락거린다
-            a.warn = 0; a.side = Math.random() < .5 ? 1 : -1;
-            const pan = a.side * .9;
+          if (a.warn < 0) { // 먼저 덤불이 바스락거리고, 어느 쪽인지 알려준다
+            a.warn = 0; const side = Math.random() < .5 ? 1 : -1;
+            const p = path[Math.min(PL, a.i + 5)], q = path[Math.min(PL, a.i + 6)], ang = Math.atan2(q.z - p.z, q.x - p.x);
+            a.pos = { x: p.x - Math.sin(ang) * 2.4 * side, z: p.z + Math.cos(ang) * 2.4 * side };
+            const rel = angDiff(Math.atan2(a.pos.z - cam.z, a.pos.x - cam.x) - cam.yaw);
+            const where = Math.abs(rel) > 2.1 ? '뒤' : Math.abs(rel) < .5 ? '앞' : rel > 0 ? '오른쪽' : '왼쪽';
+            const pan = clamp(Math.sin(rel), -1, 1) * .9;
             for (let k = 0; k < 4; k++) nz(.25, { type: 'bandpass', f: 900 + Math.random() * 900, q: 1.5, vol: .22, pan, delay: k * .18 });
-            sfx.whisper(1, pan);
+            sfx.whisper(1, pan); vib(30);
+            say(`…${where}에서 무언가 바스락거린다.`, 1.8);
+            warnAt = a;
             continue;
           }
-          a.warn += dt; if (a.warn < 1) continue;
-          a.done = true;
-          const p = path[Math.min(PL, a.i + 5)], q = path[Math.min(PL, a.i + 6)], ang = Math.atan2(q.z - p.z, q.x - p.x), side = a.side;
-          const f = { x: p.x - Math.sin(ang) * 2.4 * side, z: p.z + Math.cos(ang) * 2.4 * side, alive: true, fall: 0, i: 0, mode: 'rush', said: true, sp: 1.9, wait: .6 };
-          foes.push(f); bigScare(); scareT = .12; say('옆에서—!', 1.4);
+          a.warn += dt; if (a.warn < 1.3) continue;
+          a.done = true; warnAt = null;
+          const f = { x: a.pos.x, z: a.pos.z, alive: true, fall: 0, i: 0, mode: 'rush', said: true, sp: 1.9, wait: .6 };
+          foes.push(f); bigScare(); scareT = .12; say('온다—!', 1.4);
         }
         // 힌트: 막혔을 때만
         if (!moved && idleT > 4.5) api.hint(TOUCH ? '◀ 왼쪽 원으로 걷기 ▶' : '▶ W / ↑  걷기   ·   마우스·← →  둘러보기');
@@ -582,6 +587,13 @@ function HCh1() {
       }
       for (const d of drops) { if (ch) { heart(d.x, d.y, d.r * 2, `rgba(255,120,170,${Math.min(1, d.life) * .9})`); continue; } ell(d.x, d.y, d.r * .8, d.r * 1.3, `rgba(120,0,0,${Math.min(1, d.life) * .85})`); }
       if (flash > 0) { g.fillStyle = ch ? `rgba(255,170,210,${flash * .35})` : `rgba(150,0,0,${flash * .45})`; g.fillRect(0, 0, W, H); }
+      if (warnAt && phase === 'walk') { // 화면 가장자리에 방향 표시
+        const rel = angDiff(Math.atan2(warnAt.pos.z - cam.z, warnAt.pos.x - cam.x) - cam.yaw);
+        const pulse = .35 + .35 * Math.sin(now() * 14), col = ch ? '255,140,190' : '200,20,20';
+        if (Math.abs(rel) > 2.1) { const gr = g.createLinearGradient(0, H, 0, H - 70); gr.addColorStop(0, `rgba(${col},${pulse})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, H - 70, W, 70); txt('▼ 뒤', W / 2, H - 52, { size: 13, color: '#ffb0b0', font: MONO }); }
+        else if (Math.abs(rel) >= .5) { const right = rel > 0, x0 = right ? W : 0, gr = g.createLinearGradient(x0, 0, right ? W - 70 : 70, 0); gr.addColorStop(0, `rgba(${col},${pulse})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(right ? W - 70 : 0, 0, 70, H); txt(right ? '오른쪽 ▶' : '◀ 왼쪽', right ? W - 40 : 40, H / 2, { size: 13, color: '#ffb0b0', font: MONO }); }
+        else { txt('▲ 앞', W / 2, 70, { size: 13, color: '#ffb0b0', font: MONO }); }
+      }
       if (scareT > 0) scareOverlay(scareT, .22, true);
       if (phase === 'horde') { g.fillStyle = `rgba(0,0,0,${clamp(horde.t * .5, 0, .6)})`; g.fillRect(0, 0, W, H); }
     }
