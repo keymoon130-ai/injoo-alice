@@ -244,9 +244,12 @@ const cute = {
 /* ---------------- music ---------------- */
 const TRACKS = { opening:{ url:'opening.mp3' }, cute:{ url:'cute.mp3' } };
 const music = { node:null, gain:null, name:null, want:null, wow:false };
+// 느린 데이터 환경 대비: 페이지가 열리자마자 노래 파일을 브라우저 캐시에 미리 받아둔다
+// (받은 데이터를 직접 재사용하지는 않음 — 재생 때는 캐시에서 새로 꺼내 해독)
+try{ fetch('opening.mp3').catch(() => {}); if (chicken) fetch('cute.mp3').catch(() => {}); }catch(e){}
 // 노래 파일을 받아 해독한다. 실패하면 새로 받아 한 번 더 시도.
 function fetchDecode(url){
-  return fetch(url, { cache:'no-cache' }).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+  return fetch(url).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
     .then(b => new Promise((res, rej) => {
       const p = A.ctx.decodeAudioData(b, res, rej);
       if (p && p.then) p.then(res, rej);
