@@ -1604,7 +1604,7 @@ const HARD = window.InjooHard ? window.InjooHard({
 go(Boot());
 requestAnimationFrame(frame);
 ['touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => { initAudio(); }, { passive:true }));
-window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, Options, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
+window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, Options, saveCode, loadCode, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
 })();
 </script>
 
