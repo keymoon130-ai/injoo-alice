@@ -88,6 +88,8 @@ input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;p
 #btns #tAct{width:min(22vw,104px);grid-row:span 2;background:rgba(80,18,22,.6);border-color:rgba(230,140,140,.5);font-size:15px}
 #btns .small{width:min(12vw,54px);font-size:11px}
 #topBtns{position:absolute;right:3%;top:4%;display:flex;gap:8px;pointer-events:auto}
+#touch.brief #joy,#touch.brief #btns{visibility:hidden}
+#tHelp{position:absolute;left:3%;top:4%;pointer-events:auto;width:34px;height:34px;border-radius:50%;padding:0;font-size:16px;background:rgba(0,0,0,.5);border:1px solid rgba(220,210,200,.35)}
 #tOrient{position:absolute;right:3%;top:12%;pointer-events:auto;padding:6px 10px;font-size:12px;background:rgba(0,0,0,.5);border:1px solid rgba(220,210,200,.35);border-radius:3px}
 body.rot90 #scGame{inset:auto;top:0;left:0;width:100vh;width:100dvh;height:100vw;height:100dvw;transform-origin:top left;transform:translateX(100vw) rotate(90deg)}
 body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3));max-height:100vw;max-height:100dvw}
@@ -158,6 +160,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
     <div id="touch" hidden>
       <div id="joy"><div id="joyKnob"></div></div>
       <button type="button" id="tOrient" hidden>가로 모드</button>
+      <button type="button" id="tHelp" aria-label="도움말">?</button>
       <div id="btns">
         <button type="button" class="small" id="tMap">지도</button>
         <button type="button" id="tAct">행동</button>

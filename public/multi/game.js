@@ -645,7 +645,8 @@ window.addEventListener('keydown', e => {
   initAudio();
   if (k === 'e' || k === ' ') { ctl.actLatch = true; if (game.spectate) cycleSpectate(); }
   if (k === 'shift') ctl.dashQ = true;
-  if (k === 'm' || k === 'tab') game.mapOn = !game.mapOn;
+  if (k === 'm') game.mapOn = !game.mapOn;
+  if (k === 'tab' || k === 'h' || k === '?') game.briefOn = !game.briefOn;
 });
 window.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase(); keys[k] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; ctl.touchAct = false; });
@@ -704,6 +705,7 @@ hold($('tAct'), () => { ctl.touchAct = true; ctl.actLatch = true; if (game && ga
 hold($('tDash'), () => { ctl.dashQ = true; });
 hold($('tMap'), () => { if (game) game.mapOn = !game.mapOn; });
 hold($('tChat'), () => openChat());
+hold($('tHelp'), () => { if (game) game.briefOn = !game.briefOn; });
 
 // 폰 가로 모드: 안드로이드는 전체화면+가로 고정, 안 되는 기기(아이폰)는 화면을 90도 돌린다
 const isPortrait = () => window.matchMedia && matchMedia('(orientation: portrait)').matches;
@@ -768,7 +770,7 @@ function startGame(m) {
     pred: { x: m.me.x, z: m.me.z, yaw: m.me.yaw, role: me.role, st: 0, dc: 0, dt: 0, sn: 0, carry: 0, m: 0 },
     yaw: first || !game ? m.me.yaw : game.yaw, seq: m.me.seq || 0, pending: [], outbox: [], acc: 0,
     T: m.time, intro: m.intro, tr: TRACE_INFO.map(() => 0), tp: TRACE_INFO.map(() => 0), rp: world.cells.map(() => 0), door: null,
-    smooth: { x: 0, z: 0 }, msgs: [], chat: [], mapOn: false, ended: null, meS: null,
+    smooth: { x: 0, z: 0 }, msgs: [], chat: [], mapOn: false, briefOn: false, scare: null, ended: null, meS: null,
     spectate: false, spectating: null, terrorCd: 4, heartT: 0, stepT: 0, bob: 0, phase: 0,
     stepTimers: new Map(), prevTp: TRACE_INFO.map(() => 0), prevRp: world.cells.map(() => 0), alerts: [],
     cam: { x: m.me.x, z: m.me.z, yaw: m.me.yaw, bob: 0 }, mapImg: null, nearDream: 99, lastSnap: performance.now(),
@@ -857,7 +859,7 @@ function handleEv(e) {
   switch (e.k) {
     case 'catch': {
       const an = nameOf(e.a), dn = nameOf(e.d), p = posOf(e.a);
-      if (e.a === myId) { fx.glitch = 1.6; sfx.screech(); say('잡혔다! E(행동)를 연타해서 몸부림쳐!', '#ff6a6a', 5); }
+      if (e.a === myId) { fx.glitch = 1.6; jumpscare(); say(`잡혔다! ${device === 'phone' ? '행동 버튼' : 'E'} 연타로 몸부림쳐!`, '#ff6a6a', 5); }
       else { if (p) at(p.x, p.z, 40, sfx.scream); say(g.role === 'dream' ? `${josa(dn, '이', '가')} ${josa(an, '을', '를')} 잡았다` : `${josa(an, '이', '가')} 꿈에게 잡혔다`, '#e07070'); }
       break;
     }
@@ -1103,6 +1105,104 @@ function update(dt) {
   fx.glitch = Math.max(0, fx.glitch - dt * 1.4);
 }
 
+const vib = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+// 잡히는 순간의 점프스케어 (잡힌 앨리스 화면에만)
+function jumpscare() {
+  if (!game) return;
+  game.scare = { t: performance.now(), dur: chicken ? 1.1 : 1.35 };
+  if (chicken) { sfx.boing(); sfx.chime(); vib(60); return; }
+  A.pv = 1.6; try { sfx.shriek(); sfx.screech(); } finally { A.pv = 1; }
+  vib([260, 60, 340]); fx.glitch = 2.2;
+}
+function scareFace(c, cx, cy, s, t) {
+  c.save(); c.translate(cx, cy); c.scale(s, s);
+  const e = (x, y, rx, ry, col) => { c.beginPath(); c.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), 0, 0, Math.PI * 2); c.fillStyle = col; c.fill(); };
+  const j = () => (Math.random() - .5) * 4;
+  const gr = c.createRadialGradient(0, -10, 10, 0, 0, 100);
+  gr.addColorStop(0, '#d9d3c4'); gr.addColorStop(.7, '#a39d8e'); gr.addColorStop(1, '#3b3833');
+  c.beginPath(); c.ellipse(0, 0, 68, 96, 0, 0, Math.PI * 2); c.fillStyle = gr; c.fill();
+  e(-30, 30, 16, 22, 'rgba(60,50,45,.35)'); e(30, 30, 16, 22, 'rgba(60,50,45,.35)');
+  e(-27 + j(), -20, 20 + Math.random() * 3, 26, '#050404'); e(27 + j(), -20, 20 + Math.random() * 3, 26, '#050404');
+  e(-27 + j(), -17, 2.4, 2.4, '#fff'); e(27 + j(), -17, 2.4, 2.4, '#fff');
+  const mh = 38 + Math.sin(t * 40) * 7;
+  e(0, 52, 23, mh, '#060303');
+  c.fillStyle = '#ddd5c0';
+  for (let i = -3; i <= 3; i++) { c.fillRect(i * 5 - 2, 52 - mh + 4 + Math.abs(i) * 2, 4, 7); c.fillRect(i * 5 - 2, 52 + mh - 11 - Math.abs(i) * 2, 4, 7); }
+  c.strokeStyle = 'rgba(110,10,10,.8)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-27, 4); c.lineTo(-29, 30); c.lineTo(-25, 62); c.moveTo(27, 4); c.lineTo(30, 34); c.lineTo(28, 70); c.stroke();
+  for (let i = 0; i < 9; i++) e(Math.sin(i * 7.1) * 45, Math.cos(i * 3.3) * 60, 8 + i % 3 * 5, 6 + i % 4 * 3, 'rgba(30,22,10,.75)');
+  c.restore();
+}
+function scareGhost(c, x, y, r) {
+  const e = (x, y, rx, ry, col) => { c.beginPath(); c.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), 0, 0, Math.PI * 2); c.fillStyle = col; c.fill(); };
+  c.beginPath(); c.arc(x, y, r, Math.PI, 0); c.lineTo(x + r, y + r * 1.1);
+  for (let i = 0; i < 4; i++) { const x1 = x + r - (i + .5) * r / 2, x2 = x + r - (i + 1) * r / 2; c.quadraticCurveTo(x1, y + r * 1.45, x2, y + r * 1.1); }
+  c.closePath(); c.fillStyle = '#f6f3ff'; c.fill(); c.strokeStyle = '#c9c0e8'; c.lineWidth = r * .06; c.stroke();
+  e(x - r * .35, y - r * .05, r * .11, r * .15, '#2a2233'); e(x + r * .35, y - r * .05, r * .11, r * .15, '#2a2233');
+  e(x - r * .58, y + r * .2, r * .16, r * .09, 'rgba(255,130,170,.75)'); e(x + r * .58, y + r * .2, r * .16, r * .09, 'rgba(255,130,170,.75)');
+  e(x, y + r * .32, r * .12, r * .16, '#2a2233');
+}
+function drawScare(c, g) {
+  const sc = g.scare; if (!sc) return;
+  const t = (performance.now() - sc.t) / 1000;
+  if (t > sc.dur) { g.scare = null; return; }
+  const sx = (Math.random() - .5) * (chicken ? 4 : 18), sy = (Math.random() - .5) * (chicken ? 4 : 18);
+  c.save(); c.translate(sx, sy);
+  if (chicken) {
+    c.fillStyle = '#ffd9e6'; c.fillRect(-20, -20, W + 40, H + 40);
+    scareGhost(c, W / 2, H / 2 + 14, 70 * (1 + t * .3 + Math.sin(t * 14) * .04));
+    c.font = `800 30px 'Nanum Myeongjo', serif`; c.textAlign = 'center'; c.fillStyle = '#ff5c8a'; c.fillText('잡았다!', W / 2, 62);
+  } else {
+    const inv = (t * 14 | 0) % 5 === 0;
+    c.fillStyle = inv ? '#d8d0c0' : '#120101'; c.fillRect(-20, -20, W + 40, H + 40);
+    scareFace(c, W / 2 + (Math.random() - .5) * 10, H / 2 + 26, 1.25 + t * 1.1, now);
+    c.fillStyle = `rgba(150,0,0,${.18 + Math.random() * .2})`; c.fillRect(-20, -20, W + 40, H + 40);
+    if (t > .35) { c.font = `800 26px 'Nanum Myeongjo', serif`; c.textAlign = 'center'; c.fillStyle = '#000'; c.fillText('찾  았  다', W / 2 + 2, 52); c.fillStyle = '#e02020'; c.fillText('찾  았  다', W / 2, 50); }
+  }
+  c.restore();
+}
+// 역할 브리핑 카드: 시작할 때 + 언제든 Tab / ? 버튼
+function keycap(c, x, y, label, w = 0) {
+  c.font = `11px 'Nanum Gothic Coding', monospace`;
+  const tw = Math.max(w, c.measureText(label).width + 10), h = 15;
+  c.fillStyle = 'rgba(230,222,206,.12)'; c.fillRect(x, y - 11, tw, h);
+  c.strokeStyle = 'rgba(230,222,206,.55)'; c.lineWidth = 1; c.strokeRect(x + .5, y - 10.5, tw - 1, h - 1);
+  c.fillStyle = '#efe6d4'; c.textAlign = 'center'; c.fillText(label, x + tw / 2, y);
+  return tw;
+}
+function drawBrief(c, g, alpha, count) {
+  const dream = g.role === 'dream', phone = device === 'phone';
+  c.save(); c.globalAlpha = alpha;
+  c.fillStyle = 'rgba(4,3,4,.9)'; c.fillRect(0, 0, W, H);
+  c.strokeStyle = dream ? 'rgba(200,60,60,.6)' : 'rgba(220,210,190,.4)'; c.lineWidth = 1; c.strokeRect(14.5, 14.5, W - 29, H - 29);
+  c.textBaseline = 'alphabetic'; c.textAlign = 'center';
+  const sh = (s, x, y, col, font, al = 'center') => { c.font = font; c.textAlign = al; c.fillStyle = 'rgba(0,0,0,.85)'; c.fillText(s, x + 1, y + 1); c.fillStyle = col; c.fillText(s, x, y); };
+  const KR = `12px 'Nanum Gothic Coding', monospace`, KRS = `11px 'Nanum Gothic Coding', monospace`;
+  sh(dream ? '당신은  작은 꿈' : '당신은  다섯 번째 앨리스', W / 2, 44, dream ? '#ff7070' : '#f0e8d8', `800 20px 'Nanum Myeongjo', serif`);
+  sh('─  목 표  ─', W / 2, 68, '#8d8478', KRS);
+  const goals = dream
+    ? ['앨리스에게 다가가 잡고, 성 감옥까지 끌고 가 가두세요.', '갇힌 지 2분이 지나면 앨리스는 썩어 성 위에 걸립니다.', '13분을 버티거나 앨리스를 모두 잡으면 승리.']
+    : ['숲에 흩어진 이전 앨리스들의 흔적 5개를 찾아 주우세요.', '다 모으면 하늘에 빛기둥 문이 열립니다 → 그리로 탈출!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
+  goals.forEach((l, i) => sh(l, W / 2, 86 + i * 16, '#d8cfbf', KR));
+  sh('─  조 작  ─', W / 2, 146, '#8d8478', KRS);
+  const rows = phone
+    ? (dream
+      ? [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['잡기'], '잡기 · 감옥에 가두기'], [['대시'], `순간 돌진 (${CFG.DASH_CD}초마다)`], [['지도'], '지도 열기']]
+      : [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['행동'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['행동'], '잡혔을 때 연타로 몸부림'], [['지도'], '지도 열기']])
+    : (dream
+      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '잡기 · 감옥에 가두기'], [['Shift'], `순간 돌진 (${CFG.DASH_CD}초마다)`], [['M'], '지도'], [['Enter'], '채팅']]
+      : [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['E'], '잡혔을 때 연타로 몸부림'], [['M'], '지도'], [['Enter'], '채팅']]);
+  let y = 166;
+  for (const [ks, desc] of rows) {
+    let x = 92;
+    for (const k of ks) x += keycap(c, x, y, k, 15) + 3;
+    sh(desc, 200, y, '#cfc6b6', KR, 'left');
+    y += 17;
+  }
+  sh(phone ? '왼쪽 위 [?] 버튼으로 언제든 다시 볼 수 있어요' : 'Tab 키로 언제든 다시 볼 수 있어요', W / 2, H - 26, '#7a7268', KRS);
+  if (count > 0) sh(`${Math.ceil(count)}`, W - 34, 46, '#ffffff', `28px 'VT323', monospace`);
+  c.restore();
+}
 function drawHud(g, tags) {
   const c = ctx, ms = g.meS, dream = g.role === 'dream', tnow = performance.now();
   c.textBaseline = 'alphabetic';
@@ -1212,16 +1312,11 @@ function drawHud(g, tags) {
     c.globalAlpha = 1;
   }
   if (prompt) { sh(prompt, W / 2, H - 44, pcol, KR, 'center'); if (pv >= 0) bar(W / 2, H - 38, 120, pv, pcol); }
-  // 시작 안내
-  if (g.intro > 0) {
-    c.fillStyle = `rgba(0,0,0,${clamp(g.intro / 2, .3, .85)})`; c.fillRect(0, 0, W, H);
-    sh(dream ? '당신은 작은 꿈' : '당신은 다섯 번째 앨리스', W / 2, 110, dream ? '#ff7070' : '#f0e8d8', `800 22px 'Nanum Myeongjo', serif`, 'center');
-    const lines = dream
-      ? ['앨리스를 잡아 성 감옥까지 끌고 가 가두세요.', '감옥에 2분 갇힌 앨리스는 썩어 성 위에 걸립니다.', `${actKey}: 잡기·가두기   ${device === 'phone' ? '대시 버튼' : 'Shift'}: 대시 (${CFG.DASH_CD}초)`, '13분을 버티거나 앨리스를 모두 잡으면 승리.']
-      : ['숲 곳곳에 남은 이전 앨리스들의 흔적 5개를 찾으세요.', '모두 찾으면 하늘에 문이 열립니다. 13분 안에 탈출!', `${actKey} 꾹: 줍기·구출   ${device === 'phone' ? '지도 버튼' : 'M'}: 지도   ${device === 'phone' ? '' : 'WASD·마우스: 이동·시점'}`, '꿈이 가까워지면… 소리가 들립니다.'];
-    lines.forEach((l, i) => sh(l, W / 2, 140 + i * 18, '#cfc6b6', KR, 'center'));
-    sh(`${Math.ceil(g.intro)}`, W / 2, 228, '#ffffff', `32px 'VT323', monospace`, 'center');
-  }
+  // 시작 안내 (역할 브리핑)
+  const briefing = g.intro > 0 || (g.briefOn && !g.ended);
+  $('touch').classList.toggle('brief', briefing);
+  if (g.intro > 0) drawBrief(c, g, clamp(g.intro / 1.2, 0, 1), g.intro);
+  else if (g.briefOn && !g.ended) drawBrief(c, g, 1, 0);
   if (g.mapOn) drawMap(g, g.cam);
   if (g.ended) {
     const e = g.ended, iWin = (e.win === 'alice') === (g.role === 'alice');
@@ -1238,6 +1333,7 @@ function drawHud(g, tags) {
     sh('잠시 후 로비로 돌아갑니다', W / 2, 250, '#7a7268', KRS, 'center');
   }
   if (performance.now() - g.lastSnap > 1500 && !g.ended) sh('신호 약함…', W / 2, H / 2 - 30, '#ff8080', KR, 'center');
+  drawScare(c, g);
 }
 
 let last = performance.now();

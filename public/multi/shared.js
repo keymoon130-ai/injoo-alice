@@ -23,7 +23,7 @@ export const CFG = {
   STRUGGLE_DECAY: 0.13,  // 1초마다 빠지는 양
   STRUGGLE_GAP: 3,       // 연타 인정 간격 (입력 3번 = 0.1초) — 매크로 방지
   GAME_TIME: 780,        // 13분
-  INTRO: 5,
+  INTRO: 10,
   ESCAPE_R: 2.4,
   MAX_PLAYERS: 8,
   MAX_DREAMS: 3,
