@@ -244,11 +244,19 @@ const cute = {
 /* ---------------- music ---------------- */
 const TRACKS = { opening:{ url:'opening.mp3' }, cute:{ url:'cute.mp3' } };
 const music = { node:null, gain:null, name:null, want:null, wow:false };
+// 페이지가 열리자마자 노래 파일을 미리 받아둔다 (재생 버튼을 누르기 전부터)
+function prefetch(n){
+  const tr = TRACKS[n];
+  if (!tr.bytes) tr.bytes = fetch(tr.url).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
+  return tr.bytes;
+}
+prefetch('opening'); if (chicken) prefetch('cute');
 function loadTrack(n){
   const tr = TRACKS[n]; if (!A.ctx) return Promise.resolve(null);
-  if (!tr.loading) tr.loading = fetch(tr.url).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
-    .then(b => new Promise((res, rej) => A.ctx.decodeAudioData(b, res, rej)))
-    .then(b => (tr.buf = b)).catch(() => { tr.loading = null; return null; });
+  if (tr.buf) return Promise.resolve(tr.buf);
+  if (!tr.loading) tr.loading = prefetch(n)
+    .then(b => { if (!b) throw 0; return new Promise((res, rej) => A.ctx.decodeAudioData(b, res, rej)); })
+    .then(b => (tr.buf = b)).catch(() => { tr.loading = null; tr.bytes = null; return null; });
   return tr.loading;
 }
 function stopTrack(t = 3){
@@ -262,11 +270,12 @@ function playTrack(n, o = {}){
   if ((music.name === n && music.node) || music.want === n) return;
   stopTrack(1); music.want = n;
   loadTrack(n).then(b => {
-    if (!b || music.want !== n || music.node) return;
+    if (!b) { if (music.want === n) music.want = null; return; }
+    if (music.want !== n || music.node) return;
     const C = A.ctx, s = C.createBufferSource(); s.buffer = b; s.loop = !!o.loop; s.playbackRate.value = o.wow ? .985 : 1;
-    const hp = C.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = o.wow ? 140 : 40;
-    const lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.wow ? 3600 : 9000;
-    const gn = C.createGain(); gn.gain.setValueAtTime(0, C.currentTime); gn.gain.linearRampToValueAtTime(o.vol || .62, C.currentTime + (o.fade || 2.5));
+    const hp = C.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = o.wow ? 80 : 40;
+    const lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.wow ? 5500 : 9000;
+    const gn = C.createGain(); gn.gain.setValueAtTime(0, C.currentTime); gn.gain.linearRampToValueAtTime(o.vol || .85, C.currentTime + (o.fade || 2));
     s.connect(hp); hp.connect(lp); lp.connect(gn); gn.connect(A.master); s.start();
     music.node = s; music.gain = gn; music.name = n; music.want = null; music.wow = !!o.wow;
     s.onended = () => { if (music.node === s){ music.node = null; music.name = null; } };
@@ -509,7 +518,7 @@ function Boot(){
     start(){
       if (this.started) return; this.started = true; initAudio(); sfx.clunk();
       const fonts = [`900 40px "Noto Serif KR"`, `16px "Nanum Myeongjo"`, `800 16px "Nanum Myeongjo"`, `16px "Nanum Gothic Coding"`, `16px "VT323"`];
-      loadTrack('opening'); loadTrack('cute');
+      loadTrack('opening'); if (chicken) loadTrack('cute');
       try{ Promise.all(fonts.map(f => document.fonts.load(f, SRC))).catch(() => {}); }catch(e){}
       go(Static(.8, () => go(Card(T.warn, () => go(Title()), { drone:.04, pitch:.7 }))));
     },
@@ -525,7 +534,7 @@ function Boot(){
 function Title(){
   let sel = 1, items = [], flashT = 0;
   const HJ = "'Noto Serif KR', 'Nanum Myeongjo', 'Batang', serif";
-  function toggle(){ chicken = !chicken; store.set('chicken', chicken); if (chicken){ sfx.boing(); drone(0, .7, .5); } else { sfx.clunk(); drone(.06, .7, 1.5); } }
+  function toggle(){ chicken = !chicken; store.set('chicken', chicken); if (chicken){ loadTrack('cute'); sfx.boing(); drone(0, .7, .5); } else { sfx.clunk(); drone(.06, .7, 1.5); } }
   return {
     noPause:true,
     enter(){

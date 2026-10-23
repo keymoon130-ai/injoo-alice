@@ -224,6 +224,39 @@ function osc(type, f, dur, o = {}) {
   const gn = C.createGain(); gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + a); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
   os.connect(gn); route(gn, pan); os.start(t); os.stop(t + dur + .05);
 }
+// 꿈의 기척: 가까울수록 짙어지는 숨소리 · 낮은 으르렁 · 귀울림 (꿈이 있는 방향에서 들림)
+const PR = { on: false };
+function presenceInit() {
+  if (PR.on || !A.ctx) return;
+  const C = A.ctx; PR.on = true;
+  const pan = C.createStereoPanner ? C.createStereoPanner() : C.createGain(); pan.connect(A.master); PR.pan = pan;
+  const n = C.createBufferSource(); n.buffer = A.noise; n.loop = true;
+  const bp = C.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 430; bp.Q.value = 1.3;
+  const am = C.createGain(); am.gain.value = .5;
+  const lfo = C.createOscillator(); lfo.frequency.value = .38; const lg = C.createGain(); lg.gain.value = .5; lfo.connect(lg); lg.connect(am.gain);
+  PR.breath = C.createGain(); PR.breath.gain.value = 0;
+  n.connect(bp); bp.connect(am); am.connect(PR.breath); PR.breath.connect(pan); n.start(); lfo.start();
+  const ws = C.createWaveShaper(), curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 4); }
+  ws.curve = curve;
+  const glp = C.createBiquadFilter(); glp.type = 'lowpass'; glp.frequency.value = 320;
+  PR.growl = C.createGain(); PR.growl.gain.value = 0;
+  for (const f of [44, 45.3, 66.7]) { const o = C.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(ws); o.start(); }
+  const glfo = C.createOscillator(); glfo.frequency.value = 5.5; const gld = C.createGain(); gld.gain.value = 60; glfo.connect(gld); gld.connect(glp.frequency); glfo.start();
+  ws.connect(glp); glp.connect(PR.growl); PR.growl.connect(pan);
+  const ti = C.createOscillator(); ti.type = 'sine'; ti.frequency.value = 3950;
+  const tlfo = C.createOscillator(); tlfo.frequency.value = .2; const tld = C.createGain(); tld.gain.value = 40; tlfo.connect(tld); tld.connect(ti.frequency); tlfo.start();
+  PR.ring = C.createGain(); PR.ring.gain.value = 0; ti.connect(PR.ring); PR.ring.connect(A.master); ti.start();
+}
+function presence(v, pan) {
+  if (!A.ctx) return;
+  presenceInit();
+  const t = A.ctx.currentTime, k = chicken ? .12 : 1;
+  PR.breath.gain.setTargetAtTime(Math.pow(v, 1.4) * .55 * k, t, .25);
+  PR.growl.gain.setTargetAtTime(Math.pow(v, 2.2) * .3 * k, t, .25);
+  PR.ring.gain.setTargetAtTime(chicken ? 0 : Math.max(0, v - .55) * .07, t, .4);
+  if (PR.pan.pan) PR.pan.pan.setTargetAtTime(clamp(pan, -1, 1), t, .1);
+}
 const NOTES = [392, 466.16, 523.25, 622.25, 698.46];
 const sfx = {
   tick() { osc('square', 1700 + Math.random() * 400, .02, { vol: .02 }); },
@@ -233,6 +266,8 @@ const sfx = {
   whisper(dur = 1.6) { for (let i = 0; i < 6; i++) nz(.22 + Math.random() * .35, { type: 'bandpass', f: 1300 + Math.random() * 1900, q: 5, vol: .07 + Math.random() * .05, a: .07, pan: (Math.random() - .5) * .5, delay: i * dur / 6 }); },
   screech() { if (chicken) return sfx.boing(); for (let i = 0; i < 4; i++) osc('sawtooth', 280 + Math.random() * 500, 1, { vol: .2, f2: 1700 + Math.random() * 1600, a: .008 }); nz(1, { type: 'highpass', f: 1400, vol: .5, a: .004 }); osc('square', 58, 1, { vol: .28, f2: 30 }); },
   growl() { if (chicken) return sfx.boing(); osc('sawtooth', 70, 1.4, { vol: .35, f2: 48, a: .2 }); nz(1.4, { type: 'bandpass', f: 300, q: 2, vol: .3, a: .3 }); osc('sawtooth', 141, 1.2, { vol: .1, f2: 90, a: .2, detune: 30 }); },
+  shriek() { if (chicken) return sfx.boing(); for (let i = 0; i < 6; i++) osc('sawtooth', 900 + Math.random() * 900, 1.2, { vol: .17, f2: 300 + Math.random() * 300, a: .004, detune: (Math.random() - .5) * 80 }); nz(1.2, { type: 'bandpass', f: 2500, q: .7, vol: .55, a: .003 }); osc('sine', 48, 1, { vol: .6, f2: 28, a: .003 }); },
+  ear() { if (chicken) return sfx.chime(); for (let i = 0; i < 8; i++) nz(.18 + Math.random() * .2, { type: 'bandpass', f: 1600 + Math.random() * 1500, q: 6, vol: .14, a: .03, pan: (Math.random() < .5 ? -1 : 1) * .95, delay: i * .14 }); nz(1.4, { type: 'bandpass', f: 380, q: 1, vol: .35, a: .5 }); },
   reverse() { if (chicken) return sfx.chime(); nz(1.3, { type: 'bandpass', f: 400, f2: 2600, q: 3, vol: .35, a: 1.1 }); osc('sawtooth', 200, 1.3, { vol: .15, f2: 900, a: 1.1 }); },
   scream() { if (chicken) return sfx.pop(); for (let i = 0; i < 3; i++) osc('sawtooth', 620 + i * 37, .9, { vol: .16, f2: 380, a: .02, delay: i * .02 }); nz(.9, { type: 'bandpass', f: 1500, q: 2, vol: .2 }); },
   swing() { nz(.25, { type: 'bandpass', f: 600, f2: 2400, q: 1.5, vol: .3, a: .03 }); },
@@ -754,7 +789,7 @@ function startGame(m) {
   if (phone && isPortrait() && !document.body.classList.contains('rot90')) say('오른쪽 위 [가로 모드]를 누르면 화면이 커져요', '#cfc6b6', 6);
 }
 function stopGame() {
-  game = null; closeChat();
+  game = null; closeChat(); presence(0, 0);
   if (document.pointerLockElement) document.exitPointerLock();
   $('touch').hidden = true; drone(0, 1, .5);
 }
@@ -1010,16 +1045,24 @@ function update(dt) {
   }
 
   // 근접 공포: 꿈이 가까이 오면 앨리스에게 무서운 소리
-  let nd = 99;
+  let nd = 99, ndp = null;
   if (g.role === 'alice' && !g.spectate) {
     for (const p of g.players.values()) {
       if (p.role !== 'dream' || !p.cur || p.cur.o === 0) continue;
       const ip = interp(p); if (!ip) continue;
-      nd = Math.min(nd, Math.hypot(ip.x - g.cam.x, ip.z - g.cam.z));
+      const d = Math.hypot(ip.x - g.cam.x, ip.z - g.cam.z);
+      if (d < nd) { nd = d; ndp = ip; }
     }
   }
   g.nearDream = nd;
   const terror = clamp(1 - (nd - 2) / 14, 0, 1);
+  g.terror = terror;
+  {
+    const pres = clamp(1 - (nd - 1.5) / 10.5, 0, 1);
+    let pv = 0;
+    if (ndp) { let rel = Math.atan2(ndp.z - g.cam.z, ndp.x - g.cam.x) - g.cam.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel)); pv = Math.sin(rel) * .85; }
+    presence(g.ended || g.intro > 0 || !(ms && (ms.s === 0 || ms.s === 1)) ? 0 : pres, pv);
+  }
   fx.noise = .09 + terror * .22 * (chicken ? .3 : 1);
   fx.wobble = .5 + terror * 2 * (chicken ? .3 : 1);
   if (A.ctx && !g.ended) {
@@ -1029,9 +1072,9 @@ function update(dt) {
       if (g.heartT <= 0) { g.heartT = lerp(1.3, .34, terror); sfx.heart(.25 + terror * .6); }
     }
     g.terrorCd -= dt;
-    if (nd < 7.5 && g.terrorCd <= 0 && !(g.intro > 0) && ms && ms.s === 0) {
-      g.terrorCd = 14 + Math.random() * 6;
-      const pick = [sfx.screech, sfx.growl, sfx.reverse, () => sfx.whisper(2)][Math.random() * 4 | 0];
+    if (nd < 8.5 && g.terrorCd <= 0 && !(g.intro > 0) && ms && ms.s === 0) {
+      g.terrorCd = nd < 4 ? 5 + Math.random() * 3 : 8 + Math.random() * 4;
+      const pick = nd < 4 ? [sfx.shriek, sfx.screech, sfx.ear][Math.random() * 3 | 0] : [sfx.screech, sfx.growl, sfx.reverse, sfx.ear, () => sfx.whisper(2)][Math.random() * 5 | 0];
       pick(); fx.glitch = chicken ? .3 : 1.2;
       say(chicken ? '…뭔가 귀여운 게 가까이 있다' : ['무언가 가까이 있다.', '뒤에서 숨소리가 들린다.', '도망쳐.', '찾았다.'][Math.random() * 4 | 0], '#ff8080', 2.5);
     }
@@ -1065,6 +1108,13 @@ function drawHud(g, tags) {
   c.textBaseline = 'alphabetic';
   const sh = (s, x, y, col, font, al = 'left') => { c.font = font; c.textAlign = al; c.fillStyle = 'rgba(0,0,0,.85)'; c.fillText(s, x + 1, y + 1); c.fillStyle = col; c.fillText(s, x, y); };
   const OSD = `20px 'VT323', monospace`, KR = `12px 'Nanum Gothic Coding', monospace`, KRS = `11px 'Nanum Gothic Coding', monospace`;
+  // 꿈이 가까우면 화면 가장자리가 심장 박동에 맞춰 붉게 조여든다
+  if (!chicken && !dream && g.terror > .35 && !g.ended) {
+    const k = (g.terror - .35) / .65, beat = .55 + .45 * Math.pow(Math.max(0, Math.sin(now * (4 + k * 6))), 6);
+    const rg = c.createRadialGradient(W / 2, H / 2, H * (.62 - k * .25), W / 2, H / 2, H * .9);
+    rg.addColorStop(0, 'rgba(120,0,0,0)'); rg.addColorStop(1, `rgba(120,0,0,${(.25 + k * .5) * beat})`);
+    c.fillStyle = rg; c.fillRect(0, 0, W, H);
+  }
   // 이름표
   c.font = KRS; c.textAlign = 'center';
   for (const t of tags) { c.globalAlpha = clamp(t.a * 1.4, 0, 1); c.fillStyle = '#000'; c.fillText(t.name, t.x + 1, t.y + 1); c.fillStyle = '#e8e0d0'; c.fillText(t.name, t.x, t.y); }
