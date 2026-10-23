@@ -1067,6 +1067,237 @@ function HCh4(opt = {}) {
   return S;
 }
 
-return { HCh1, HCh2, HCh4, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
+
+/* =========================================================
+   히든 테이프 「 앨리스 ─ 0 」 : 가정용 캠코더 영상
+   ========================================================= */
+let tapeFont = false;
+try { const ff = new FontFace('GaeguTape', "url('fonts/gaegu-tape.woff2')", { weight: '700' }); ff.load().then(f => { document.fonts.add(f); tapeFont = true; }).catch(() => {}); } catch (_) {}
+function crayon(x, y, str, size, col, rot = 0, o = {}) {
+  g.save(); g.translate(x, y); g.rotate(rot);
+  g.font = o.hand && tapeFont ? `700 ${size * 1.25}px GaeguTape, 'Nanum Gothic Coding', sans-serif` : `${o.w || 800} ${size}px 'Nanum Myeongjo', serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const reps = o.hand ? 2 : 4;
+  for (let i = 0; i < reps; i++) { g.globalAlpha = (o.a == null ? 1 : o.a) * (o.hand ? (i ? .45 : .95) : (.35 + i * .12)); g.fillStyle = col; g.fillText(str, (hash(i, size | 0) / 255 - .5) * 1.6, (hash(size | 0, i + 3) / 255 - .5) * 1.6); }
+  g.restore();
+}
+function crayLine(pts, col, w = 2) {
+  g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round';
+  for (let k = 0; k < 2; k++) { g.lineWidth = w * (k ? .6 : 1); g.globalAlpha = k ? .5 : .85; g.beginPath(); pts.forEach(([x, y], i) => { const jx = x + (hash(i * 7 + k, x | 0) / 255 - .5) * 1.2, jy = y + (hash(i * 3 + k, y | 0) / 255 - .5) * 1.2; i ? g.lineTo(jx, jy) : g.moveTo(jx, jy); }); g.stroke(); }
+  g.globalAlpha = 1;
+}
+// 아이가 그린 그림 (종이 한 장)
+function kidDrawing(x, y, w, h, rot) {
+  g.save(); g.translate(x, y); g.rotate(rot);
+  g.fillStyle = '#ece4cf'; g.fillRect(-w / 2, -h / 2, w, h);
+  g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(-w / 2, h / 2 - 3, w, 3);
+  const X = u => -w / 2 + u * w, Y = v => -h / 2 + v * h;
+  for (let i = 0; i < 4; i++) crayLine([[X(.08 + i * .07), Y(.8)], [X(.12 + i * .07), Y(.45)], [X(.16 + i * .07), Y(.8)]], '#2f8a3a', 2);       // 숲
+  crayLine([[X(.4), Y(.8)], [X(.4), Y(.45)], [X(.52), Y(.32)], [X(.64), Y(.45)], [X(.64), Y(.8)]], '#3a5ac8', 2);                          // 극장
+  crayLine([[X(.44), Y(.62)], [X(.6), Y(.62)]], '#3a5ac8', 1.5);
+  crayLine([[X(.72), Y(.8)], [X(.72), Y(.4)], [X(.76), Y(.4)], [X(.76), Y(.46)], [X(.8), Y(.46)], [X(.8), Y(.4)], [X(.84), Y(.4)], [X(.84), Y(.8)]], '#6a6a6a', 2); // 성
+  crayLine([[X(.66), Y(.9)], [X(.92), Y(.9)]], '#d4a020', 2.5); crayLine([[X(.7), Y(.9)], [X(.7), Y(.98)]], '#d4a020', 2); crayLine([[X(.88), Y(.9)], [X(.88), Y(.98)]], '#d4a020', 2); // 다과회 식탁
+  crayLine([[X(.86), Y(.1)], [X(.9), Y(.2)], [X(.82), Y(.2)], [X(.86), Y(.1)]], '#e0c020', 2);                                               // 해
+  // 작은 꿈: 아이 옆에 서 있는 까만 것
+  g.fillStyle = '#141014'; g.beginPath(); g.ellipse(X(.3), Y(.62), w * .045, h * .16, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#fff'; g.fillRect(X(.29), Y(.55), 1.5, 1.5); g.fillRect(X(.31), Y(.55), 1.5, 1.5);
+  // 아이 자신
+  crayLine([[X(.22), Y(.5)], [X(.22), Y(.72)]], '#d04080', 2); g.strokeStyle = '#a05030'; g.lineWidth = 1.2; g.beginPath(); g.arc(X(.22), Y(.46), w * .025, 0, 7); g.stroke();
+  crayon(X(.31), Y(.32), '작은꿈', h * .1, '#141014', -.08, { w: 400, hand: true });
+  g.restore();
+}
+function room(mode, t) {
+  // mode: day / dusk / night / morning
+  const night = mode === 'night';
+  const wall = night ? '#121a2a' : mode === 'morning' ? '#c9bea2' : mode === 'dusk' ? '#a89878' : '#d2c6a6';
+  g.fillStyle = wall; g.fillRect(-20, -20, W + 40, 214);
+  // 벽지 꽃무늬
+  g.fillStyle = night ? 'rgba(120,140,190,.12)' : 'rgba(150,90,90,.18)';
+  for (let y = 10; y < 190; y += 22) for (let x = (y / 22 % 2) * 14; x < W; x += 28) { g.beginPath(); g.arc(x, y, 2.4, 0, 7); g.fill(); g.fillRect(x - .5, y + 2, 1, 5); }
+  // 창문
+  g.fillStyle = night ? '#060a14' : '#2a2018'; g.fillRect(28, 40, 86, 96);
+  const sky = night ? '#0a1430' : mode === 'dusk' ? '#c87848' : '#bcd8ec';
+  g.fillStyle = sky; g.fillRect(33, 45, 76, 86);
+  if (night) { g.fillStyle = '#d8dce8'; g.beginPath(); g.arc(90, 64, 7, 0, 7); g.fill(); }
+  g.fillStyle = night ? '#060a14' : '#2a2018'; g.fillRect(69, 45, 3, 86); g.fillRect(33, 86, 76, 3);
+  g.fillStyle = night ? '#2a2440' : '#d88aa0'; g.fillRect(20, 34, 16, 112); g.fillRect(106, 34, 16, 112);
+  // 벽장
+  g.fillStyle = night ? '#1a1410' : '#6a4a30'; g.fillRect(250, 34, 100, 160);
+  g.fillStyle = night ? '#0e0a08' : '#4a321e'; g.fillRect(254, 38, 92, 152);
+  // 바닥
+  const fl = g.createLinearGradient(0, 194, 0, H); fl.addColorStop(0, night ? '#151018' : '#7a5a3a'); fl.addColorStop(1, night ? '#08060a' : '#4a3420');
+  g.fillStyle = fl; g.fillRect(-20, 194, W + 40, 120);
+  g.strokeStyle = night ? 'rgba(0,0,0,.5)' : 'rgba(40,24,12,.5)'; g.lineWidth = 1;
+  for (let i = -6; i <= 6; i++) { g.beginPath(); g.moveTo(W / 2 + i * 26, 194); g.lineTo(W / 2 + i * 70, H); g.stroke(); }
+  // 침대
+  g.fillStyle = night ? '#22202c' : '#e8e0d0'; g.fillRect(140, 150, 96, 34); g.fillStyle = night ? '#2a2236' : '#e0a0b8'; g.fillRect(140, 160, 96, 30);
+  g.fillStyle = night ? '#1a1418' : '#8a6040'; g.fillRect(136, 128, 6, 70); g.fillRect(236, 140, 6, 58);
+  g.fillStyle = night ? '#2a2a34' : '#f4f0e6'; g.beginPath(); g.ellipse(160, 154, 16, 7, 0, 0, 7); g.fill();
+  // 곰인형
+  g.fillStyle = night ? '#2a2018' : '#a07040'; g.beginPath(); g.arc(222, 150, 7, 0, 7); g.fill(); g.beginPath(); g.arc(222, 140, 5, 0, 7); g.fill();
+  g.beginPath(); g.arc(218, 136, 2, 0, 7); g.arc(226, 136, 2, 0, 7); g.fill();
+}
+function girl(x, y, s, o = {}) {
+  g.save(); g.translate(x, y); g.scale(s, s);
+  const dress = o.dress || '#e07090', hair = o.hair || '#3a2414', skin = '#f0d0b0';
+  if (o.sit) { g.fillStyle = dress; g.beginPath(); g.ellipse(0, 10, 22, 12, 0, 0, 7); g.fill(); g.fillRect(-12, -18, 24, 28); }
+  else { g.fillStyle = dress; g.beginPath(); g.moveTo(-12, -20); g.lineTo(12, -20); g.lineTo(18, 24); g.lineTo(-18, 24); g.closePath(); g.fill(); g.fillStyle = skin; g.fillRect(-9, 24, 5, 22); g.fillRect(4, 24, 5, 22); }
+  g.fillStyle = skin; g.fillRect(-3, -24, 6, 6);
+  g.fillStyle = hair; g.beginPath(); g.arc(0, -36, 14, Math.PI, 0); g.fill(); g.fillRect(-14, -36, 28, o.long ? 30 : 16);
+  g.fillStyle = skin; g.beginPath(); g.ellipse(0, -34, 10.5, 12, 0, 0, 7); g.fill();
+  g.fillStyle = hair; g.fillRect(-11, -46, 22, 7);
+  if (o.back) { g.fillStyle = hair; g.beginPath(); g.ellipse(0, -34, 11, 12.5, 0, 0, 7); g.fill(); }
+  else { g.fillStyle = '#1a1010'; g.fillRect(-5, -34, 2.4, 2.6); g.fillRect(3, -34, 2.4, 2.6); g.strokeStyle = '#a04a40'; g.lineWidth = 1; g.beginPath(); o.sad ? g.arc(0, -24, 3, 1.15 * Math.PI, 1.85 * Math.PI) : g.arc(0, -29, 3, .15 * Math.PI, .85 * Math.PI); g.stroke(); g.fillStyle = 'rgba(230,120,120,.35)'; g.fillRect(-9, -30, 4, 2); g.fillRect(5, -30, 4, 2); }
+  g.restore();
+}
+function camOSD(rec, date, time, night) {
+  g.font = `16px ${api.OSDF}`; g.textBaseline = 'top'; g.textAlign = 'left';
+  const sh = (s, x, y, col, al = 'left') => { g.textAlign = al; g.fillStyle = 'rgba(0,0,0,.7)'; g.fillText(s, x + 1, y + 1); g.fillStyle = col; g.fillText(s, x, y); };
+  if (rec && Math.floor(now() * 1.5) % 2) { g.fillStyle = '#e02020'; g.beginPath(); g.arc(18, 18, 4, 0, 7); g.fill(); }
+  if (rec) sh('REC', 26, 11, '#f0f0f0');
+  sh(night ? 'NIGHT' : 'AUTO', W - 14, 11, '#f0f0f0', 'right');
+  sh(date, W - 14, H - 44, '#f6f0c0', 'right'); sh(time, W - 14, H - 28, '#f6f0c0', 'right');
+  g.strokeStyle = 'rgba(240,240,240,.55)'; g.lineWidth = 1.2;
+  for (const [cx, cy, dx, dy] of [[10, 34, 1, 1], [W - 10, 34, -1, 1], [10, H - 54, 1, -1], [W - 10, H - 54, -1, -1]]) { g.beginPath(); g.moveTo(cx, cy + dy * 12); g.lineTo(cx, cy); g.lineTo(cx + dx * 12, cy); g.stroke(); }
+}
+function TapeScene(next) {
+  const name = api.playerName() || '이름 없는 아이';
+  const T0 = 1.6, S2 = 24, S3 = 39, S4 = 57, S5 = 68, END = 80;
+  // 소리 없이 자막으로만: [ ] 는 소리 묘사, 나머지는 대사. 한 글자씩 타자 치듯 나온다.
+  const subsAt = [
+    [T0 + .3, '[ 테이프 돌아가는 소리 ]', 1.6, 'cc'],
+    [T0 + 2, '찍고 있어? …안녕!', 2.4], [T0 + 4.5, '이거 봐, 내가 그렸어.', 2.4],
+    [T0 + 7.1, '여기는 숲이고, 이건 노래하는 극장이고…', 3], [T0 + 10.3, '이건 성. 여기서 다과회를 해.', 2.8],
+    [T0 + 13.4, '그리고 이건…', 1.6], [T0 + 15.1, '내 친구, 작은 꿈이야.', 2.6, 'warm'],
+    [T0 + 17.9, '꿈이는 내가 안 꿔 주면 없어진대.', 2.6], [T0 + 20.2, '그래서 매일 꿔 줘.', 1.8, 'warm'],
+    [S2 + .4, '[ 4년 뒤 ]', 1.6, 'cc'],
+    [S2 + 2.2, '엄마, 그만 찍어.', 2.2], [S2 + 4.8, '…이제 그런 거 안 믿어.', 2.4], [S2 + 7.4, '나 열한 살이야.', 2], [S2 + 10.2, '…안녕.', 2.4, 'quiet'],
+    [S3 + 1.5, '[ 아무도 없다 ]', 3, 'cc'], [S3 + 6, '[ 삐걱 ]', 1.8, 'cc'],
+    [S3 + 9, '[ 무언가 종이를 긁는 소리 ]', 3, 'cc'], [S3 + 12.6, '…꿔 줘.', 2, 'other'], [S3 + 14.8, '꿔 줘 꿔 줘 꿔 줘 꿔 줘', 2.4, 'other'],
+    [S4 + 1.2, '[ 방에 아무도 없다 ]', 2.6, 'cc'], [S4 + 5.4, '[ 멀리서 부르는 소리 ]', 2.6, 'cc'],
+    [S5 + 2.5, '[ 테이프 한 개 ]', 2.4, 'cc'], [S5 + 6.4, '…다음은 너야.', 3, 'other']
+  ];
+  const cap = { text: '', kind: '', t0: 0, dur: 0 };
+  function drawCap(t) {
+    const age = t - cap.t0; if (!cap.text || age > cap.dur + .3) return;
+    const n = cap.kind === 'cc' ? cap.text.length : Math.min(cap.text.length, Math.floor(age * 16));
+    const str = cap.text.slice(0, n);
+    const a = clamp(Math.min(age * 4, (cap.dur + .3 - age) * 3), 0, 1);
+    g.save(); g.globalAlpha = a;
+    g.font = `${cap.kind === 'cc' ? 400 : 700} ${cap.kind === 'cc' ? 12 : 14}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const w = g.measureText(cap.text).width + 16, y = H - 62 + (cap.kind === 'other' ? (Math.random() - .5) * 2 : 0);
+    g.fillStyle = 'rgba(0,0,0,.78)'; g.fillRect(W / 2 - w / 2, y - 11, w, 22);
+    g.fillStyle = cap.kind === 'cc' ? '#bdb7a8' : cap.kind === 'other' ? (chicken() ? '#ff9ec4' : '#e02424') : cap.kind === 'warm' ? '#ffe9b0' : cap.kind === 'quiet' ? '#a8a4a0' : '#f4f0e6';
+    g.fillText(str, W / 2 + (cap.kind === 'other' ? (Math.random() - .5) * 2 : 0), y);
+    g.restore();
+  }
+  let si = 0, scratchT = 0;
+  const S = {
+    noPause: true,
+    enter() { api.osd.on = false; setFx({ noise: .16, wobble: 1.2, ca: 1.6, flicker: .06, track: .5 }); drone(0, 1, .5); api.stopTrack && api.stopTrack(.5); sfx.rew(); },
+    exit() { api.osd.on = true; },
+    update(dt) {
+      const t = this.t;
+      while (si < subsAt.length && t >= subsAt[si][0]) { const q = subsAt[si]; cap.text = q[1]; cap.dur = q[2]; cap.kind = q[3] || ''; cap.t0 = q[0]; if (cap.kind === 'other') { fx.glitch = .8; } else sfx.tick(); si++; }
+      if (t > T0 && t < S2 && Math.random() < dt * .4) sfx.music([523.25, 587.33, 659.25, 783.99][Math.random() * 4 | 0], 10);
+      if (t >= S3 && t < S4) {
+        scratchT -= dt;
+        if (t > S3 + 5 && scratchT <= 0) { scratchT = .15 + Math.random() * .4; nz(.12 + Math.random() * .2, { type: 'bandpass', f: 2200 + Math.random() * 1600, q: 4, vol: .08 + (t - S3) / 20 * .12, pan: .5 }); }
+        if (t > S3 + 1 && t - dt <= S3 + 1) drone(.05, .6, 4);
+      }
+      if (t > S4 && t - dt <= S4) { drone(0, 1, .2); sfx.stat(.3); }
+      if (t > S5 + 9 && t - dt <= S5 + 9) { sfx.stat(.8); fx.glitch = 2; }
+      if (t >= S3 && t < S4 - .2) fx.noise = .22; else fx.noise = .16;
+      if (t > END) next ? next() : go(api.Title());
+    },
+    key() {}, pointer() {},
+    draw() { this.drawScene(); drawCap(this.t); },
+    drawScene() {
+      const t = this.t;
+      if (t < T0) { // 재생 시작
+        g.fillStyle = '#1430a6'; g.fillRect(-20, -20, W + 40, H + 40);
+        txt('▶ PLAY   앨리스 ─ 0', W / 2, 150, { size: 18, color: '#eef1ff', font: MONO });
+        for (let i = 0; i < 6; i++) { g.fillStyle = `rgba(220,220,240,${.2 + Math.random() * .3})`; g.fillRect(0, Math.random() * H, W, 2 + Math.random() * 6); }
+        return;
+      }
+      if (t < S2) { // 1987, 아이가 그림을 보여 준다
+        const k = t - T0, zoom = 1 + clamp((k - 10) / 6, 0, 1) * .25;
+        g.save(); g.translate(W / 2, H / 2); g.scale(zoom, zoom); g.translate(-W / 2 + Math.sin(k * .7) * 3, -H / 2 + Math.cos(k * .9) * 2);
+        room('day', k);
+        girl(200, 232, 1.75, { sit: true });
+        g.fillStyle = '#f0d0b0'; g.fillRect(118, 218, 10, 14); g.fillRect(272, 218, 10, 14);
+        kidDrawing(200 + Math.sin(k * 1.3) * 2, 232, 150, 88, -.04 + Math.sin(k) * .02);
+        g.restore();
+        camOSD(true, 'JUN.14 1987', `PM 3:${String(12 + (k / 60 | 0)).padStart(2, '0')}`);
+        return;
+      }
+      if (t < S3) { // 1991, 그림을 상자에 넣고 벽장을 닫는다
+        const k = t - S2;
+        room('dusk', k);
+        const gx = k < 7 ? 180 : lerp(180, 300, clamp((k - 7) / 3, 0, 1));
+        // 상자
+        const bx = k < 7 ? 160 : gx - 20, by = k < 7 ? 232 : 214;
+        g.fillStyle = '#9a7448'; g.fillRect(bx - 34, by - 22, 68, 40); g.fillStyle = '#7a5a34'; g.fillRect(bx - 34, by - 22, 68, 6);
+        if (k < 6) for (let i = 0; i < 3; i++) { g.fillStyle = '#ece4cf'; g.save(); g.translate(bx - 18 + i * 16, by - 26); g.rotate(-.2 + i * .2); g.fillRect(-10, -12, 20, 16); crayLine([[-6, 0], [-2, -8], [2, 0]], '#2f8a3a', 1.5); g.restore(); }
+        crayon(bx, by - 2, '꿈', 10, '#2a2a2a', 0, { w: 400 });
+        girl(gx + 14, 196, 1.45, { dress: '#4a5a7a', long: true, sad: true, back: k > 7 });
+        // 벽장 문 닫힘
+        const close = clamp((k - 10.5) / 1.4, 0, 1);
+        if (k > 10) { g.fillStyle = '#5a3e26'; g.fillRect(254, 38, 92 * close, 152); g.fillStyle = '#c8a050'; if (close > .9) g.fillRect(338, 112, 3, 6); }
+        camOSD(true, 'MAR.02 1991', 'PM 6:41');
+        if (k > 13) { g.fillStyle = `rgba(0,0,0,${clamp((k - 13) / 2, 0, 1)})`; g.fillRect(0, 0, W, H); }
+        return;
+      }
+      if (t < S4) { // 밤, 켜 둔 채 잊힌 캠코더
+        const k = t - S3;
+        room('night', k);
+        const open = clamp((k - 4) / 12, 0, .75);
+        g.fillStyle = '#020102'; g.fillRect(254, 38, 92, 152);
+        g.fillStyle = '#2a1e14'; g.fillRect(254, 38, 92 * (1 - open), 152);
+        if (k > 11 && !chicken()) { const a = clamp((k - 11) / 2, 0, 1) * (.6 + .4 * Math.sin(k * 3)); g.fillStyle = `rgba(240,240,255,${a})`; g.fillRect(320, 92, 2, 2); g.fillRect(330, 92, 2, 2); }
+        if (k > 11 && chicken()) { g.globalAlpha = clamp((k - 11) / 2, 0, 1) * .8; cuteGhost(325, 110, 12, {}); g.globalAlpha = 1; }
+        if (k > 13.5) { g.fillStyle = '#141014'; for (let i = 0; i < 3; i++) g.fillRect(300 + i * 4, 182 + i * 2, 18, 2); }
+        g.fillStyle = 'rgba(40,90,60,.22)'; g.fillRect(0, 0, W, H);
+        camOSD(true, 'MAR.02 1991', `AM 3:${String(3 + (k / 4 | 0)).padStart(2, '0')}`, true);
+        if (k > 17.2) { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
+        return;
+      }
+      if (t < S5) { // 아침, 벽 가득 "잊지 마"
+        const k = t - S4;
+        room('morning', k);
+        g.fillStyle = '#5a3e26'; g.fillRect(254, 38, 92, 152);
+        const cols = ['#b01818', '#141014', '#2a3a9a', '#b01818', '#6a1a6a'];
+        const n = Math.min(26, 6 + k * 4);
+        for (let i = 0; i < n; i++) { const x = 30 + (i * 67 % 340) + (hash(i, 3) / 255 - .5) * 30, y = 20 + ((i * 37) % 170) + (hash(i, 9) / 255 - .5) * 16, sz = 16 + hash(i, 5) % 20; crayon(x, y, '잊지 마', sz, cols[i % 5], (hash(i, 7) / 255 - .5) * .6, { a: .9, hand: true }); }
+        for (let i = 0; i < 4; i++) { g.save(); g.translate(60 + i * 70, 250 + (i % 2) * 18); g.rotate(-.3 + i * .25); g.fillStyle = '#ece4cf'; g.fillRect(-16, -11, 32, 22); crayLine([[-10, 6], [-4, -6], [2, 6]], '#2f8a3a', 1.5); g.restore(); }
+        camOSD(true, 'MAR.03 1991', 'AM 7:12');
+        return;
+      }
+      // 벽장 속, 상자 위의 테이프
+      const k = t - S5;
+      g.fillStyle = '#0c0806'; g.fillRect(-20, -20, W + 40, H + 40);
+      const lg = g.createRadialGradient(200, 160, 10, 200, 160, 220); lg.addColorStop(0, 'rgba(200,170,120,.35)'); lg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = lg; g.fillRect(0, 0, W, H);
+      g.fillStyle = '#7a5a34'; g.fillRect(40, 70, 320, 230); g.fillStyle = '#6a4c2a'; g.fillRect(40, 70, 320, 10);
+      crayon(90, 110, '꿈', 18, '#2a2a2a', -.1, { w: 400 });
+      const zoom = 1 + clamp(k / 8, 0, 1) * .18;
+      g.save(); g.translate(200, 180); g.scale(zoom, zoom); g.rotate(-.05);
+      g.fillStyle = '#0c0c0e'; g.fillRect(-110, -62, 220, 124);
+      g.fillStyle = '#1c1c20'; g.fillRect(-100, -54, 200, 108);
+      g.fillStyle = '#060608'; g.beginPath(); g.arc(-48, 6, 20, 0, 7); g.arc(48, 6, 20, 0, 7); g.fill();
+      g.fillStyle = '#e8e2d0'; g.fillRect(-92, -50, 184, 40);
+      g.strokeStyle = '#b8b0a0'; g.lineWidth = .5; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(-88, -42 + i * 9); g.lineTo(88, -42 + i * 9); g.stroke(); }
+      g.font = "800 17px 'Nanum Myeongjo', serif"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#1a1414'; g.fillText('「 앨리스 ─ 5 」', 0, -37);
+      g.restore();
+      g.save(); g.translate(200, 180); g.scale(zoom, zoom); g.rotate(-.05);
+      crayon(0, -19, name, 13, '#a01414', .02, { w: 400 });
+      g.restore();
+      if (k < 9) camOSD(true, 'MAR.03 1991', 'AM 7:14');
+      else { g.font = `20px ${api.OSDF}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = '#f2f2ee'; g.fillText('PAUSE ▮▮', 14, 10); }
+      if (k > 9) { fx.wobble = 2; fx.noise = .3; }
+    }
+  };
+  return S;
+}
+
+return { HCh1, HCh2, HCh4, TapeScene, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
 };
 })();
