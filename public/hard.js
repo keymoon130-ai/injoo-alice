@@ -244,6 +244,7 @@ function Engine(o) {
       litAt(hx, hz, lt);
       const base = Wd.col, tex = Wd.tex;
       const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H - 1, Math.floor(bot));
+      if (Wd.emis) { const kk = .4 * kf + .6; for (let y = y0; y <= y1; y++) { const vh = (bot - y) / lh, m = .85 + .15 * Math.sin(vh * 9 + now() * 3) + (hash(x, y) & 15) / 255; pix[y * W + x] = pack((base[0] * m * kk) | 0, (base[1] * m * kk) | 0, (base[2] * m * kk) | 0); } continue; }
       const patch = hash(mx * 3 + 1, mz * 7 + 3);
       for (let y = y0; y <= y1; y++) {
         const vh = (bot - y) / lh;
@@ -796,6 +797,248 @@ function HCh2() {
   return S;
 }
 
-return { HCh1, HCh2, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
+
+/* =========================================================
+   하드 4장 : 노란 쌍둥이 — 다과회, 일제히 돌아보는 손님들, 추격, 붉은 검사
+   ========================================================= */
+const ITEMS = [
+  { id: 'tea', name: '찻잎 통', x: 15.5, z: 5.5 },
+  { id: 'cake', name: '케이크', x: 31.5, z: 10.5 },
+  { id: 'sugar', name: '각설탕 그릇', x: 4.5, z: 17.5 },
+  { id: 'jam', name: '딸기잼', x: 43.5, z: 28.5 },
+  { id: 'milk', name: '우유병', x: 16.5, z: 37.5 }
+];
+function buildTeaSprites() {
+  if (SP.tea) return; SP.tea = true;
+  const COLS = ['#2a1e2e', '#1e2630', '#30261a', '#2a1418', '#1c2a20'];
+  const guest = (x, col, stare, hairCol) => {
+    E2(x, 10, 26, 9, 8, col); x.fillStyle = col; x.fillRect(2, 18, 16, 10);
+    if (stare) {
+      E2(x, 10, 9, 5.4, 6.4, '#c9c0b0');
+      E2(x, 7.8, 8.4, 1.8, 2.3, '#000'); E2(x, 12.2, 8.4, 1.8, 2.3, '#000');
+      x.fillStyle = '#6a0606'; x.fillRect(7, 12.5, 6, 1.4); x.fillRect(7.5, 13.5, .7, 4); x.fillRect(11.4, 13.5, .7, 5);
+      x.fillStyle = hairCol; x.beginPath(); x.ellipse(10, 5, 6, 3.6, 0, Math.PI, 0); x.fill(); x.fillRect(4, 4, 2, 9); x.fillRect(14, 4, 2, 9);
+      x.strokeStyle = '#c9c0b0'; x.lineWidth = 1.4; x.beginPath(); x.moveTo(3, 20); x.lineTo(5, 15); x.moveTo(17, 20); x.lineTo(15, 15); x.stroke();
+    } else {
+      E2(x, 10, 12, 5.2, 5.6, hairCol);
+      x.fillStyle = '#9a9286'; x.fillRect(8.5, 16, 3, 2);
+      x.strokeStyle = '#a49c8f'; x.lineWidth = 1.3; x.beginPath(); x.moveTo(4, 22); x.lineTo(8, 17); x.moveTo(16, 22); x.lineTo(12, 17); x.stroke();
+    }
+  };
+  SP.guestEat = COLS.map((c, i) => canvasSprite(20, 34, x => guest(x, c, false, i % 2 ? '#2a2010' : '#0c0a0a'), null, 3));
+  SP.guestStare = COLS.map((c, i) => canvasSprite(20, 34, x => guest(x, c, true, i % 2 ? '#2a2010' : '#0c0a0a'), x => { E2(x, 7.8, 8.6, .5, .5, '#fff'); E2(x, 12.2, 8.6, .5, .5, '#fff'); }, 3));
+  SP.guestRun = COLS.map((c, i) => canvasSprite(24, 64, x => {
+    P2(x, [7, 20, 17, 20, 20, 50, 4, 50], c);
+    x.strokeStyle = '#a49c8f'; x.lineWidth = 1.6; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(7, 22); x.lineTo(1, 30); x.moveTo(17, 22); x.lineTo(23, 30); x.moveTo(9, 50); x.lineTo(8, 63); x.moveTo(15, 50); x.lineTo(16, 63); x.stroke();
+    x.fillStyle = '#c9c0b0'; x.fillRect(11, 15, 2, 5);
+    E2(x, 12, 10, 5.4, 6.6, '#c9c0b0'); E2(x, 9.8, 9, 1.9, 2.4, '#000'); E2(x, 14.2, 9, 1.9, 2.4, '#000');
+    E2(x, 12, 14.5, 2.2, 2.6, '#1a0202'); x.fillStyle = '#6a0606'; x.fillRect(10, 15, 4, 5);
+    x.fillStyle = i % 2 ? '#2a2010' : '#0c0a0a'; x.beginPath(); x.ellipse(12, 6, 6, 3.6, 0, Math.PI, 0); x.fill();
+  }, x => { E2(x, 9.8, 9.2, .55, .55, '#fff'); E2(x, 14.2, 9.2, .55, .55, '#fff'); }, 3));
+  SP.cGuest = canvasSprite(40, 48, x => ghostOn(x, 20, 20, 15, { col: '#fff4d8' }), null, 2);
+  SP.cGuestT = canvasSprite(40, 48, x => ghostOn(x, 20, 20, 15, { col: '#ffe0ec', boo: true }), null, 2);
+  SP.table = canvasSprite(16, 12, x => { x.fillStyle = '#2a1a10'; x.fillRect(1, 5, 2, 7); x.fillRect(13, 5, 2, 7); x.fillStyle = '#d8d0c0'; x.fillRect(0, 2, 16, 5); x.fillStyle = '#b8b0a0'; for (let i = 0; i < 8; i++) E2(x, 1 + i * 2, 7, 1, 1, '#b8b0a0'); }, null, 2);
+  const itemDraw = {
+    tea: x => { x.fillStyle = '#3a6a4a'; x.fillRect(4, 4, 8, 11); x.fillStyle = '#c8a040'; x.fillRect(4, 3, 8, 2); x.fillRect(4, 9, 8, 1); },
+    cake: x => { x.fillStyle = '#f0e6d6'; x.fillRect(2, 8, 12, 7); x.fillStyle = '#e8a0b0'; x.fillRect(2, 7, 12, 2); E2(x, 8, 5.5, 1.6, 1.6, '#c01818'); },
+    sugar: x => { E2(x, 8, 12, 6, 3, '#d0d8e8'); x.fillStyle = '#fafafa'; x.fillRect(5, 8, 2.4, 2.4); x.fillRect(8, 7, 2.4, 2.4); x.fillRect(9, 9.5, 2.4, 2.4); },
+    jam: x => { x.fillStyle = '#9a1020'; x.fillRect(4, 6, 8, 9); x.fillStyle = '#e8e0d0'; x.fillRect(4, 4, 8, 3); x.fillStyle = '#e8c070'; x.fillRect(5, 9, 6, 3); },
+    milk: x => { x.fillStyle = '#f2f2f2'; x.fillRect(5, 5, 6, 10); x.fillRect(6, 2, 4, 3); x.fillStyle = '#3a6ab0'; x.fillRect(5, 9, 6, 2); }
+  };
+  SP.item = {}; SP.plate = {}; SP.plateFull = {};
+  for (const it of ITEMS) {
+    SP.item[it.id] = canvasSprite(16, 16, itemDraw[it.id], x => { E2(x, 12, 4, .8, .8, '#fffbe0'); }, 3);
+    SP.plate[it.id] = canvasSprite(16, 16, x => { E2(x, 8, 14, 7, 2, '#e8e2d6'); x.save(); x.globalAlpha = 1; itemDraw[it.id](x); x.globalCompositeOperation = 'source-atop'; x.fillStyle = '#0c0a0a'; x.fillRect(0, 0, 16, 12.5); x.restore(); E2(x, 8, 14, 7, 2, '#e8e2d6'); }, null, 3);
+    SP.plateFull[it.id] = canvasSprite(16, 16, x => { E2(x, 8, 14, 7, 2, '#e8e2d6'); itemDraw[it.id](x); }, null, 3);
+  }
+  SP.knight = canvasSprite(24, 40, x => {
+    P2(x, [6, 18, 18, 18, 22, 40, 2, 40], '#8a1414');
+    x.fillStyle = '#5a0a0a'; x.fillRect(11, 18, 2, 22);
+    E2(x, 12, 10, 5.2, 6, '#d8ccb8');
+    x.fillStyle = '#c8a050'; x.beginPath(); x.ellipse(12, 7, 6.4, 5, 0, Math.PI, 0); x.fill(); x.fillRect(5.6, 6, 2.4, 18); x.fillRect(16, 6, 2.4, 18);
+    E2(x, 10, 10.5, 1, .5, '#2a1010'); E2(x, 14, 10.5, 1, .5, '#2a1010'); x.fillStyle = '#6a0606'; x.fillRect(9.6, 11, .6, 4); x.fillRect(13.8, 11, .6, 5);
+    x.strokeStyle = '#d8ccb8'; x.lineWidth = 1.4; x.beginPath(); x.moveTo(7, 20); x.lineTo(5, 30); x.moveTo(17, 20); x.lineTo(19, 30); x.stroke();
+  }, null, 3);
+  SP.cKnight = canvasSprite(40, 48, x => ghostOn(x, 20, 20, 15, { col: '#ffd3e3', bow: true }), null, 2);
+  SP.bars = canvasSprite(24, 40, x => { x.fillStyle = '#4a4440'; x.fillRect(0, 0, 24, 2); x.fillRect(0, 38, 24, 2); for (let i = 0; i < 7; i++) x.fillRect(1 + i * 3.6, 0, 1.2, 40); }, null, 2);
+  SP.sword = canvasSprite(32, 8, x => { x.fillStyle = '#c0c0cc'; x.fillRect(2, 3, 22, 2); x.fillStyle = '#7a0a0a'; x.fillRect(10, 3, 10, 2); x.fillStyle = '#4a3020'; x.fillRect(24, 1, 2, 6); x.fillRect(26, 3, 5, 2); }, x => { x.fillStyle = '#ff3030'; x.fillRect(4, 3.5, 2, 1); }, 2);
+}
+function HCh4(opt = {}) {
+  buildSprites(); buildTeaSprites();
+  const N = 48;
+  const FT = [{ col: [52, 46, 40], tex: 'tile' }, { col: [80, 70, 44], tex: 'check' }, { col: [64, 44, 30], tex: 'board' }, { col: [40, 38, 36], tex: 'tile' }, { col: [92, 12, 12], tex: 'blood' }, { col: [40, 38, 36], decal: 0 }];
+  const WT = [null, { col: [70, 62, 54] }, { col: [96, 74, 54], tex: 'paper', h: 1.4 }, { col: [70, 46, 30], tex: 'shelf', h: 1.4 }, { col: [90, 84, 80], tex: 'bars' }, { col: [255, 248, 230], emis: true }, { col: [56, 36, 26], tex: 'door' }];
+  const e = Engine({ N, indoor: true, WT, FT, wallH: 1.4, fogD: 12, fogC: [6, 5, 4], amb: .3, ceilC: [40, 30, 24], lantern: 3.2, lanternC: [.8, .72, .6] });
+  e.wall.fill(1);
+  const carve = (x0, z0, x1, z1, fl, wt) => { for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { e.wall[z * N + x] = 0; e.floor[z * N + x] = fl; } };
+  carve(14, 16, 33, 29, 1);      // 큰 홀
+  carve(14, 4, 33, 12, 2);       // 부엌
+  carve(23, 13, 24, 15, 0);      // 부엌 통로
+  carve(3, 16, 10, 29, 0);       // 식료품 창고
+  carve(11, 22, 13, 23, 0);
+  carve(37, 16, 44, 29, 2);      // 서재
+  carve(34, 25, 36, 26, 0);
+  carve(23, 30, 24, 33, 0);      // 남쪽 통로
+  carve(16, 34, 31, 38, 3);      // 지하 저장고
+  carve(23, 39, 24, 45, 3);      // 출구 복도
+  for (let z = 16; z <= 29; z++) { e.wall[z * N + 13] = e.wall[z * N + 13] || 2; e.wall[z * N + 34] = e.wall[z * N + 34] || 2; }
+  for (let z = 16; z <= 29; z++) for (const x of [36, 45]) e.wall[z * N + x] = 3;
+  e.wall[22 * N + 13] = 0; e.wall[23 * N + 13] = 0; e.wall[25 * N + 34] = 0; e.wall[26 * N + 34] = 0;
+  e.wall[25 * N + 36] = 0; e.wall[26 * N + 36] = 0;
+  const GATE = [39 * N + 23, 39 * N + 24];
+  for (const k of GATE) e.wall[k] = 4;
+  e.wall[46 * N + 23] = 5; e.wall[46 * N + 24] = 5;
+  // 바닥의 피 글씨 (복도를 따라 걸어올 때 똑바로 읽히도록 180도 돌려 그린다)
+  { const c = document.createElement('canvas'); c.width = 96; c.height = 120; const x = c.getContext('2d');
+    x.translate(96, 120); x.rotate(Math.PI); x.fillStyle = '#7a0808'; x.font = "800 40px 'Nanum Myeongjo', serif"; x.textAlign = 'center';
+    x.fillText('죽여야', 48, 50); x.fillText('해', 48, 100);
+    for (let i = 0; i < 9; i++) x.fillRect(12 + i * 9, 102, 2, 5 + (i * 7) % 12);
+    e.decals[0] = { x: 23, z: 39.6, w: 2, h: 2.5, iw: 96, ih: 120, d: x.getImageData(0, 0, 96, 120).data };
+    for (const k of [40 * N + 23, 40 * N + 24, 41 * N + 23, 41 * N + 24, 39 * N + 23, 39 * N + 24]) e.floor[k] = 5; }
+  // 식탁과 손님
+  for (let x = 17; x <= 30; x++) { e.block[22 * N + x] = 1; e.block[23 * N + x] = 1; }
+  const guests = [];
+  let gi = 0;
+  for (let x = 18; x <= 30; x += 2) { guests.push({ x: x + .5, z: 21.2, sx: x + .5, sz: 21.2, v: gi++ % 5 }); guests.push({ x: x - .5, z: 24.8, sx: x - .5, sz: 24.8, v: gi++ % 5 }); }
+  const plates = ITEMS.map((it, i) => ({ it, x: 19.5 + i * 2.5, z: i % 2 ? 23.6 : 22.4, full: false }));
+  const items = ITEMS.map(it => ({ ...it, got: false }));
+  // 조명
+  for (let x = 17; x <= 31; x += 4) e.lights.push({ x, z: 23, r: 4.5, i: .9, c: [1, .8, .5] });
+  e.lights.push({ x: 23.5, z: 8, r: 7, i: .7, c: [1, .85, .6] }, { x: 6.5, z: 22, r: 6, i: .55, c: [.9, .8, .6] }, { x: 40.5, z: 22, r: 6, i: .55, c: [.9, .8, .6] }, { x: 23.5, z: 36, r: 6, i: .5, c: [.7, .7, .8] });
+  const itemLights = items.map(it => { const L = { x: it.x, z: it.z, r: 2, i: .7, c: [1, .95, .7] }; e.lights.push(L); return L; });
+  const exitLight = { x: 23.5, z: 45, r: 5, i: 1.4, c: [1, .95, .85], off: true }; e.lights.push(exitLight);
+  e.bake();
+  const cam = { x: 23.5, z: 26.6, yaw: -Math.PI / 2, bob: 0 };
+  let phase = opt.chase ? 'chase' : 'collect', bob = 0, stepAcc = 0, carried = [], placed = 0, pt = 0, idle = 0, slashT = 9, hasSword = false, knightDead = false, knightSaid = false, shutT = 0, scareT = 0, peek = -1, flash = 0;
+  if (opt.chase) { items.forEach(i => { i.got = true; }); plates.forEach(p => p.full = true); placed = 5; for (const L of itemLights) L.off = true; for (const k of GATE) e.wall[k] = 0; exitLight.off = false; e.bake(); cam.x = 23.5; cam.z = 26.6; cam.yaw = Math.PI / 2; pt = 0; for (const gu of guests) gu.up = true; }
+  const fdist = new Int16Array(N * N); let flowT = 0;
+  function flow() {
+    fdist.fill(-1); const q = []; const s0 = (cam.z | 0) * N + (cam.x | 0); fdist[s0] = 0; q.push(s0);
+    for (let h = 0; h < q.length; h++) { const k = q[h], x = k % N, z = (k / N) | 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (!e.inb(nx, nz)) continue; const nk = nz * N + nx; if (fdist[nk] >= 0 || e.wall[nk] || e.block[nk]) continue; fdist[nk] = fdist[k] + 1; q.push(nk); } }
+  }
+  function chaseStep(m, sp) {
+    const x = m.x | 0, z = m.z | 0, k = z * N + x;
+    let tx = cam.x, tz = cam.z;
+    if (fdist[k] > 1) { let best = fdist[k], bk = -1; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (!e.inb(nx, nz)) continue; const nk = nz * N + nx; if (fdist[nk] >= 0 && fdist[nk] < best) { best = fdist[nk]; bk = nk; } } if (bk >= 0) { tx = bk % N + .5; tz = ((bk / N) | 0) + .5; } }
+    else if (fdist[k] < 0) { // 식탁 위 등 막힌 칸이면 가장 가까운 열린 칸으로
+      for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0], [0, -2], [0, 2]]) { const nk = (z + dz) * N + x + dx; if (e.inb(x + dx, z + dz) && fdist[nk] >= 0) { tx = x + dx + .5; tz = z + dz + .5; break; } }
+    }
+    const d = Math.hypot(tx - m.x, tz - m.z) || 1, mv = Math.min(d, sp);
+    m.x += (tx - m.x) / d * mv; m.z += (tz - m.z) / d * mv;
+  }
+  const knight = { x: 23.5, z: 43.5 };
+  if (true) { e.block[43 * N + 23] = 1; e.block[43 * N + 24] = 1; }
+  const sword = { x: 23.9, z: 42.2 };
+  const chew = () => { nz(.12, { type: 'lowpass', f: 400 + Math.random() * 300, vol: .1, pan: (Math.random() - .5) * 1.4 }); if (Math.random() < .3) osc('sine', 2400 + Math.random() * 800, .25, { vol: .04, pan: (Math.random() - .5) * 1.4 }); };
+  const S = {
+    game: true, fp: true, touch: 'h3d',
+    get act() { return phase === 'knight' ? '베기' : '행동'; },
+    get noAct() { return phase !== 'knight'; },
+    get noJoy() { return phase === 'feast' || phase === 'turn' || phase === 'shut'; },
+    dbg: { cam, guests, items, get phase() { return phase; }, set phase(v) { phase = v; }, get placed() { return placed; }, pickAll() { for (const it of items) if (!it.got) { it.got = true; carried.push(it); } } },
+    enter() { setFx({ noise: .11, wobble: .6, ca: 1.3 }); drone(.06, 1.05, 2); if (opt.chase) { say('도망쳐.', 2); drone(.16, 1.5, .5); } else say('다과회 준비가 덜 끝났다.', 3); },
+    exit() { exitLock(); api.hint(null); },
+    slash() {
+      if (phase !== 'knight' || slashT < .35) return; slashT = 0; sfx.slash();
+      if (!hasSword || knightDead) return;
+      if (Math.hypot(knight.x - cam.x, knight.z - cam.z) > 1.9) return;
+      knightDead = true; flash = 1; fx.glitch = 1.5; fx.shake = api.reduced ? 2 : 9; sfx.hit(); vib([80, 40, 200]);
+      if (!chicken()) { osc('sawtooth', 700, .9, { vol: .16, f2: 300 }); nz(.8, { type: 'bandpass', f: 1600, q: 2, vol: .2 }); }
+      e.block[43 * N + 23] = 0; e.block[43 * N + 24] = 0;
+      for (const k of [43 * N + 23, 43 * N + 24, 42 * N + 23, 42 * N + 24, 44 * N + 23]) e.floor[k] = 4;
+      say(chicken() ? '…펑! 하트가 되어 흩어졌다.' : '붉은 검사는 웃는 얼굴로 쓰러졌다.', 3);
+    },
+    key(k) { if (k === ' ' || k === 'Enter' || k === 'x' || k === 'j') this.slash(); },
+    pointer(t, x) { fpPointer(cam, t, x); if (t === 'down' && !TOUCH && document.pointerLockElement === api.cv) this.slash(); },
+    update(dt) {
+      slashT += dt; flash = Math.max(0, flash - dt * 2); scareT = Math.max(0, scareT - dt);
+      e.flick = .92 + Math.sin(now() * 9) * .04 + Math.sin(now() * 23) * .02;
+      flowT -= dt; if (flowT <= 0) { flowT = .25; flow(); }
+      const lockMove = phase === 'feast' || phase === 'turn' || phase === 'shut';
+      const c = fpControls(cam, dt, { speed: phase === 'chase' || phase === 'knight' ? 2.7 : 2.1, lock: lockMove });
+      if (c.moving) { e.move(cam, c.vx, c.vz, .22); bob += dt * (phase === 'chase' ? 10 : 7); stepAcc += dt; if (stepAcc > (phase === 'chase' ? .33 : .48)) { stepAcc = 0; sfx.step(); } }
+      cam.bob = Math.sin(bob) * (c.moving ? 2 : 0);
+      idle = c.moving ? 0 : idle + dt;
+      if (phase === 'collect') {
+        for (const it of items) if (!it.got && Math.hypot(it.x - cam.x, it.z - cam.z) < .9) { it.got = true; carried.push(it); itemLights[items.indexOf(it)].off = true; e.bake(); sfx.sting(); say(`${it.name}을(를) 집었다.`, 2.2); }
+        if (carried.length && Math.abs(cam.z - 23) < 2.4 && cam.x > 16 && cam.x < 31.5) {
+          for (const it of carried) { const p = plates.find(pl => pl.it.id === it.id); if (p) p.full = true; placed++; }
+          sfx.bell(); say(placed >= 5 ? '다과회 준비가 끝났다.' : `접시 ${placed} / 5`, 2.4); carried = [];
+          if (placed >= 5) { phase = 'feast'; pt = 0; exitLock(); api.hint(null); cam.x = 23.5; cam.z = 27.6; cam.yaw = -Math.PI / 2; say('손님들이 먹기 시작했다.', 2.4); }
+        }
+        // 안 볼 때 한 손님이 고개를 든다
+        if (peek < 0 && Math.random() < dt * .08) { const i = Math.random() * guests.length | 0, gu = guests[i]; const rel = Math.abs(angDiff(Math.atan2(gu.z - cam.z, gu.x - cam.x) - cam.yaw)); if (rel > 1) peek = i; }
+        if (peek >= 0) { const gu = guests[peek]; const rel = Math.abs(angDiff(Math.atan2(gu.z - cam.z, gu.x - cam.x) - cam.yaw)); if (rel < .5) { gu.seen = (gu.seen || 0) + dt; if (gu.seen > .7) { gu.seen = 0; peek = -1; } } }
+        if (idle > 5 && this.t < 25) api.hint(TOUCH ? '◀ 왼쪽 원으로 걷기 · 화면 끌어 둘러보기 ▶' : '▶ W A S D  걷기   ·   마우스·← →  둘러보기');
+        else if (this.t > 50 && placed === 0 && !carried.length) api.hint('빛나는 재료를 찾아 식탁 접시에');
+        else if (carried.length && this.t > 30) api.hint('주운 재료를 식탁으로');
+        else api.hint(null);
+      } else if (phase === 'feast') {
+        pt += dt;
+        if (pt < 6) { if (Math.random() < dt * 9) chew(); }
+        if (pt > 6 && pt - dt <= 6) { drone(0, 1, .3); }
+        if (pt > 7.6) { phase = 'turn'; pt = 0; bigScare(); scareT = 0; say('「 손님이 한 명 더 있네. 」', 3); drone(.2, 1.6, .3); for (const gu of guests) gu.stare = true; }
+      } else if (phase === 'turn') {
+        pt += dt;
+        if (pt > 2.6) { phase = 'chase'; pt = 0; for (const gu of guests) gu.up = true; for (const k of GATE) e.wall[k] = 0; exitLight.off = false; e.bake(); sfx.laugh(); say('도망쳐!', 2); }
+      } else if (phase === 'chase') {
+        pt += dt;
+        const sp = pt < 1 ? 0 : clamp(.9 + (pt - 1) * .35, .9, 2.25);
+        for (const gu of guests) { chaseStep(gu, sp * (.85 + (gu.v % 3) * .08) * dt); if (pt > 1 && Math.hypot(gu.x - cam.x, gu.z - cam.z) < .7) { api.die('손님들이 당신을 식탁에 앉혔다.', () => HCh4({ chase: true })); return; } }
+        if (Math.random() < dt * 1.2) sfx.whisper(1, (Math.random() - .5) * 1.6);
+        if (idle > 3) api.hint(TOUCH ? '▼ 아래쪽, 붉은 빛 쪽으로 달려' : '▼ 남쪽 문 → 붉은 빛 쪽으로 달려'); else api.hint(null);
+        if (cam.z > 38.6) { phase = 'knight'; pt = 0; api.hint(null); say('복도 끝에 누군가 갇혀 있다.', 2.4); setTimeout(() => { if (phase === 'knight' && !knightSaid) say('바닥에 피로 쓰여 있다 — 「 죽여야 해 」', 3); }, 2400); }
+      } else if (phase === 'knight') {
+        pt += dt;
+        for (const gu of guests) { if (gu.z < 37 || Math.hypot(gu.x - cam.x, gu.z - cam.z) > 4.5) chaseStep(gu, .9 * dt); }
+        if (!hasSword && Math.hypot(sword.x - cam.x, sword.z - cam.z) < .8) { hasSword = true; sfx.sting(); say('붉은 검을 주웠다.', 2); }
+        if (!knightSaid && Math.hypot(knight.x - cam.x, knight.z - cam.z) < 2.6) { knightSaid = true; setTimeout(() => say('「 …나를 죽여. 그래야 문이 열려. 」', 3.4), 400); sfx.whisper(2, 0); }
+        if (!knightDead && pt > 6) api.hint(!hasSword ? '바닥의 검을 주워' : TOUCH ? '● 베기 버튼' : '● SPACE / 클릭  베기'); else api.hint(null);
+        if (knightDead && cam.z > 44.4) { phase = 'shut'; pt = 0; api.hint(null); exitLock(); }
+      } else if (phase === 'shut') {
+        pt += dt;
+        if (pt > .25 && pt - dt <= .25) { e.wall[46 * N + 23] = 6; e.wall[46 * N + 24] = 6; exitLight.off = true; e.bake(); osc('sine', 50, 1.2, { vol: .9, f2: 28, a: .003 }); nz(.8, { type: 'lowpass', f: 900, f2: 100, vol: .9, a: .003 }); fx.shake = api.reduced ? 3 : 12; vib(300); say('문이 닫혔다.', 2.4); drone(.22, .7, 1);
+          guests.forEach((gu, i) => { const a = -Math.PI / 2 + ((i % 7) / 6 - .5) * 1.1, r = 2.2 + (i / 7 | 0) * .9; gu.x = clamp(cam.x + Math.cos(a) * r * .35, 23.2, 24.8); gu.z = cam.z + Math.sin(a) * r; gu.up = true; }); }
+        e.lightMul = Math.max(.4, 1 - pt * .2);
+        if (pt > 1.8) { const tgt = Math.PI * 1.5; cam.yaw += angDiff(tgt - cam.yaw) * Math.min(1, dt * 2.5); }
+        if (pt > 3.5) for (const gu of guests) { const d = Math.hypot(gu.x - cam.x, gu.z - cam.z); if (d > 1.1) chaseStep(gu, .5 * dt); }
+        if (pt > 3.2 && pt - dt <= 3.2) { say('「 이제 네가 여기 앉을 차례야. 」', 3); sfx.whisper(2.4, -.8); sfx.whisper(2.4, .8); }
+        if (pt > 6.4 && pt - dt <= 6.4) { bigScare(); scareT = 1.3; }
+        if (pt > 8.2) go(Card(T.e4, () => api.startChapter(5), { drone: .05, pitch: .8 }));
+      }
+    },
+    draw() {
+      const ch = chicken(), list = [];
+      for (let x = 17; x <= 30; x++) list.push({ spr: SP.table, x: x + .5, z: 23, w: 1.05, h: .62, y0: 0 });
+      for (const p of plates) list.push({ spr: p.full ? SP.plateFull[p.it.id] : SP.plate[p.it.id], x: p.x, z: p.z, w: .36, h: .36, y0: .55 });
+      for (const it of items) if (!it.got) list.push({ spr: SP.item[it.id], x: it.x, z: it.z, w: .4, h: .4, y0: .3 + Math.sin(now() * 2 + it.x) * .04, glow: .9 });
+      guests.forEach((gu, i) => {
+        if (gu.up) list.push({ spr: ch ? SP.cGuestT : SP.guestRun[gu.v], x: gu.x, z: gu.z, w: ch ? .8 : .62, h: ch ? .95 : 1.75, y0: ch ? .35 : 0, shake: phase === 'chase' && !ch ? 1.5 : 0, glow: phase === 'shut' ? .55 : 0 });
+        else {
+          const stare = gu.stare || i === peek;
+          const bobY = phase === 'feast' ? Math.abs(Math.sin(now() * 6 + i)) * .04 : 0;
+          list.push({ spr: ch ? (stare ? SP.cGuestT : SP.cGuest) : (stare ? SP.guestStare[gu.v] : SP.guestEat[gu.v]), x: gu.x, z: gu.z, w: ch ? .75 : .62, h: ch ? .9 : 1.05, y0: (ch ? .3 : .02) - bobY });
+        }
+      });
+      if (!knightDead) { list.push({ spr: ch ? SP.cKnight : SP.knight, x: knight.x, z: knight.z + .2, w: ch ? .8 : .7, h: ch ? .95 : 1.15, y0: ch ? .3 : 0 }); list.push({ spr: SP.bars, x: knight.x, z: knight.z - .2, w: 1.9, h: 1.35, y0: 0 }); }
+      if (!hasSword && (phase === 'knight' || phase === 'chase')) list.push({ spr: SP.sword, x: sword.x, z: sword.z, w: .8, h: .2, y0: 0, glow: .7 });
+      e.render(cam, list);
+      if (hasSword && phase === 'knight') {
+        g.save(); g.translate(W * .86, H + 18 + Math.sin(bob) * 3);
+        let a = -.35; if (slashT < .25) a = -.35 - Math.sin(slashT / .25 * Math.PI) * 1.3;
+        g.rotate(a); poly([-5, 0, 5, 0, 3, -140, 0, -152, -3, -140], ch ? '#f6c3da' : '#b84040'); g.fillStyle = '#1a1512'; g.fillRect(-18, -3, 36, 7); g.fillStyle = '#5a1010'; g.fillRect(-4, 4, 8, 26);
+        g.restore();
+      }
+      if (carried.length) { let x = W - 16; for (const it of carried) { const s = SP.item[it.id]; x -= 18; ell(x + 8, 52, 8, 8, 'rgba(0,0,0,.5)'); txt('●', x + 8, 56, { size: 10, color: '#e8d8a0', font: MONO }); } }
+      if (flash > 0) { g.fillStyle = ch ? `rgba(255,170,210,${flash * .45})` : `rgba(160,0,0,${flash * .55})`; g.fillRect(0, 0, W, H); }
+      if (phase === 'shut') { g.fillStyle = `rgba(0,0,0,${clamp((pt - .25) * .25, 0, .55)})`; g.fillRect(0, 0, W, H); }
+      if (scareT > 0) scareOverlay(scareT, 1.3, true);
+    }
+  };
+  return S;
+}
+
+return { HCh1, HCh2, HCh4, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
 };
 })();
