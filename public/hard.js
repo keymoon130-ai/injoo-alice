@@ -443,7 +443,7 @@ function HCh1() {
   const foes = [];
   for (let i = 10; i < PL - 6; i += 9 + (R() * 3 | 0)) { const p = path[i]; foes.push({ x: p.x + (R() - .5) * .4, z: p.z + (R() - .5) * .4, alive: true, fall: 0, i, mode: 'stand', said: false, sp: .7 }); }
   // 숲에서 튀어나오는 것 (갑툭튀)
-  const ambush = [Math.floor(PL * .3), Math.floor(PL * .55), Math.floor(PL * .78)].map(i => ({ i, done: false }));
+  const ambush = [Math.floor(PL * .4), Math.floor(PL * .75)].map(i => ({ i, done: false, warn: -1 }));
   const LINES = ['…길을 비켜줄게.', '아파.', '왜 베었어?', '우리도 앨리스였어.', '촛불을 따라가.', '길이 점점 빨개지네.', '벗어나면 안 돼.', '너도 곧 여기 서게 될 거야.', '돌아갈 길은 없어.', '…안녕, 나.', '거의 다 왔어.', '끝까지 가.', '…'];
   const cam = { x: path[0].x, z: path[0].z, yaw: Math.atan2(path[3].z - path[0].z, path[3].x - path[0].x), bob: 0 };
   let prog = 0, slashT = 9, flash = 0, phase = 'walk', endT = 0, bob = 0, stepAcc = 0, warnT = 0, offT = 0, horde = null, warned = false, kills = 0, scareT = 0, idleT = 0, slashed = false, moved = false, hintSaid = false, firstSeen = false;
@@ -503,16 +503,25 @@ function HCh1() {
           if (!firstSeen && fd < 7) { firstSeen = true; }
           if (fd < 6.5 && f.mode === 'stand') { f.mode = 'come'; sfx.whisper(1.4, 0); }
           if (f.mode === 'come' || f.mode === 'rush') {
-            const sp = (f.mode === 'rush' ? 2.6 : f.sp + kills * .02) * dt;
+            if (f.wait > 0) { f.wait -= dt; continue; }
+            const sp = (f.mode === 'rush' ? 1.9 : f.sp + kills * .02) * dt;
             const ox = f.x, oz = f.z; const p = { x: f.x, z: f.z }; e.move(p, (cam.x - f.x) / fd * sp, (cam.z - f.z) / fd * sp, .2); f.x = p.x; f.z = p.z; if (ox === f.x && oz === f.z && fd > 1) { f.x += (cam.x - f.x) / fd * sp; f.z += (cam.z - f.z) / fd * sp; }
           }
           if (fd < .72) { api.die(f.mode === 'rush' ? '숲에서 무언가가 튀어나왔다.' : '그것이 당신을 붙잡았다.', HCh1); return; }
         }
         for (const a of ambush) {
-          if (a.done || prog < a.i) continue;
+          if (a.done || prog < a.i || foes.some(f => f.alive && f.mode === 'rush')) continue;
+          if (a.warn < 0) { // 먼저 덤불이 바스락거린다
+            a.warn = 0; a.side = Math.random() < .5 ? 1 : -1;
+            const pan = a.side * .9;
+            for (let k = 0; k < 4; k++) nz(.25, { type: 'bandpass', f: 900 + Math.random() * 900, q: 1.5, vol: .22, pan, delay: k * .18 });
+            sfx.whisper(1, pan);
+            continue;
+          }
+          a.warn += dt; if (a.warn < 1) continue;
           a.done = true;
-          const p = path[Math.min(PL, a.i + 3)], q = path[Math.min(PL, a.i + 4)], ang = Math.atan2(q.z - p.z, q.x - p.x), side = Math.random() < .5 ? 1 : -1;
-          const f = { x: p.x - Math.sin(ang) * 2.3 * side, z: p.z + Math.cos(ang) * 2.3 * side, alive: true, fall: 0, i: 0, mode: 'rush', said: true, sp: 2.6 };
+          const p = path[Math.min(PL, a.i + 5)], q = path[Math.min(PL, a.i + 6)], ang = Math.atan2(q.z - p.z, q.x - p.x), side = a.side;
+          const f = { x: p.x - Math.sin(ang) * 2.4 * side, z: p.z + Math.cos(ang) * 2.4 * side, alive: true, fall: 0, i: 0, mode: 'rush', said: true, sp: 1.9, wait: .6 };
           foes.push(f); bigScare(); scareT = .12; say('옆에서—!', 1.4);
         }
         // 힌트: 막혔을 때만
