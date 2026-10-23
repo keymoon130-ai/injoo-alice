@@ -69,6 +69,9 @@ body{
 #tSlash{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(90,14,14,.5)!important; border-color:rgba(230,130,130,.55)!important}
 #tPoint{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(60,50,10,.5)!important; border-color:rgba(230,210,130,.55)!important}
 #tBack{right:28%; bottom:6%; width:12%; font-size:clamp(9px,2.4vw,12px)}
+#tAct{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(90,14,14,.5)!important; border-color:rgba(230,130,130,.55)!important}
+#tJoy{position:absolute; left:4%; bottom:7%; width:27%; aspect-ratio:1; border-radius:50%; border:2px solid rgba(230,220,205,.3); background:rgba(10,8,9,.3); pointer-events:auto; touch-action:none}
+#tJoyKnob{position:absolute; left:50%; top:50%; width:42%; aspect-ratio:1; border-radius:50%; background:rgba(230,220,205,.35); transform:translate(-50%,-50%)}
 .rot{display:none; font-size:11px; color:var(--label); letter-spacing:.08em; margin:0}
 @media (pointer:coarse){
   body{padding-block:6px; gap:6px}
@@ -96,6 +99,8 @@ body.rot90 .rot{display:none!important}
       <button type="button" id="tBack" data-scene="ch1">뒤돌아<br>보기</button>
       <button type="button" id="tSlash" data-scene="ch1">베기</button>
       <button type="button" id="tPoint" data-scene="ch3">지목</button>
+      <button type="button" id="tAct" data-scene="h3d">베기</button>
+      <div id="tJoy" hidden><div id="tJoyKnob"></div></div>
     </div>
     <form id="nameForm" hidden autocomplete="off">
       <input id="nameInput" maxlength="10" aria-label="당신의 이름">
@@ -110,6 +115,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
+<script src="hard.js?v=2"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -138,6 +144,10 @@ let progress = store.get('prog', 1);
 let completed = store.get('done', false);
 let playerName = store.get('name', '');
 let chicken = store.get('chicken', false);
+let hard = false;
+let hprog = store.get('hprog', 1);
+let hdone = store.get('hdone', false);
+let hardSeen = store.get('hardSeen', false);
 
 /* ---------------- audio ---------------- */
 const A = { ctx:null, master:null, noise:null, drone:null, muted:false };
@@ -452,8 +462,20 @@ let scene = null;
 const osd = { on:true, mode:'PLAY ▶' };
 const subs = { text:'', t:0 };
 function say(t, d = 3.2){ subs.text = t; subs.t = d; }
-function go(s){ if (scene && scene.exit) scene.exit(); subs.t = 0; scene = s; s.t = 0; s.enter && s.enter(); }
-function saveProg(n){ if (n > progress){ progress = n; store.set('prog', n); } }
+function go(s){ if (scene && scene.exit) scene.exit(); subs.t = 0; hint(null); scene = s; s.t = 0; s.enter && s.enter(); }
+function saveProg(n){ if (hard){ if (n > hprog){ hprog = n; store.set('hprog', n); } return; } if (n > progress){ progress = n; store.set('prog', n); } }
+// 막혔을 때만 슬쩍 나오는 비디오 화면표시(OSD) 힌트
+const hintSys = { text:null, a:0 };
+function hint(t){ hintSys.text = t || null; }
+function drawHint(dt){
+  hintSys.a = clamp(hintSys.a + (hintSys.text ? dt * 1.5 : -dt * 3), 0, 1);
+  if (hintSys.text) hintSys.last = hintSys.text;
+  if (hintSys.a <= 0 || !hintSys.last) return;
+  const pulse = .55 + .45 * Math.sin(now * 4);
+  g.globalAlpha = hintSys.a * pulse; g.font = `11px ${MONO}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillStyle = 'rgba(0,0,0,.85)'; g.fillText(hintSys.last, 15, 47); g.fillStyle = '#f2f2ee'; g.fillText(hintSys.last, 14, 46);
+  g.globalAlpha = 1;
+}
 
 function Card(lines, next, o = {}){
   const L = lines.map(l => typeof l === 'string' ? { t:l } : l);
@@ -538,10 +560,11 @@ const T = {
 function startChapter(n){
   saveProg(n);
   if (chicken) playTrack('cute', { loop:true, vol:.5, fade:1.5 });
-  if (n === 1) go(Card(T.pro, () => go(Card(T.i1, () => go(Ch1()), { drone:.02 })), { drone:.015, pitch:.8, speed:13, sound:playOpening }));
-  else if (n === 2) go(Card(T.i2, () => go(Ch2()), { drone:.05 }));
-  else if (n === 3) go(Card(T.i3, () => go(Ch3()), { drone:.05 }));
-  else if (n === 4) go(Card(T.i4, () => go(Ch4()), { drone:.05 }));
+  const H_ = hard && HARD;
+  if (n === 1) go(Card(T.pro, () => go(Card(T.i1, () => go(H_ ? HARD.HCh1() : Ch1()), { drone:.02 })), { drone:.015, pitch:.8, speed:13, sound:playOpening }));
+  else if (n === 2) go(Card(T.i2, () => go(H_ && HARD.HCh2 ? HARD.HCh2() : Ch2()), { drone:.05 }));
+  else if (n === 3) go(Card(T.i3, () => go(Ch3({ hard:!!H_ })), { drone:.05 }));
+  else if (n === 4) go(Card(T.i4, () => go(H_ && HARD.HCh4 ? HARD.HCh4() : Ch4()), { drone:.05 }));
   else go(Card(T.i5, () => go(NameScene()), { drone:.07, pitch:.7 }));
 }
 
@@ -568,27 +591,35 @@ function Boot(){
   };
 }
 function Title(){
-  let sel = 1, items = [], flashT = 0;
+  let sel = 1, items = [], flashT = 0, unlockT = 0, lockMsgT = 0;
   const HJ = "'Noto Serif KR', 'Nanum Myeongjo', 'Batang', serif";
+  const rowY = i => items.length > 5 ? 190 + i * 17 : items.length > 4 ? 192 + i * 19 : 194 + i * 21;
   function toggle(){ chicken = !chicken; store.set('chicken', chicken); if (chicken){ sfx.boing(); drone(0, .7, .5); } else { sfx.clunk(); drone(.06, .7, 1.5); } }
   return {
     noPause:true,
     enter(){
-      setFx({ noise:.14, flicker:.06, wobble:.8 }); stopTrack(1.5); drone(.06, .7, 2);
+      setFx({ noise:.14, flicker:.06, wobble:.8 }); stopTrack(1.5); drone(.06, .7, 2); hard = false;
       items = [{ toggle:true }, { l:'▶  처음부터 재생', f:() => startChapter(1) }];
       if (progress > 1 && progress <= 5) items.push({ l:`▶  이어서 재생 — ${progress === 5 ? '최종장' : '제 ' + progress + ' 장'}`, f:() => startChapter(progress) });
       sel = items.length - 1;
+      if (!completed) items.push({ locked:true, l:'✕  하드 모드  ─  ? ? ?' });
+      else {
+        items.push({ hard:true, l:hprog > 1 && hprog <= 5 ? `▶  하드 모드 — 이어서 ${hprog === 5 ? '최종장' : '제 ' + hprog + ' 장'}` : '▶  하드 모드', f:() => { hard = true; startChapter(hprog > 1 && hprog <= 5 ? hprog : 1); } });
+        if (hprog > 1) items.push({ hard:true, l:'▶  하드 모드 — 처음부터', f:() => { hard = true; startChapter(1); } });
+        if (!hardSeen){ hardSeen = true; store.set('hardSeen', true); unlockT = 5.5; sel = items.findIndex(it => it.hard); }
+      }
       items.push({ l:'▶  멀티플레이 — 망가진 꿈', f:() => { try{ localStorage.setItem('injoo_m_chicken', JSON.stringify(chicken)); }catch(e){} stopTrack(.3); location.href = 'multi/'; } });
     },
-    choose(i){ if (this.t < .4) return; if (items[i].toggle){ toggle(); return; } sfx.clunk(); items[i].f(); },
+    choose(i){ if (this.t < .4) return; if (items[i].toggle){ toggle(); return; } if (items[i].locked){ sfx.shh(); fx.glitch = .5; lockMsgT = 2.4; return; } sfx.clunk(); items[i].f(); },
     key(k){
       if (k === 'ArrowUp' || k === 'w'){ sel = (sel + items.length - 1) % items.length; sfx.tick(); }
       else if (k === 'ArrowDown' || k === 's'){ sel = (sel + 1) % items.length; sfx.tick(); }
       else if ((k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') && items[sel].toggle) toggle();
       else if (k === 'Enter' || k === ' ') this.choose(sel);
     },
-    pointer(t, x, y){ for (let i = 0; i < items.length; i++){ const iy = 194 + i * 21; if (y > iy - 16 && y < iy + 7 && x > 60 && x < 340){ if (t === 'move') sel = i; if (t === 'down'){ sel = i; this.choose(i); } } } },
-    update(dt){ flashT -= dt; if (!chicken && Math.random() < dt * .1) flashT = .07; if (!chicken && Math.random() < dt * .05) fx.glitch = .6; },
+    pointer(t, x, y){ for (let i = 0; i < items.length; i++){ const iy = rowY(i); if (y > iy - 16 && y < iy + 7 && x > 60 && x < 340){ if (t === 'move') sel = i; if (t === 'down'){ sel = i; this.choose(i); } } } },
+    update(dt){ flashT -= dt; lockMsgT -= dt; if (!chicken && Math.random() < dt * .1) flashT = .07; if (!chicken && Math.random() < dt * .05) fx.glitch = .6;
+      if (unlockT > 0){ const was = unlockT; unlockT -= dt; if (was > 5.3 && unlockT <= 5.3){ fx.glitch = 2.2; fx.shake = 8; sfx.stat(.6); sfx.sting(); } if (Math.random() < dt * 3) fx.glitch = Math.max(fx.glitch, .5); } },
     draw(){
       g.fillStyle = '#030303'; g.fillRect(-20, -20, W + 40, H + 40);
       if (flashT > 0){ g.globalAlpha = .35; drawFace(W / 2, 140, .9, now, false); g.globalAlpha = 1; }
@@ -600,12 +631,16 @@ function Title(){
       for (let i = 0; i < 5; i++){ const lit = i < 4 ? progress > i + 1 : completed; txt(suits[i], W / 2 + (i - 2) * 34, 160, { size:18, color:lit ? cols[i] : '#2b2826', font:SERIF }); }
       if (completed && playerName) txt(`다섯 번째 앨리스 — ${playerName}`, W / 2, 178, { size:10, color:'#8f2424', font:MONO });
       items.forEach((it, i) => {
-        const on = i === sel, y = 194 + i * 21;
+        const on = i === sel, y = rowY(i);
         if (it.toggle) txt(`${on ? '› ' : '  '}모드   ◀  ${chicken ? '쫄보 모드 ♡' : '일반 모드'}  ▶`, W / 2, y, { size:13, color:chicken ? (on ? '#ffadc9' : '#b07088') : (on ? '#e9e0cf' : '#6f675e'), font:MONO });
+        else if (it.locked) txt((on ? '› ' : '  ') + it.l, W / 2, y, { size:13, color:on ? '#5a5048' : '#36302c', font:MONO });
+        else if (it.hard) txt((on ? '› ' : '  ') + it.l, W / 2 + (unlockT > 0 ? (Math.random() - .5) * 3 : 0), y, { size:14, color:on ? '#ff7070' : '#8a3030', font:MONO });
         else txt((on ? '› ' : '  ') + it.l, W / 2, y, { size:14, color:on ? '#e9e0cf' : '#6f675e', font:MONO });
       });
       if (chicken) cuteGhost(W - 40, 214, 12, { ph:1 });
       if (!(completed && playerName)) txt(chicken ? '불 켜고 해도 괜찮아요 ♡' : '불을 끄고, 혼자서 플레이하십시오', W / 2, 178, { size:10, color:chicken ? '#9a6478' : '#4f4943', font:MONO });
+      if (lockMsgT > 0){ g.globalAlpha = Math.min(1, lockMsgT); txt('아직 볼 수 없는 테이프입니다.', W / 2, H - 46, { size:12, color:'#8d8478', font:MONO }); g.globalAlpha = 1; }
+      if (unlockT > 0 && unlockT < 5.3){ const a = Math.min(1, unlockT, (5.3 - unlockT) * 2); g.globalAlpha = a; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, 128, W, 36); txt('테이프가 하나 더 있습니다.', W / 2 + (Math.random() - .5) * 2, 152, { size:16, color:'#d22a2a', w:800 }); g.globalAlpha = 1; }
     }
   };
 }
@@ -889,9 +924,9 @@ function darkness(lights, alpha){
   }
   g.drawImage(dk, 0, 0);
 }
-function Ch3(){
-  const TT = 80;
-  let time = TT, phase = 'search', endT = 0, off = 0, scareDone = false, scareT = 0, fly = null;
+function Ch3(o = {}){
+  const HARDM = !!o.hard, TT = HARDM ? 60 : 80;
+  let time = TT, phase = 'search', endT = 0, off = 0, scareDone = false, scareT = 0, fly = null, scareBig = false;
   const L = { x:200, y:150 };
   const an = [
     { id:'mirror', x:200, y:108, r:24, f:false },
@@ -907,6 +942,7 @@ function Ch3(){
       say(['거울 속 그녀가 웃고 있다.', '초상화가 피를 흘린다.', '창밖에 무언가 붙어 있다.', '옷장 틈에서 누가 보고 있다.'][an.indexOf(a)], 2.6);
       if (found >= 4){ phase = 'end'; endT = 0; drone(.12, .6, 3); }
       return; } }
+    if (HARDM){ time -= 6; say('아니야.', 1.4); scareT = .55; scareBig = true; sfx.screech(); if (!chicken){ osc('sine', 46, .9, { vol:.7, f2:26, a:.003 }); nz(1, { type:'bandpass', f:2600, q:.7, vol:.45, a:.003 }); } vib([200, 50, 260]); fx.glitch = 1.8; fx.shake = reduced ? 3 : 12; return; }
     time -= 4; sfx.shh(); say('아니야.', 1.2);
   }
   return {
@@ -926,7 +962,7 @@ function Ch3(){
         off -= dt; if (time < TT * .4 && off <= 0 && Math.random() < dt * .5){ off = .12 + Math.random() * .25; sfx.stat(.1); }
         if (!scareDone && time < TT * .55){ scareDone = true; scareT = .35; sfx.screech(); vib([120, 40, 160]); fx.glitch = 1.5; fx.shake = reduced ? 2 : 6; }
         scareT -= dt;
-        if (time <= 0){ die('촛불이 꺼졌다. 여왕이 당신을 찾아냈다.', Ch3); return; }
+        if (time <= 0){ die('촛불이 꺼졌다. 여왕이 당신을 찾아냈다.', () => Ch3(o)); return; }
       } else {
         endT += dt; fly && fly.set(.08);
         if (endT > 1.2 && endT - dt <= 1.2){ say('「 나는 아직… 아름다워? 」', 3); sfx.whisper(2.4, 0); }
@@ -988,7 +1024,7 @@ function Ch3(){
       g.fillStyle = '#a49e8e'; for (let i = 0; i < 4; i++) g.fillRect(324 + (i % 2), 126 + i * 5, 6, 3);
       g.fillStyle = '#7d661c'; g.fillRect(322, 125, 2, 6); g.fillRect(338, 125, 2, 6);
       // scare
-      if (scareT > 0){ if (chicken) cuteGhost(L.x, L.y, 26, { face:'boo' }); else drawFace(L.x, L.y, .35, now, true); }
+      if (scareT > 0 && !scareBig){ if (chicken) cuteGhost(L.x, L.y, 26, { face:'boo' }); else drawFace(L.x, L.y, .35, now, true); }
       // darkness
       const lights = [];
       if (phase === 'search'){
@@ -998,6 +1034,11 @@ function Ch3(){
       } else {
         darkness([{ x:200, y:108, r:clamp(40 + endT * 12, 40, 90) }], chicken ? .9 : .985);
       }
+      if (scareT > 0 && scareBig){
+        const k = 1 - scareT / .55;
+        if (chicken){ g.fillStyle = `rgba(255,205,225,${scareT})`; g.fillRect(0, 0, W, H); cuteGhost(W / 2, H / 2 + 6, 46 + k * 34, { face:'boo' }); txt('아니야~', W / 2, 64, { size:24, color:'#ff5c8a', w:800, shadow:false }); }
+        else { g.fillStyle = `rgba(30,0,0,${Math.min(.85, scareT * 3)})`; g.fillRect(0, 0, W, H); drawFace(W / 2 + (Math.random() - .5) * 14, H / 2 + 24 + (Math.random() - .5) * 14, .85 + k * .8, now, true); txt('아 니 야', W / 2 + (Math.random() - .5) * 4, 48, { size:24, color:'#e01e1e', w:800 }); }
+      } else if (scareT <= 0) scareBig = false;
       g.strokeStyle = 'rgba(180,20,20,.85)'; g.lineWidth = 1.5;
       for (const a of an) if (a.f){ g.beginPath(); g.ellipse(a.x, a.y, a.r + 2, a.r * .8 + 2, -.15, 0, Math.PI * 2 - .4); g.stroke(); }
       if (phase === 'search'){
@@ -1231,7 +1272,7 @@ function Eject(){
     noPause:true,
     enter(){ osd.mode = 'EJECT ⏏'; setFx({ noise:.06, flicker:.01, wobble:.2 }); sfx.clunk(); drone(0, 1, .1); },
     exit(){ osd.mode = 'PLAY ▶'; },
-    update(){ if (this.t > 3) { completed = true; store.set('done', true); go(Card(T.fin, () => go(Title()), { drone:.04, pitch:.6 })); } },
+    update(){ if (this.t > 3) { if (hard){ hdone = true; store.set('hdone', true); } completed = true; store.set('done', true); go(Card(T.fin, () => go(Title()), { drone:.04, pitch:.6 })); } },
     draw(){ g.fillStyle = '#1430a6'; g.fillRect(-20, -20, W + 40, H + 40); txt('테이프가 없습니다', W / 2, 150, { size:16, color:'#e8ecff', font:MONO }); }
   };
 }
@@ -1243,7 +1284,7 @@ function drawOSD(){
   g.font = `20px ${OSDF}`; g.textBaseline = 'top';
   const shadowed = (s, x, y, al) => { g.textAlign = al; g.fillStyle = 'rgba(0,0,0,.8)'; g.fillText(s, x + 1, y + 1); g.fillStyle = '#f2f2ee'; g.fillText(s, x, y); };
   if (!(osd.mode.startsWith('◀') && Math.floor(now * 3) % 2)) shadowed(osd.mode, 14, 10, 'left');
-  shadowed('SP', W - 14, 10, 'right');
+  shadowed(hard ? 'EP ✕' : 'SP', W - 14, 10, 'right');
   const s = Math.floor(tape);
   shadowed(`${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`, 14, H - 30, 'left');
   shadowed('OCT.22 1998', W - 14, H - 30, 'right');
@@ -1304,12 +1345,13 @@ function frame(ts){
   if (scene) scene.draw();
   touchUI.hidden = !TOUCH;
   if (TOUCH) for (const b of touchBtns) b.hidden = paused || !(scene && scene.touch === b.dataset.scene);
+  if (TOUCH){ tJoy.hidden = paused || !(scene && scene.touch === 'h3d' && !scene.noJoy); tActBtn.textContent = (scene && scene.act) || '행동'; if (scene && scene.noAct) tActBtn.hidden = true; }
   g.setTransform(1, 0, 0, 1, 0, 0);
   if (paused) drawPause();
   pauseBtn.hidden = !canPause() && !paused;
   pauseBtn.textContent = paused ? '▶ 계속' : '■ 정지';
   if (paused) { const m = osd.mode; osd.mode = 'PAUSE ▮▮'; drawSubs(); drawOSD(); osd.mode = m; }
-  else { drawSubs(); drawOSD(); }
+  else { drawHint(dt); drawSubs(); drawOSD(); }
   post(dt);
   requestAnimationFrame(frame);
 }
@@ -1326,7 +1368,23 @@ function vkey(id, k) {
   btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('lostpointercapture', up);
   btn.addEventListener('contextmenu', e => e.preventDefault());
 }
-vkey('tWalk', 'ArrowUp'); vkey('tSlash', ' '); vkey('tBack', 'ArrowDown'); vkey('tPoint', ' ');
+vkey('tWalk', 'ArrowUp'); vkey('tSlash', ' '); vkey('tBack', 'ArrowDown'); vkey('tPoint', ' '); vkey('tAct', ' ');
+const tActBtn = document.getElementById('tAct');
+// 하드 모드 이동용 가상 조이스틱
+const joy = { x:0, y:0 }, tJoy = document.getElementById('tJoy'), tJoyKnob = document.getElementById('tJoyKnob');
+let joyId = null;
+function moveJoy(e){
+  const r = tJoy.getBoundingClientRect(), rad = r.width / 2;
+  let dx = (e.clientX - (r.left + rad)) / rad, dy = (e.clientY - (r.top + r.height / 2)) / rad;
+  if (document.body.classList.contains('rot90')){ const t = dx; dx = dy; dy = -t; }
+  const l = Math.hypot(dx, dy); if (l > 1){ dx /= l; dy /= l; }
+  joy.x = Math.abs(dx) < .12 ? 0 : dx; joy.y = Math.abs(dy) < .12 ? 0 : dy;
+  tJoyKnob.style.transform = `translate(calc(-50% + ${dx * rad * .6}px), calc(-50% + ${dy * rad * .6}px))`;
+}
+tJoy.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); initAudio(); joyId = e.pointerId; try{ tJoy.setPointerCapture(e.pointerId); }catch(_){} moveJoy(e); });
+tJoy.addEventListener('pointermove', e => { if (e.pointerId === joyId) moveJoy(e); });
+const endJoy = e => { if (e.pointerId !== joyId) return; joyId = null; joy.x = joy.y = 0; tJoyKnob.style.transform = 'translate(-50%,-50%)'; };
+tJoy.addEventListener('pointerup', endJoy); tJoy.addEventListener('pointercancel', endJoy);
 const touchBtns = [...touchUI.querySelectorAll('button')];
 document.getElementById('muteBtn').addEventListener('click', e => {
   A.muted = !A.muted; e.currentTarget.textContent = A.muted ? '소리 켜기' : '소리 끄기';
@@ -1373,10 +1431,15 @@ if (window.matchMedia) {
   mq.addEventListener ? mq.addEventListener('change', onOrient) : mq.addListener(onOrient);
 }
 
+const HARD = window.InjooHard ? window.InjooHard({
+  W, H, g, cv, keys, ptr, joy, sfx, osc, nz, fx, setFx, drone, say, go, Card, T, txt, ell, poly, cuteGhost, drawFace, heart, vib, MONO, SERIF, OSDF, TOUCH, reduced, hint, stopOpening, playTrack, stopTrack,
+  chicken:() => chicken, now:() => now, scene:() => scene, paused:() => paused,
+  die:(m, f) => die(m, f), startChapter:n => startChapter(n), Jump, CuteJump, darkness, rgb
+}) : null;
 go(Boot());
 requestAnimationFrame(frame);
 ['touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => { initAudio(); }, { passive:true }));
-window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, get scene(){ return scene; } };
+window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
 })();
 </script>
 
