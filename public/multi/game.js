@@ -1,5 +1,5 @@
 // 人柱愛麗絲 : 망가진 꿈 — 클라이언트
-import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, genWorld, stepPlayer } from './shared.js';
+import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer } from './shared.js';
 
 const $ = id => document.getElementById(id);
 const W = 400, H = 300;
@@ -288,7 +288,8 @@ const sfx = {
   gasp() { nz(.7, { type: 'bandpass', f: 650, f2: 2300, q: 2, vol: .3, a: .04 }); },
   boing() { osc('sine', 300, .45, { vol: .3, f2: 900 }); osc('sine', 600, .3, { vol: .12, f2: 200, delay: .12 }); },
   chime() { [1046, 1318, 1568].forEach((f, i) => osc('sine', f, .6, { vol: .1, delay: i * .07 })); },
-  pop() { osc('sine', 500, .15, { vol: .3, f2: 1200 }); }
+  pop() { osc('sine', 500, .15, { vol: .3, f2: 1200 }); },
+  warp() { nz(.7, { type: 'bandpass', f: 3000, f2: 400, q: 2, vol: .35, a: .02 }); osc('sine', 1400, .6, { vol: .12, f2: 220 }); osc('triangle', 2100, .4, { vol: .06, f2: 3200, delay: .1 }); }
 };
 function at(x, z, maxD, fn) {
   if (!game || !A.ctx) return;
@@ -346,6 +347,8 @@ const SPR = {
     { b: [58, 36, 30] }),
   pole: mk(['.s.', '.s.', 'sws', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.', '.w.'],
     { s: [150, 150, 150], w: [62, 44, 30] }),
+  glass: mk(['gggggggggggg', 'g.w........g', 'g..w.......g', 'g...w......g', 'g..........g', 'g.......w..g', 'g........w.g', 'g..........g', 'g..........g', 'g.w........g', 'g..w.......g', 'g..........g', 'g......w...g', 'g.......w..g', 'g..........g', 'gggggggggggg'],
+    { g: [60, 110, 80], w: [190, 240, 210, 1] }),
   seat: mk(['.rrrrrrrr.', 'rRRRRRRRRr', 'rRRRRRRRRr', 'rRRRRRRRRr', 'rRRRRRRRRr', 'rrrrrrrrrr', 'gggggggggg', 'rRRRRRRRRr', 'rrrrrrrrrr', '.k......k.', '.k......k.'],
     { r: [70, 10, 20], R: [110, 18, 32], g: [160, 130, 50], k: [30, 20, 18] }),
   mann: mk(['....hhhh....', '...hffffh...', '...feffef...', '...ffffff...', '....ffff....', '.....ff.....', '..ffffffff..', '.ff.ffff.ff.', '.f..ffff..f.', '.f..ffff..f.', '....ffff....', '..ffffffff..', '..ff....ff..', '..ff....ff..', '..ff....ff..'],
@@ -362,15 +365,17 @@ const wimg = ctx.createImageData(W, H), pix = new Uint32Array(wimg.data.buffer);
 const out = ctx.createImageData(W, H);
 for (let i = 3; i < out.data.length; i += 4) out.data[i] = 255;
 const zbuf = new Float32Array(W), zcol = new Float32Array(W);
+const mN = new Uint8Array(W), mA = new Uint8Array(W * 3), mC = new Float32Array(W * 3), mD = new Float32Array(W * 3), mW = new Float32Array(W * 3);
+const colHit = new Uint8Array(W), colSide = new Uint8Array(W), colPerp = new Float32Array(W), colMx = new Int16Array(W), colMz = new Int16Array(W), colWx = new Float32Array(W);
 const FOVP = 0.66;
 const fx = { noise: .09, ca: 1, wobble: .5, flicker: .04, glitch: 0, tr: 1, tg: 1, tb: 1 };
 let band = { y: -99, h: 0, s: 0, life: 0 };
 let now = 0, frameDt = 0;
 const STARS = Array.from({ length: 70 }, (_, i) => ({ a: Math.random() * Math.PI * 2, h: .15 + Math.random() * .85, b: 80 + Math.random() * 120 }));
-const GCOL = [[22, 25, 18], [96, 14, 14], [48, 50, 46], [56, 38, 24], [30, 37, 24], [72, 22, 36], [58, 16, 26], [96, 84, 44], [22, 20, 26]];
-const WCOL = [[0, 0, 0], [76, 82, 72], [62, 68, 60], [58, 56, 54], [0, 0, 0], [36, 34, 100], [92, 18, 30], [170, 150, 78], [120, 108, 60]];
+const GCOL = [[22, 25, 18], [96, 14, 14], [48, 50, 46], [56, 38, 24], [30, 37, 24], [72, 22, 36], [58, 16, 26], [96, 84, 44], [22, 20, 26], [44, 92, 64]];
+const WCOL = [[0, 0, 0], [76, 82, 72], [62, 68, 60], [58, 56, 54], [0, 0, 0], [36, 34, 100], [92, 18, 30], [170, 150, 78], [120, 108, 60], [60, 120, 84], [60, 120, 84], [0, 0, 0]];
 // 맵별 하늘·안개
-const STYLE = { forest: { fogC: [7, 7, 10], fogD: 10.5 }, theater: { fogC: [6, 6, 16], fogD: 11, ceil: [14, 12, 26] }, tea: { fogC: [46, 40, 18], fogD: 9.5, ceil: [120, 110, 70] } };
+const STYLE = { forest: { fogC: [7, 7, 10], fogD: 10.5 }, theater: { fogC: [6, 6, 16], fogD: 11, ceil: [14, 12, 26] }, tea: { fogC: [46, 40, 18], fogD: 9.5, ceil: [120, 110, 70] }, mirror: { fogC: [4, 12, 8], fogD: 12, ceil: [16, 36, 26] } };
 const pack = (r, g, b) => (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
 const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return (h ^ (h >>> 16)) & 255; };
 
@@ -442,9 +447,49 @@ function renderWorld(g, cam) {
       }
     }
   }
-  // 바닥
+  // ---- 광선 (거울은 튕겨 나간다) ----
   const rd0x = dirX - plX, rd0z = dirZ - plZ, rd1x = dirX + plX, rd1z = dirZ + plZ;
   const fogPack = pack(fogC[0], fogC[1], fogC[2]);
+  const MIR = w.map === 'mirror';
+  for (let x = 0; x < W; x++) {
+    const cx = 2 * x / W - 1;
+    let rdx = dirX + plX * cx, rdz = dirZ + plZ * cx, ox = cam.x, oz = cam.z, tAcc = 0, nb = 0;
+    mN[x] = 0; colHit[x] = 0; zbuf[x] = 99;
+    for (;;) {
+      let mx = ox | 0, mz = oz | 0;
+      const ddx = Math.abs(1 / (rdx || 1e-9)), ddz = Math.abs(1 / (rdz || 1e-9));
+      let stx, stz, sdx, sdz;
+      if (rdx < 0) { stx = -1; sdx = (ox - mx) * ddx; } else { stx = 1; sdx = (mx + 1 - ox) * ddx; }
+      if (rdz < 0) { stz = -1; sdz = (oz - mz) * ddz; } else { stz = 1; sdz = (mz + 1 - oz) * ddz; }
+      let hit = 0, side = 0;
+      for (let k = 0; k < 64; k++) {
+        if (sdx < sdz) { sdx += ddx; mx += stx; side = 0; } else { sdz += ddz; mz += stz; side = 1; }
+        if (mx < 0 || mz < 0 || mx >= N || mz >= N) break;
+        const t = w.wall[mz * N + mx];
+        if (t && t !== WL.BARS) { hit = t; break; }
+        if (tAcc + (side ? sdz - ddz : sdx - ddx) > fogD + 1) break;
+      }
+      if (!hit) break;
+      const tl = side ? sdz - ddz : sdx - ddx, perp = tAcc + tl;
+      if (perp > fogD + .5) break;
+      const hx = ox + rdx * tl, hz = oz + rdz * tl;
+      if (MIR && hit === WL.MIRROR && nb < 3) { // 거울: 평면을 기억하고 반사된 방향으로 계속
+        const ax = side, c = side ? (stz > 0 ? mz : mz + 1) : (stx > 0 ? mx : mx + 1);
+        mA[x * 3 + nb] = ax; mC[x * 3 + nb] = c; mD[x * 3 + nb] = perp; mW[x * 3 + nb] = side ? hx - Math.floor(hx) : hz - Math.floor(hz); nb++; mN[x] = nb;
+        if (side) rdz = -rdz; else rdx = -rdx;
+        ox = hx + (side ? 0 : -stx * 1e-4); oz = hz + (side ? -stz * 1e-4 : 0); tAcc = perp;
+        continue;
+      }
+      colHit[x] = hit; colSide[x] = side; colPerp[x] = perp; colMx[x] = mx; colMz[x] = mz;
+      let wx = side ? hx : hz; colWx[x] = wx - Math.floor(wx);
+      zbuf[x] = perp;
+      break;
+    }
+  }
+  // 반사: 점을 거울 평면들로 차례로 뒤집는다
+  const refl = (x, d, px, pz, out) => { const n = mN[x]; for (let i = 0; i < n; i++) { if (mD[x * 3 + i] > d) break; if (mA[x * 3 + i]) pz = 2 * mC[x * 3 + i] - pz; else px = 2 * mC[x * 3 + i] - px; } out[0] = px; out[1] = pz; };
+  const rp = [0, 0];
+  // ---- 바닥 ----
   for (let y = Math.max(0, hor + 1); y < H; y++) {
     const rowDist = (.5 * H) / (y - hor);
     if (rowDist > fogD) { pix.fill(fogPack, y * W, y * W + W); continue; }
@@ -453,54 +498,62 @@ function renderWorld(g, cam) {
     let fx_ = cam.x + rowDist * rd0x, fz_ = cam.z + rowDist * rd0z;
     const row = y * W;
     for (let x = 0; x < W; x++, fx_ += sx, fz_ += sz) {
-      const ix = fx_ | 0, iz = fz_ | 0;
+      let qx = fx_, qz = fz_, tint = 1;
+      if (MIR && mN[x] && mD[x * 3] < rowDist) { refl(x, rowDist, fx_, fz_, rp); qx = rp[0]; qz = rp[1]; tint = .82; }
+      const ix = qx | 0, iz = qz | 0;
       const t = (ix >= 0 && iz >= 0 && ix < N && iz < N) ? w.ground[iz * N + ix] : 0;
       let c = GCOL[t];
       let r = c[0], gg = c[1], b = c[2];
       if (t === GR.RED && chick) { r = 150; gg = 70; b = 110; }
       if (tube !== 1) { r *= tube; gg *= tube; b *= tube; }
-      const n = hash((fx_ * 4) | 0, (fz_ * 4) | 0);
-      let m = .82 + n / 255 * .3;
-      if (t === GR.STONE && ((fx_ * 2 % 1) < .06 || (fz_ * 2 % 1) < .06)) m *= .6;
-      if (t === GR.BOARD && (fx_ * 3 % 1) < .08) m *= .55;
-      if (t === GR.YCARPET && (((fx_ * 2) | 0) + ((fz_ * 2) | 0)) % 7 === 0) m *= .8;
-      if (t === GR.CARPET && ((fx_ * 4 % 1) < .1)) m *= .75;
+      const n = hash((qx * 4) | 0, (qz * 4) | 0);
+      let m = (.82 + n / 255 * .3) * tint;
+      if (t === GR.STONE && ((qx * 2 % 1) < .06 || (qz * 2 % 1) < .06)) m *= .6;
+      if (t === GR.BOARD && (qx * 3 % 1) < .08) m *= .55;
+      if (t === GR.YCARPET && (((qx * 2) | 0) + ((qz * 2) | 0)) % 7 === 0) m *= .8;
+      if (t === GR.CARPET && ((qx * 4 % 1) < .1)) m *= .75;
+      if (t === GR.MARBLE) { if ((((qx * 1.5) | 0) + ((qz * 1.5) | 0)) & 1) m *= .62; if ((hash((qx * 9) | 0, (qz * 3) | 0) & 31) < 2) m *= 1.3; }
       pix[row + x] = pack((r * m * kf + fogC[0] * ft) | 0, (gg * m * kf + fogC[1] * ft) | 0, (b * m * kf + fogC[2] * ft) | 0);
     }
   }
-  // 벽 (DDA)
-  for (let x = 0; x < W; x++) {
-    const cx = 2 * x / W - 1, rdx = dirX + plX * cx, rdz = dirZ + plZ * cx;
-    let mx = cam.x | 0, mz = cam.z | 0;
-    const ddx = Math.abs(1 / (rdx || 1e-9)), ddz = Math.abs(1 / (rdz || 1e-9));
-    let stx, stz, sdx, sdz;
-    if (rdx < 0) { stx = -1; sdx = (cam.x - mx) * ddx; } else { stx = 1; sdx = (mx + 1 - cam.x) * ddx; }
-    if (rdz < 0) { stz = -1; sdz = (cam.z - mz) * ddz; } else { stz = 1; sdz = (mz + 1 - cam.z) * ddz; }
-    let hit = 0, side = 0, perp = 99;
-    for (let k = 0; k < 64; k++) {
-      if (sdx < sdz) { sdx += ddx; mx += stx; side = 0; } else { sdz += ddz; mz += stz; side = 1; }
-      if (mx < 0 || mz < 0 || mx >= N || mz >= N) break;
-      const t = w.wall[mz * N + mx];
-      if (t && t !== WL.BARS) { hit = t; break; }
-      if ((side ? sdz - ddz : sdx - ddx) > fogD + 1) break;
+  // 거울 속 천장도 뒤집어서
+  if (MIR) for (let y = 0; y <= hor && y < H; y++) {
+    const rowDist = (.5 * H) / Math.max(1, hor - y); if (rowDist > fogD) continue;
+    const ft = fogT(rowDist), kf = 1 - ft, cc = ST.ceil;
+    for (let x = 0; x < W; x++) {
+      if (!mN[x] || mD[x * 3] >= rowDist) continue;
+      const cxx = 2 * x / W - 1; refl(x, rowDist, cam.x + rowDist * (dirX + plX * cxx), cam.z + rowDist * (dirZ + plZ * cxx), rp);
+      const m = ((rp[0] * 2 % 1) < .05 ? .6 : .9) * .82;
+      pix[y * W + x] = pack((cc[0] * m * kf + fogC[0] * ft) | 0, (cc[1] * m * kf + fogC[1] * ft) | 0, (cc[2] * m * kf + fogC[2] * ft) | 0);
     }
-    if (!hit) { zbuf[x] = 99; continue; }
-    perp = side ? sdz - ddz : sdx - ddx;
-    if (perp > fogD + .5) { zbuf[x] = 99; continue; }
-    zbuf[x] = perp;
+  }
+  // ---- 벽 ----
+  for (let x = 0; x < W; x++) {
+    const hit = colHit[x]; if (!hit) continue;
+    const perp = colPerp[x], side = colSide[x], mx = colMx[x], mz = colMz[x], wx = colWx[x];
     const lh = H / perp, wh = WALL_H[hit];
     const bot = hor + .5 * lh, top = bot - wh * lh;
-    let wx = side ? cam.x + perp * rdx : cam.z + perp * rdz; wx -= Math.floor(wx);
-    const ft = fogT(perp), kf = 1 - ft, sh = side ? .74 : 1;
+    const ft = fogT(perp), kf = 1 - ft, sh = (side ? .74 : 1) * (mN[x] ? Math.pow(.82, mN[x]) : 1);
     const base = WCOL[hit];
     const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H - 1, Math.floor(bot));
     const patch = hash(mx * 3 + 1, mz * 7 + 3);
+    if (hit === WL.PORTAL) { // 빛나는 거울 문
+      const pi = w.portalAt[mz * N + mx], pc = PORTAL_COLS[(w.portals[pi] || { pair: 0 }).pair % 4];
+      for (let y = y0; y <= y1; y++) {
+        const vh = (bot - y) / lh, edge = wx < .08 || wx > .92 || vh < .06;
+        const sw = .55 + .45 * Math.sin(Math.hypot(wx - .5, vh - .8) * 18 - now * 5);
+        const k = edge ? .35 : sw * (.8 + .2 * Math.sin(now * 3));
+        pix[y * W + x] = pack(Math.min(255, pc[0] * k + 30) | 0, Math.min(255, pc[1] * k + 30) | 0, Math.min(255, pc[2] * k + 30) | 0);
+      }
+      continue;
+    }
     for (let y = y0; y <= y1; y++) {
       const vh = (bot - y) / lh;
       let m = sh;
       if (hit === WL.CURTAIN || hit === WL.VELVET) m *= .65 + .35 * Math.sin(wx * (hit === WL.VELVET ? 14 : 22));
       else if (hit === WL.YPAPER) { m *= tube * (((wx * 6) | 0) % 2 ? .9 : 1) * (vh < .15 ? .7 : 1) * (patch < 40 && vh < .6 ? .78 : 1); if ((hash((wx * 8) | 0, (vh * 8) | 0) & 63) < 3) m *= .6; }
       else if (hit === WL.PILLAR) m *= tube * (.8 + .2 * Math.sin(wx * 6.28));
+      else if (hit === WL.MARBLE || hit === WL.MIRROR) { const v = Math.sin(wx * 9 + vh * 4 + Math.sin(vh * 13 + mx) * 1.3); m *= .78 + .16 * v; if (vh < .08) m *= .6; if (Math.abs(vh - wh * .5) < .03) m *= .7; }
       else {
         const row = Math.floor(vh * 4), off = (row & 1) * .5;
         if ((vh * 4) % 1 < .1 || ((wx * 2 + off) % 1) < .06) m *= .55;
@@ -508,6 +561,19 @@ function renderWorld(g, cam) {
         if (patch < 70 && vh > wh * .7) m *= .6;
       }
       pix[y * W + x] = pack((base[0] * m * kf + fogC[0] * ft) | 0, (base[1] * m * kf + fogC[1] * ft) | 0, (base[2] * m * kf + fogC[2] * ft) | 0);
+    }
+  }
+  // 거울 유리: 초록빛 틴트와 테두리
+  if (MIR) for (let x = 0; x < W; x++) {
+    if (!mN[x]) continue;
+    const d0 = mD[x * 3], lh = H / d0, bot = hor + .5 * lh, top = bot - WALL_H[WL.MIRROR] * lh, w0 = mW[x * 3];
+    const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H - 1, Math.floor(bot));
+    const ft = fogT(d0), frame = w0 < .045 || w0 > .955;
+    for (let y = y0; y <= y1; y++) {
+      const o = pix[y * W + x], vh = (bot - y) / lh;
+      if (frame || vh < .05) { pix[y * W + x] = pack((40 * (1 - ft) + fogC[0] * ft) | 0, (62 * (1 - ft) + fogC[1] * ft) | 0, (44 * (1 - ft) + fogC[2] * ft) | 0); continue; }
+      const glint = (Math.abs(w0 - vh * .35 - .2) < .04) ? 26 : 0;
+      pix[y * W + x] = pack(Math.min(255, (o & 255) * .86 + 4 + glint) | 0, Math.min(255, ((o >> 8) & 255) * .96 + 10 + glint) | 0, Math.min(255, ((o >> 16) & 255) * .9 + 6 + glint) | 0);
     }
   }
 
@@ -518,6 +584,7 @@ function renderWorld(g, cam) {
     return [inv * (dirZ * dx - dirX * dz), inv * (-plZ * dx + plX * dz)];
   };
   zcol.set(zbuf);
+  if (MIR) for (let x = 0; x < W; x++) if (mN[x]) zcol[x] = Math.min(zcol[x], mD[x * 3]);
   // 나무: 가까운 것부터 그리며 그 열을 가린다
   const trees = [];
   const R = Math.ceil(fogD) + 1, cix = cam.x | 0, ciz = cam.z | 0;
@@ -548,13 +615,15 @@ function renderWorld(g, cam) {
   }
   // 그 밖의 스프라이트: 먼 것부터
   const list = [];
-  const push = (spr, x, z, ww, wh, z0, mode, extra) => { const [tx, ty] = proj(x, z); if (ty > .12 && (ty < fogD + 2 || mode === 3)) list.push({ spr, tx, ty, ww, wh, z0, mode, extra }); };
+  const raw = [];
+  const push = (spr, x, z, ww, wh, z0, mode, extra) => { if (MIR) raw.push({ spr, x, z, ww, wh, z0, mode, extra }); const [tx, ty] = proj(x, z); if (ty > .12 && (ty < fogD + 2 || mode === 3)) list.push({ spr, tx, ty, ww, wh, z0, mode, extra }); };
   for (const p of w.props) {
     if (p.kind === 'table') push(SPR.table, p.x, p.z, 1.0, .55, 0, 0);
     else if (p.kind === 'chair') push(SPR.chair, p.x, p.z, .45, .8, 0, 0);
     else if (p.kind === 'pole') push(SPR.pole, p.x, p.z + .02, .12, 2.4, 0, 0);
     else if (p.kind === 'bars') push(SPR.bars, p.x, p.z, 1.0, 1.4, 0, 0);
     else if (p.kind === 'seat') push(SPR.seat, p.x, p.z, .8, .8, 0, 0);
+    else if (p.kind === 'glass') push(SPR.glass, p.x, p.z, 1.0, 1.6, 0, 0);
     else if (p.kind === 'mann') push(chick ? SPR.ghost : SPR.mann, p.x, p.z - .05, chick ? .6 : .55, chick ? .6 : 1.0, chick ? .35 : 0, 0);
   }
   w.traces.forEach((t, i) => {
@@ -579,6 +648,33 @@ function renderWorld(g, cam) {
     } else {
       if (st === 1 && Math.hypot(ip.x - cam.x, ip.z - cam.z) < 1.3) continue;
       push(SPR.alice, ip.x, ip.z, .55, 1.05, st === 1 ? .55 : 0, dream ? 1 : 0, pl);
+    }
+  }
+  // 거울 속의 사람들 (나 자신 포함)
+  if (MIR) {
+    const meSpr = chick ? (dream ? SPR.ghost : SPR.alice) : (dream ? SPR.dream : SPR.alice);
+    if (!g.spectating) raw.push({ spr: meSpr, x: cam.x, z: cam.z, ww: dream && !chick ? .75 : .55, wh: dream && !chick ? 1.8 : 1.05, z0: 0, mode: 0 });
+    const planes = new Map();
+    for (let x = 0; x < W; x++) if (mN[x]) { const key = mA[x * 3] * 100000 + mC[x * 3]; if (!planes.has(key)) planes.set(key, [mA[x * 3], mC[x * 3]]); }
+    for (const [key, [ax, c]] of planes) {
+      const rl = [];
+      for (const s0 of raw) { const rx = ax ? s0.x : 2 * c - s0.x, rz = ax ? 2 * c - s0.z : s0.z; const [tx, ty] = proj(rx, rz); if (ty > .3 && ty < fogD + 2) rl.push({ ...s0, tx, ty }); }
+      rl.sort((a, b) => b.ty - a.ty);
+      for (const s0 of rl) {
+        const { spr, tx, ty, ww, wh, z0 } = s0, scale = H / ty, sx = W / 2 * (1 + tx / ty), hpx = wh * scale, wpx = ww * scale;
+        const bot = hor + (.5 - z0) * scale, top = bot - hpx, x0 = Math.floor(sx - wpx / 2), x1 = Math.floor(sx + wpx / 2);
+        if (x1 < 0 || x0 >= W) continue;
+        const ft = fogT(ty), kf = (1 - ft) * .84, y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H - 1, Math.floor(bot));
+        for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
+          if (!mN[x] || mA[x * 3] * 100000 + mC[x * 3] !== key || ty <= mD[x * 3] || ty >= zbuf[x]) continue;
+          const pu = Math.min(spr.w - 1, ((x - (sx - wpx / 2)) / wpx * spr.w) | 0);
+          for (let y = y0; y <= y1; y++) {
+            const pv = Math.min(spr.h - 1, ((y - top) / hpx * spr.h) | 0), k = pv * spr.w + pu;
+            if (!spr.a[k]) continue;
+            pix[y * W + x] = pack((spr.r[k] * kf + fogC[0] * ft) | 0, (spr.g[k] * kf * 1.06 + fogC[1] * ft) | 0, (spr.b[k] * kf + fogC[2] * ft) | 0);
+          }
+        }
+      }
     }
   }
   list.sort((a, b) => b.ty - a.ty);
@@ -868,9 +964,10 @@ function onSnap(m) {
     const P = g.pred;
     if (s.s === 0) {
       const ox = P.x, oz = P.z, was = P.st === 0;
-      Object.assign(P, { x: s.x, z: s.z, dc: s.dc, dt: s.dt, sn: s.sn, carry: s.c, st: 0 });
+      Object.assign(P, { x: s.x, z: s.z, dc: s.dc, dt: s.dt, sn: s.sn, carry: s.c, st: 0, pc: s.pc || 0 });
       g.pending = g.pending.filter(i => i.q > m.ack);
       for (const i of g.pending) stepPlayer(g.world, P, i, CFG.INPUT_DT);
+      P.warp = null;
       if (was) { g.smooth.x += ox - P.x; g.smooth.z += oz - P.z; if (Math.hypot(g.smooth.x, g.smooth.z) > 1.5) g.smooth.x = g.smooth.z = 0; }
       else g.smooth.x = g.smooth.z = 0;
     } else { P.st = s.s; P.x = s.x; P.z = s.z; g.pending = []; g.smooth.x = g.smooth.z = 0; }
@@ -941,6 +1038,7 @@ function handleEv(e) {
       sfx.chime();
       say(e.a === myId ? '꿈에서 빠져나왔다.' : `${josa(nameOf(e.a), '이', '가')} 꿈에서 빠져나갔다`, '#ffffff', 5);
       break;
+    case 'warp': { if (e.a !== myId) { at(e.x, e.z, 25, sfx.warp); at(e.fx, e.fz, 25, sfx.warp); } break; }
     case 'mb': { const tr = w.traces[e.i]; at(tr.x, tr.z, 45, () => sfx.music((now * 3 | 0) % 5)); break; }
   }
 }
@@ -959,10 +1057,10 @@ function onEnd(m) {
 function buildMap(w) {
   const c = document.createElement('canvas'); c.width = w.N; c.height = w.N;
   const x = c.getContext('2d'), id = x.createImageData(w.N, w.N);
-  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [150, 132, 70], [40, 38, 50]];
+  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [150, 132, 70], [40, 38, 50], [40, 80, 56]];
   for (let i = 0; i < w.N * w.N; i++) {
     let col = cols[w.ground[i]];
-    if (w.wall[i]) col = w.wall[i] === WL.BARS ? [160, 160, 160] : w.wall[i] === WL.CURTAIN ? [70, 70, 160] : w.wall[i] === WL.YPAPER ? [230, 214, 140] : w.wall[i] === WL.VELVET ? [160, 40, 60] : [190, 190, 180];
+    if (w.wall[i]) col = w.wall[i] === WL.BARS ? [160, 160, 160] : w.wall[i] === WL.CURTAIN ? [70, 70, 160] : w.wall[i] === WL.YPAPER ? [230, 214, 140] : w.wall[i] === WL.VELVET ? [160, 40, 60] : w.wall[i] === WL.MIRROR ? [170, 235, 205] : w.wall[i] === WL.PORTAL ? PORTAL_COLS[(w.portals[w.portalAt[i]] || { pair: 0 }).pair % 4] : w.wall[i] === WL.MARBLE ? [90, 150, 110] : [190, 190, 180];
     id.data[i * 4] = col[0]; id.data[i * 4 + 1] = col[1]; id.data[i * 4 + 2] = col[2]; id.data[i * 4 + 3] = 255;
   }
   for (const t of w.trees) { const i = ((t.z | 0) * w.N + (t.x | 0)) * 4; if (t.seat) { id.data[i] = 80; id.data[i + 1] = 20; id.data[i + 2] = 30; } else { id.data[i] = 20; id.data[i + 1] = 30; id.data[i + 2] = 18; } }
@@ -970,7 +1068,7 @@ function buildMap(w) {
   return c;
 }
 const ENTRANCES = [{ x: 40, z: 49.2 }, { x: 30.8, z: 43 }, { x: 49.2, z: 37.5 }];
-const prisonName = () => { const m = game && game.world.map; return m === 'theater' ? '무대 아래 감옥' : m === 'tea' ? '긴 식탁 방' : '성 감옥'; };
+const prisonName = () => { const m = game && game.world.map; return m === 'theater' ? '무대 아래 감옥' : m === 'tea' ? '긴 식탁 방' : m === 'mirror' ? '거울 감옥' : '성 감옥'; };
 // 감옥 문까지의 걸음 수 (벽을 돌아가는 길 찾기용)
 function cellField(w) {
   const N = w.N, d = new Int16Array(N * N).fill(-1), q = [];
@@ -1096,7 +1194,7 @@ function update(dt) {
     const c = readControls();
     const inp = { q: ++g.seq, f: r2(c.f), s: r2(c.s), y: Math.round(g.yaw * 1000) / 1000, a: c.act ? 1 : 0, d: c.dash ? 1 : 0 };
     if (c.dash && g.role === 'dream' && g.pred.st === 0 && g.pred.dc <= 0 && !g.pred.carry && !(g.intro > 0)) sfx.dash();
-    if (g.pred.st === 0 && !(g.intro > 0) && !g.ended) stepPlayer(g.world, g.pred, inp, CFG.INPUT_DT);
+    if (g.pred.st === 0 && !(g.intro > 0) && !g.ended) { stepPlayer(g.world, g.pred, inp, CFG.INPUT_DT); if (g.pred.warp != null) { g.yaw = g.pred.warp; g.pred.warp = null; g.smooth.x = g.smooth.z = 0; sfx.warp(); fx.glitch = 1.2; } }
     g.pending.push(inp); g.outbox.push(inp);
     if (g.pending.length > 90) g.pending.shift();
   }
@@ -1254,7 +1352,7 @@ function drawBrief(c, g, alpha, count) {
   sh('─  목 표  ─', W / 2, 68, '#8d8478', KRS);
   const goals = dream
     ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '13분을 버티거나 앨리스를 모두 잡으면 승리.']
-    : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 하늘에 빛기둥 문이 열립니다 → 그리로 탈출!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
+    : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 하늘에 빛기둥 문이 열립니다 → 그리로 탈출!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
   goals.forEach((l, i) => sh(l, W / 2, 86 + i * 16, '#d8cfbf', KR));
   sh('─  조 작  ─', W / 2, 146, '#8d8478', KRS);
   const rows = phone

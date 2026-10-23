@@ -182,7 +182,7 @@ export class Room {
       const s = p.role === 'dream' ? w.spawnD[di++ % w.spawnD.length] : spA[ai++ % spA.length];
       Object.assign(p, {
         x: s.x, z: s.z, yaw: p.role === 'dream' ? Math.PI / 2 : Math.atan2(40 - s.z, 40 - s.x),
-        st: 0, dc: 0, dt: 0, sn: 0, m: 0, carry: null, carrier: null, q: [], seq: 0,
+        st: 0, dc: 0, dt: 0, sn: 0, pc: 0, warp: null, m: 0, carry: null, carrier: null, q: [], seq: 0,
         aPrev: 0, aHeld: 0, im: 0, sg: 0, cell: -1, jt: 0, hist: []
       });
     }
@@ -259,7 +259,9 @@ export class Room {
         const a = inp.a ? 1 : 0, press = a && !p.aPrev; p.aPrev = a; p.aHeld = a;
         if (g.intro > 0) continue;
         if (p.st === 0) {
+          const bx = p.x, bz = p.z;
           stepPlayer(w, p, { f: clamp(+inp.f || 0, -1, 1), s: clamp(+inp.s || 0, -1, 1), y: +inp.y || 0, d: inp.d ? 1 : 0 }, CFG.INPUT_DT);
+          if (p.warp != null) { p.warp = null; this.ev('warp', { a: p.id, x: bx, z: bz, fx: p.x, fz: p.z }); }
           if (press && p.role === 'dream') this.dreamAct(p);
         } else if (p.st === 1 && press && inp.q - (p.sgQ || 0) >= CFG.STRUGGLE_GAP) { p.sg += CFG.STRUGGLE_ADD; p.sgQ = inp.q; }
       }
@@ -359,7 +361,7 @@ export class Room {
     const g = this.g;
     const p = [...this.players.values()].map(p => ({
       i: p.id, x: r2(p.x), z: r2(p.z), y: r2(p.yaw), s: p.st, m: p.m | 0, dc: r1(p.dc), dt: r2(p.dt), sn: r1(p.sn),
-      c: p.carry ? 1 : 0, sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell
+      c: p.carry ? 1 : 0, pc: r2(p.pc || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell
     }));
     const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, ev: g.ev, p });
     g.ev = [];

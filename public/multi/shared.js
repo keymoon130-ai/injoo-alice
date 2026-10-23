@@ -31,11 +31,12 @@ export const CFG = {
   REVEAL_SHOW: 6        // 드러난 위치가 지도에 남아 있는 시간 (초)
 };
 
-export const GR = { FOREST: 0, RED: 1, STONE: 2, BOARD: 3, GRASS: 4, RUG: 5, CARPET: 6, YCARPET: 7, DARK: 8 };
-export const WL = { NONE: 0, WALL: 1, TOWER: 2, CELL: 3, BARS: 4, CURTAIN: 5, VELVET: 6, YPAPER: 7, PILLAR: 8 };
-export const WALL_H = [0, 1.7, 2.6, 1.4, 0, 2.2, 2.4, 1.6, 1.6];
-export const MAPS = ['forest', 'theater', 'tea'];
-export const MAP_NAMES = { random: '랜덤', forest: '숲', theater: '푸른 앨리스의 극장', tea: '노란 앨리스의 다과회 실' };
+export const GR = { FOREST: 0, RED: 1, STONE: 2, BOARD: 3, GRASS: 4, RUG: 5, CARPET: 6, YCARPET: 7, DARK: 8, MARBLE: 9 };
+export const WL = { NONE: 0, WALL: 1, TOWER: 2, CELL: 3, BARS: 4, CURTAIN: 5, VELVET: 6, YPAPER: 7, PILLAR: 8, MARBLE: 9, MIRROR: 10, PORTAL: 11 };
+export const WALL_H = [0, 1.7, 2.6, 1.4, 0, 2.2, 2.4, 1.6, 1.6, 2.1, 2.1, 2.1];
+export const MAPS = ['forest', 'theater', 'tea', 'mirror'];
+export const MAP_NAMES = { random: '랜덤', forest: '숲', theater: '푸른 앨리스의 극장', tea: '노란 앨리스의 다과회 실', mirror: '초록 여왕의 거울 미궁' };
+export const PORTAL_COLS = [[120, 255, 170], [150, 190, 255], [255, 210, 120], [235, 140, 255]];
 
 export const TRACE_INFO = [
   { kind: 'sword',    suit: '♠', color: '#b42121', name: '붉은 앨리스의 검',     dur: 3 },
@@ -65,6 +66,7 @@ function segDist(px, pz, ax, az, bx, bz) {
 export function genWorld(seed, map) {
   if (map === 'theater') return genTheater(seed);
   if (map === 'tea') return genTea(seed);
+  if (map === 'mirror') return genMirror(seed);
   return genForest(seed);
 }
 
@@ -146,6 +148,7 @@ function genTea(seed) {
     if (ax !== bx) { const x = Math.max(ax, bx) * S, z0 = Math.min(az, bz) * S + 2 + ((r() * (S - 3 - w)) | 0); for (let z = z0; z < z0 + w; z++) setW(x, z, 0); }
     else { const z = Math.max(az, bz) * S, x0 = ax * S + 2 + ((r() * (S - 3 - w)) | 0); for (let x = x0; x < x0 + w; x++) setW(x, z, 0); }
   };
+  for (const [x, z] of [[3, 3], [4, 3], [3, 4], [4, 4]]) vis[z * R + x] = 1; // 가운데 감옥 방은 미로에서 뺀다
   const stack = [[0, 0]]; vis[0] = 1;
   while (stack.length) {
     const [cx, cz] = stack[stack.length - 1];
@@ -153,7 +156,8 @@ function genTea(seed) {
     if (!nb.length) { stack.pop(); continue; }
     const [nx, nz] = nb[(r() * nb.length) | 0]; vis[nz * R + nx] = 1; open(cx, cz, nx, nz); stack.push([nx, nz]);
   }
-  for (let k = 0; k < 26; k++) { const x = (r() * R) | 0, z = (r() * R) | 0; if (r() < .5 && x < R - 1) open(x, z, x + 1, z); else if (z < R - 1) open(x, z, x, z + 1); }
+  const inC = (x, z) => x >= 3 && x <= 4 && z >= 3 && z <= 4;
+  for (let k = 0; k < 26; k++) { const x = (r() * R) | 0, z = (r() * R) | 0; if (r() < .5 && x < R - 1) { if (!inC(x, z) && !inC(x + 1, z)) open(x, z, x + 1, z); } else if (z < R - 1 && !inC(x, z) && !inC(x, z + 1)) open(x, z, x, z + 1); }
   // 가운데: 문 없는 방의 긴 식탁 (감옥)
   for (let z = 31; z <= 49; z++) for (let x = 31; x <= 49; x++) { setW(x, z, 0); }
   for (let i = 30; i <= 50; i++) { setW(i, 30, WL.YPAPER); setW(30, i, WL.YPAPER); setW(50, i, WL.YPAPER); setW(i, 50, WL.YPAPER); }
@@ -189,6 +193,94 @@ function genTea(seed) {
   return { seed, N, map: 'tea', indoor: true, fogOfWar: true, ground, wall, trees: [], treeCells: new Array(N * N), cells, displays, traces, props, spawnA, spawnD, doorCands, path: [],
     labels: [{ t: '긴 식탁 (감옥)', x: 39, z: 32.5 }] };
 }
+
+/* ---------------- 초록 여왕의 거울 미궁 ---------------- */
+function genMirror(seed) {
+  const N = CFG.N, r = mulberry32((seed >>> 0) ^ 0x5bd1e995);
+  const ground = new Uint8Array(N * N).fill(GR.MARBLE), wall = new Uint8Array(N * N);
+  const I = (x, z) => z * N + x;
+  const setW = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) wall[I(x, z)] = t; };
+  const setG = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) ground[I(x, z)] = t; };
+  const R = 8, S = 10;
+  for (let i = 0; i < N; i++) { setW(i, 0, WL.MARBLE); setW(i, N - 1, WL.MARBLE); setW(0, i, WL.MARBLE); setW(N - 1, i, WL.MARBLE); }
+  for (let k = 1; k < R; k++) for (let i = 0; i < N; i++) { setW(k * S, i, WL.MARBLE); setW(i, k * S, WL.MARBLE); }
+  const open = (ax, az, bx, bz) => {
+    const w = 2 + (r() < .5 ? 1 : 0);
+    if (ax !== bx) { const x = Math.max(ax, bx) * S, z0 = Math.min(az, bz) * S + 2 + ((r() * (S - 3 - w)) | 0); for (let z = z0; z < z0 + w; z++) setW(x, z, 0); }
+    else { const z = Math.max(az, bz) * S, x0 = ax * S + 2 + ((r() * (S - 3 - w)) | 0); for (let x = x0; x < x0 + w; x++) setW(x, z, 0); }
+  };
+  const vis = new Uint8Array(R * R); for (const [x, z] of [[3, 3], [4, 3], [3, 4], [4, 4]]) vis[z * R + x] = 1;
+  const stack = [[0, 0]]; vis[0] = 1;
+  while (stack.length) {
+    const [cx, cz] = stack[stack.length - 1];
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => [cx + dx, cz + dz]).filter(([x, z]) => x >= 0 && z >= 0 && x < R && z < R && !vis[z * R + x]);
+    if (!nb.length) { stack.pop(); continue; }
+    const [nx, nz] = nb[(r() * nb.length) | 0]; vis[nz * R + nx] = 1; open(cx, cz, nx, nz); stack.push([nx, nz]);
+  }
+  const inC = (x, z) => x >= 3 && x <= 4 && z >= 3 && z <= 4;
+  for (let k = 0; k < 34; k++) { const x = (r() * R) | 0, z = (r() * R) | 0; if (r() < .5 && x < R - 1) { if (!inC(x, z) && !inC(x + 1, z)) open(x, z, x + 1, z); } else if (z < R - 1 && !inC(x, z) && !inC(x, z + 1)) open(x, z, x, z + 1); }
+  // 가운데: 거울에 갇힌 방
+  for (let z = 31; z <= 49; z++) for (let x = 31; x <= 49; x++) setW(x, z, 0);
+  for (let i = 30; i <= 50; i++) { setW(i, 30, WL.MARBLE); setW(30, i, WL.MARBLE); setW(50, i, WL.MARBLE); setW(i, 50, WL.MARBLE); }
+  for (const [x, z] of [[39, 50], [40, 50], [41, 50], [30, 39], [30, 40], [50, 39], [50, 40]]) setW(x, z, 0);
+  for (let z = 31; z <= 34; z++) for (let x = 31; x <= 49; x++) setG(x, z, GR.STONE);
+  const cells = buildCells(N, wall, setW, 35, [[33, 35], [37, 39], [41, 43]], WL.MIRROR);
+  for (let x = 31; x <= 49; x++) if (wall[I(x, 35)] === 0 && (x < 32 || x > 44)) setW(x, 35, WL.MARBLE);
+  // 방마다 거울 기둥
+  const rooms = [];
+  for (let z = 0; z < R; z++) for (let x = 0; x < R; x++) { if (x >= 3 && x <= 4 && z >= 3 && z <= 4) continue; rooms.push({ x: x * S + 5, z: z * S + 5, ix: x, iz: z }); }
+  for (const rm of rooms) {
+    const q = r();
+    if (q < .35) { const hz = r() < .5; for (let k = -1; k <= 1; k++) setW(rm.x + (hz ? k : 0), rm.z + (hz ? 0 : k), WL.MIRROR); }
+    else if (q < .55) { setW(rm.x - 2, rm.z - 2, WL.MIRROR); setW(rm.x + 2, rm.z + 2, WL.MIRROR); }
+  }
+  // 방을 나누는 벽 일부를 거울로
+  for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
+    if (wall[I(x, z)] !== WL.MARBLE || (x > 29 && x < 51 && z > 29 && z < 51)) continue;
+    if (hash2(x >> 2, z >> 2, seed) < 70) setW(x, z, WL.MIRROR);
+  }
+  // 빛나는 거울 문 네 쌍: 서로 멀리 떨어진 방의 벽에
+  const faces = [];
+  const shuffled = rooms.slice().sort(() => r() - .5);
+  for (const rm of shuffled) {
+    const cand = [];
+    for (let k = -3; k <= 3; k++) {
+      cand.push({ wx: rm.ix * S, wz: rm.z + k, nx: 1, nz: 0 }, { wx: rm.ix * S + S, wz: rm.z + k, nx: -1, nz: 0 }, { wx: rm.x + k, wz: rm.iz * S, nx: 0, nz: 1 }, { wx: rm.x + k, wz: rm.iz * S + S, nx: 0, nz: -1 });
+    }
+    const ok = cand.filter(c => c.wx > 0 && c.wz > 0 && c.wx < N - 1 && c.wz < N - 1 && wall[I(c.wx, c.wz)] && !wall[I(c.wx + c.nx, c.wz + c.nz)] && !wall[I(c.wx + c.nx * 2, c.wz + c.nz * 2)]);
+    if (!ok.length) continue;
+    const c = ok[(r() * ok.length) | 0];
+    if (faces.some(f => Math.hypot(f.wx - c.wx, f.wz - c.wz) < 18)) continue;
+    faces.push(c); if (faces.length >= 8) break;
+  }
+  const portals = [];
+  for (let k = 0; k + 1 < faces.length; k += 2) {
+    for (const [a, b] of [[faces[k], faces[k + 1]], [faces[k + 1], faces[k]]]) {
+      setW(a.wx, a.wz, WL.PORTAL);
+      portals.push({ wx: a.wx, wz: a.wz, nx: a.nx, nz: a.nz, fx: a.wx + .5 + a.nx * .5, fz: a.wz + .5 + a.nz * .5, ex: b.wx + .5 + b.nx * 1.2, ez: b.wz + .5 + b.nz * 1.2, eyaw: Math.atan2(b.nz, b.nx), pair: k / 2 });
+    }
+  }
+  const portalAt = new Int16Array(N * N).fill(-1); portals.forEach((p, i) => { portalAt[I(p.wx, p.wz)] = i; });
+  const far = rooms.filter(rm => Math.hypot(rm.x - 40, rm.z - 40) > 18).sort(() => r() - .5);
+  const picks = []; for (const rm of far) { if (picks.every(p => Math.hypot(p.x - rm.x, p.z - rm.z) > 22)) picks.push(rm); if (picks.length >= 5) break; }
+  while (picks.length < 5) picks.push(far[picks.length]);
+  const traces = picks.map((p, i) => ({ id: i, ...TRACE_INFO[i], x: p.x + .5, z: p.z + 2.5 }));
+  const clearAround = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const k = I((x | 0) + dx, (z | 0) + dz); if (wall[k] === WL.MIRROR && ((x | 0) + dx) % S && ((z | 0) + dz) % S) wall[k] = 0; } };
+  for (const t of traces) clearAround(t.x, t.z);
+  const used = new Set(picks);
+  const spawnA = rooms.filter(rm => !used.has(rm) && Math.hypot(rm.x - 40, rm.z - 40) > 20).sort(() => r() - .5).slice(0, 8).map(rm => ({ x: rm.x + .5, z: rm.z + 3.5 }));
+  for (const sp of spawnA) clearAround(sp.x, sp.z);
+  const spawnD = [{ x: 40, z: 45 }, { x: 37, z: 46 }, { x: 43, z: 46 }, { x: 35, z: 43 }, { x: 45, z: 43 }, { x: 40, z: 48 }, { x: 38, z: 41 }];
+  const doorCands = [{ x: 5, z: 5 }, { x: 75, z: 5 }, { x: 5, z: 75 }, { x: 75, z: 75 }];
+  for (const d of doorCands) clearAround(d.x, d.z);
+  const props = [];
+  const displays = []; for (const dx of [-6, 6, -8, 8, -4, 4, -2, 2]) displays.push({ x: 40 + dx, z: 48.6 });
+  for (const d of displays) props.push({ kind: 'pole', x: d.x, z: d.z });
+  for (let x = 33; x <= 43; x++) if (wall[I(x, 35)] === WL.BARS) props.push({ kind: 'glass', x: x + .5, z: 35.5 });
+  return { seed, N, map: 'mirror', indoor: true, ground, wall, trees: [], treeCells: new Array(N * N), cells, displays, traces, props, spawnA, spawnD, doorCands, path: [],
+    portals, portalAt, labels: [{ t: '거울 감옥', x: 39, z: 32.5 }] };
+}
+function hash2(a, b, s) { let h = (a * 374761393 + b * 668265263 + (s | 0) * 1442695041) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return (h ^ (h >>> 16)) & 255; }
 
 function genForest(seed) {
   const N = CFG.N, r = mulberry32(seed >>> 0);
@@ -344,4 +436,14 @@ export function stepPlayer(w, p, inp, dt) {
   p.m = (Math.abs(vx) + Math.abs(vz)) > .1 ? 1 : 0;
   const n = Math.max(1, Math.ceil(Math.hypot(vx, vz) * dt / .12));
   for (let i = 0; i < n; i++) { p.x += vx * dt / n; p.z += vz * dt / n; collide(w, p); }
+  // 빛나는 거울 문: 거울에 몸을 대면 짝 거울로 빠져나온다
+  if (w.portals) {
+    if (p.pc > 0) p.pc = Math.max(0, p.pc - dt);
+    else for (const q of w.portals) {
+      if (Math.abs(p.x - q.fx) + Math.abs(p.z - q.fz) > 1.2) continue;
+      const along = q.nx ? Math.abs(p.z - (q.wz + .5)) : Math.abs(p.x - (q.wx + .5));
+      const dist = q.nx ? (p.x - (q.wx + .5 + q.nx * .5)) * q.nx : (p.z - (q.wz + .5 + q.nz * .5)) * q.nz;
+      if (along < .55 && dist < CFG.R + .04 && (vx * q.nx + vz * q.nz) < 0) { p.x = q.ex; p.z = q.ez; p.pc = 1.2; p.warp = q.eyaw; collide(w, p); break; }
+    }
+  }
 }
