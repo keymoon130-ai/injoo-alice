@@ -142,7 +142,7 @@ let chicken = store.get('chicken', false);
 /* ---------------- audio ---------------- */
 const A = { ctx:null, master:null, noise:null, drone:null, muted:false };
 function initAudio(){
-  if (A.ctx){ if (A.ctx.state === 'suspended') A.ctx.resume(); return; }
+  if (A.ctx){ if (A.ctx.state === 'suspended') A.ctx.resume(); unlockMusic(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   const C = new AC(); A.ctx = C;
   const comp = C.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 5;
@@ -163,6 +163,7 @@ function initAudio(){
   const lfo = C.createOscillator(); lfo.frequency.value = .07; const lg = C.createGain(); lg.gain.value = 90; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
   lp.connect(dgn); dgn.connect(A.master);
   A.drone = { g:dgn, oscs, base };
+  unlockMusic();
 }
 function drone(level, pitch = 1, time = 1.5){
   if (!A.ctx) return;
@@ -244,13 +245,44 @@ const cute = {
 /* ---------------- music ---------------- */
 const TRACKS = { opening:{ url:'opening.mp3' }, cute:{ url:'cute.mp3' } };
 const music = { node:null, gain:null, name:null, want:null, wow:false };
-function loadTrack(n){
-  const tr = TRACKS[n]; if (!A.ctx) return Promise.resolve(null);
-  if (!tr.loading) tr.loading = fetch(tr.url).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
-    .then(b => new Promise((res, rej) => A.ctx.decodeAudioData(b, res, rej)))
-    .then(b => (tr.buf = b)).catch(() => { tr.loading = null; return null; });
-  return tr.loading;
+// 노래는 <audio> 태그로 받으면서 바로 튼다 (통째로 받아 해독하지 않음 → 느린 데이터·폰 메모리에서도 안정적)
+// 소리는 Web Audio로 연결해 필터·음소거가 그대로 적용된다
+function trackEl(n){
+  const tr = TRACKS[n];
+  if (tr.el) return tr;
+  const el = new Audio(); el.preload = 'auto'; el.src = tr.url;
+  try{ el.preservesPitch = false; el.mozPreservesPitch = false; el.webkitPreservesPitch = false; }catch(e){}
+  tr.el = el;
+  el.addEventListener('error', () => { // 받다가 끊기면 다시 받기
+    setTimeout(() => { try{ const t = el.currentTime; el.src = tr.url; el.load(); if (music.name === n){ el.currentTime = t; const p = el.play(); if (p && p.catch) p.catch(() => {}); } }catch(e){} }, 1500);
+  });
+  if (A.ctx){
+    try{
+      const C = A.ctx;
+      tr.src = C.createMediaElementSource(el);
+      tr.hp = C.createBiquadFilter(); tr.hp.type = 'highpass';
+      tr.lp = C.createBiquadFilter(); tr.lp.type = 'lowpass';
+      tr.gn = C.createGain(); tr.gn.gain.value = 0;
+      tr.src.connect(tr.hp); tr.hp.connect(tr.lp); tr.lp.connect(tr.gn); tr.gn.connect(A.master);
+    }catch(e){ tr.src = null; }
+  }
+  return tr;
 }
+// 터치·클릭 순간에 노래 태그를 한 번 깨워둔다 (아이폰 등은 이게 있어야 나중에 재생 가능)
+function unlockMusic(){
+  if (!A.ctx) return;
+  for (const n in TRACKS){
+    const tr = trackEl(n); if (tr.unlocked || music.name === n) continue;
+    const el = tr.el; el.muted = true;
+    try{
+      const p = el.play();
+      const done = () => { if (music.name !== n){ el.pause(); try{ el.currentTime = 0; }catch(e){} } el.muted = false; };
+      if (p && p.then) p.then(() => { tr.unlocked = true; done(); }, () => { el.muted = false; });
+      else { tr.unlocked = true; done(); }
+    }catch(e){ el.muted = false; }
+  }
+}
+function loadTrack(n){ if (A.ctx) trackEl(n); return Promise.resolve(null); }
 function stopTrack(t = 3){
   music.want = null; music.name = null; if (!music.node) return;
   const C = A.ctx, gp = music.gain.gain, n = music.node; music.node = null;
@@ -259,18 +291,31 @@ function stopTrack(t = 3){
 }
 function playTrack(n, o = {}){
   if (!A.ctx) return;
-  if ((music.name === n && music.node) || music.want === n) return;
-  stopTrack(1); music.want = n;
-  loadTrack(n).then(b => {
-    if (!b || music.want !== n || music.node) return;
-    const C = A.ctx, s = C.createBufferSource(); s.buffer = b; s.loop = !!o.loop; s.playbackRate.value = o.wow ? .985 : 1;
-    const hp = C.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = o.wow ? 140 : 40;
-    const lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.wow ? 3600 : 9000;
-    const gn = C.createGain(); gn.gain.setValueAtTime(0, C.currentTime); gn.gain.linearRampToValueAtTime(o.vol || .62, C.currentTime + (o.fade || 2.5));
-    s.connect(hp); hp.connect(lp); lp.connect(gn); gn.connect(A.master); s.start();
-    music.node = s; music.gain = gn; music.name = n; music.want = null; music.wow = !!o.wow;
-    s.onended = () => { if (music.node === s){ music.node = null; music.name = null; } };
-  });
+  if (music.name === n && music.node) return;
+  stopTrack(1);
+  const C = A.ctx, tr = trackEl(n), el = tr.el;
+  el.loop = !!o.loop;
+  try{ el.playbackRate = o.wow ? .985 : 1; }catch(e){}
+  try{ el.currentTime = 0; }catch(e){}
+  const vol = o.vol || .62, fade = o.fade || 2.5;
+  let gn;
+  if (tr.src){
+    tr.hp.frequency.value = o.wow ? 140 : 40; tr.lp.frequency.value = o.wow ? 3600 : 9000;
+    gn = tr.gn; const gp = gn.gain;
+    gp.cancelScheduledValues(C.currentTime); gp.setValueAtTime(0, C.currentTime); gp.linearRampToValueAtTime(vol, C.currentTime + fade);
+  } else {
+    // Web Audio 연결이 안 되는 경우: 태그 음량으로 직접 조절
+    gn = { gain:{ value:vol, cancelScheduledValues(){}, setValueAtTime(){}, linearRampToValueAtTime(v){ el.volume = A.muted ? 0 : Math.max(0, Math.min(1, v)); } } };
+    el.volume = A.muted ? 0 : vol;
+  }
+  el.muted = false;
+  const p = el.play(); if (p && p.catch) p.catch(() => {});
+  const node = {
+    stop(when){ const ms = Math.max(0, (when - C.currentTime) * 1000); setTimeout(() => { if (music.node !== node) el.pause(); }, ms); },
+    playbackRate:{ setTargetAtTime(){} }
+  };
+  el.onended = () => { if (music.node === node){ music.node = null; music.name = null; } };
+  music.node = node; music.gain = gn; music.name = n; music.want = null; music.wow = !!o.wow;
 }
 function playOpening(){ if (!chicken) playTrack('opening', { wow:true }); }
 function stopOpening(t = 3){ if (music.name === 'opening' || music.want === 'opening') stopTrack(t); }
@@ -1330,7 +1375,8 @@ if (window.matchMedia) {
 
 go(Boot());
 requestAnimationFrame(frame);
-window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.buf, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, get scene(){ return scene; } };
+['touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => { initAudio(); }, { passive:true }));
+window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, get scene(){ return scene; } };
 })();
 </script>
 
