@@ -312,12 +312,21 @@ function genStudio(seed) {
     else { const zm = (z0 + z1) >> 1; rooms.push({ x0, z0, x1, z1: zm - 1 }, { x0, z0: zm + 1, x1, z1 }); }
   }
   // 방 종류: 모니터실 3, 스튜디오, 테이프 보관실, 사무실, 로비
-  const kinds = ['monitor', 'monitor', 'monitor', 'studio', 'studio', 'archive', 'archive', 'office', 'office', 'office', 'office', 'office', 'office', 'office', 'office', 'office'];
-  shuffleR(kinds, r);
-  rooms.forEach((rm, i) => { rm.kind = kinds[i % kinds.length]; rm.cx = (rm.x0 + rm.x1) / 2 + .5; rm.cz = (rm.z0 + rm.z1) / 2 + .5; });
+  rooms.forEach(rm => { rm.cx = (rm.x0 + rm.x1) / 2 + .5; rm.cz = (rm.z0 + rm.z1) / 2 + .5; rm.kind = null; });
   // 로비는 맨 아래 가운데 방 (출구가 있다)
   const lobby = rooms.reduce((b, rm) => (Math.abs(rm.cx - 40) + (80 - rm.cz) < Math.abs(b.cx - 40) + (80 - b.cz) ? rm : b), rooms[0]);
   lobby.kind = 'lobby';
+  // 모니터실 3곳은 서로 최대한 멀리 (맵 세 방향으로 흩어지게)
+  const free = () => rooms.filter(rm => !rm.kind);
+  const firstMon = shuffleR(free(), r)[0]; firstMon.kind = 'monitor';
+  const mons = [firstMon];
+  for (let k = 0; k < 2; k++) {
+    let best = null, bd = -1;
+    for (const rm of free()) { const d = Math.min(...mons.map(m => Math.hypot(m.cx - rm.cx, m.cz - rm.cz))) + r() * 3; if (d > bd) { bd = d; best = rm; } }
+    best.kind = 'monitor'; mons.push(best);
+  }
+  const rest = shuffleR(['studio', 'studio', 'archive', 'archive', 'office', 'office', 'office', 'office', 'office', 'office', 'office', 'office'], r);
+  free().forEach((rm, i) => { rm.kind = rest[i % rest.length]; });
   for (const rm of rooms) {
     const g = rm.kind === 'studio' ? GR.STUDIO : rm.kind === 'lobby' ? GR.CARPET : rm.kind === 'monitor' ? GR.DARK : GR.LINO;
     carve(rm.x0, rm.z0, rm.x1, rm.z1, g);
