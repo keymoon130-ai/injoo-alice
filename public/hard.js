@@ -109,8 +109,11 @@ function Engine(o) {
     N, wall: new Uint8Array(N * N), floor: new Uint8Array(N * N), block: new Uint8Array(N * N),
     WT: o.WT, FT: o.FT, indoor: !!o.indoor, fogD: o.fogD || 9, fogC: o.fogC || [6, 6, 9], amb: o.amb == null ? .35 : o.amb,
     ceilC: o.ceilC || [20, 16, 18], wallH: o.wallH || 1, trees: [], treeCells: null, lights: [], dyn: [], lightMul: 1, flick: 1,
-    lantern: o.lantern == null ? 3.2 : o.lantern, lanternC: o.lanternC || [1, .86, .66], decals: [], stars: null
+    lantern: o.lantern == null ? 3.2 : o.lantern, lanternC: o.lanternC || [1, .86, .66], decals: [], stars: null, pics: new Map()
   };
+  // 벽에 거는 그림 (창문·거울·초상화…). face: 'x-' 'x+' 'z-' 'z+' = 그 면의 바깥쪽. cells 는 보는 사람 기준 왼쪽→오른쪽.
+  const FACE = { 'x-': 0, 'x+': 1, 'z-': 2, 'z+': 3 };
+  e.addPic = (cells, face, pic) => { pic.n = cells.length; cells.forEach(([cx, cz], i) => e.pics.set((cz * N + cx) * 4 + FACE[face], { p: pic, i })); return pic; };
   const LR = 2, LN = N * LR;
   e.LR = LR; e.lmR = new Float32Array(LN * LN); e.lmG = new Float32Array(LN * LN); e.lmB = new Float32Array(LN * LN);
   e.img = new ImageData(W, H); e.pix = new Uint32Array(e.img.data.buffer);
@@ -247,8 +250,19 @@ function Engine(o) {
       const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H - 1, Math.floor(bot));
       if (Wd.emis) { const kk = .4 * kf + .6; for (let y = y0; y <= y1; y++) { const vh = (bot - y) / lh, m = .85 + .15 * Math.sin(vh * 9 + now() * 3) + (hash(x, y) & 15) / 255; pix[y * W + x] = pack((base[0] * m * kk) | 0, (base[1] * m * kk) | 0, (base[2] * m * kk) | 0); } continue; }
       const patch = hash(mx * 3 + 1, mz * 7 + 3);
+      const fi = side ? (stz > 0 ? 2 : 3) : (stx > 0 ? 0 : 1), pc = e.pics.size ? e.pics.get((mz * N + mx) * 4 + fi) : null;
+      let pu = 0, PS = null, PP = null;
+      if (pc) { PP = pc.p; PS = PP.spr; const uu = (fi === 1 || fi === 2) ? 1 - wx : wx; pu = Math.min(PS.w - 1, ((pc.i + uu) / PP.n * PS.w) | 0); }
       for (let y = y0; y <= y1; y++) {
         const vh = (bot - y) / lh;
+        if (PS && vh >= PP.yb && vh <= PP.yt) {
+          const pv = Math.min(PS.h - 1, ((PP.yt - vh) / (PP.yt - PP.yb) * PS.h) | 0), k = pv * PS.w + pu;
+          if (PS.a[k]) {
+            if (PS.e[k]) { const kk = .45 * kf + .55; pix[y * W + x] = pack((PS.r[k] * kk) | 0, (PS.g[k] * kk) | 0, (PS.b[k] * kk) | 0); continue; }
+            let l0 = lt[0], l1 = lt[1], l2 = lt[2]; if (PP.glow) { l0 = Math.max(l0, PP.glow); l1 = Math.max(l1, PP.glow); l2 = Math.max(l2, PP.glow); }
+            pix[y * W + x] = pack((PS.r[k] * sh * l0 * kf + fogC[0] * ft) | 0, (PS.g[k] * sh * l1 * kf + fogC[1] * ft) | 0, (PS.b[k] * sh * l2 * kf + fogC[2] * ft) | 0); continue;
+          }
+        }
         let m = sh, r = base[0], gg = base[1], b = base[2];
         if (tex === 'curtain') m *= .6 + .4 * Math.sin(wx * 22 + Math.sin(vh * 3) * .5);
         else if (tex === 'wood') { if ((wx * 4) % 1 < .06) m *= .5; if (vh < .12) m *= .6; if (Math.abs(vh - wh * .45) < .03) m *= .6; }
@@ -1520,6 +1534,297 @@ function TapeScene(next) {
 
 
 /* =========================================================
+   하드 3장 : 초록 여왕의 방 — 틀린 것을 찾아라
+   ========================================================= */
+function HCh3() {
+  buildSprites();
+  const N = 14, TT = 90;
+  const FT = [{ col: [58, 40, 28], tex: 'board' }, { col: [34, 58, 38], tex: 'carpet' }];
+  const WT = [null, { col: [74, 78, 64] }, { col: [70, 46, 28], tex: 'wood', h: 1.25 }];
+  const e = Engine({ N, indoor: true, WT, FT, wallH: 1.4, fogD: 14, fogC: [5, 3, 3], amb: .3, ceilC: [30, 24, 20], lantern: 3.4, lanternC: [.95, .75, .5] });
+  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    const k = z * N + x;
+    if (x < 2 || x > 11 || z < 2 || z > 9) { e.wall[k] = 1; continue; }
+    e.floor[k] = (x >= 4 && x <= 9 && z >= 4 && z <= 7) ? 1 : 0;
+  }
+  e.wall[7 * N + 2] = 2; e.wall[8 * N + 2] = 2; // 옷장
+  const TB = { x: 6.5, z: 5.5 }, BED = { x: 11.0, z: 9.0 };
+  e.block[5 * N + 6] = 1;
+  for (const [x, z] of [[10, 8], [11, 8], [10, 9], [11, 9]]) e.block[z * N + x] = 1;
+  e.lights.push({ x: 6.5, z: 5.5, r: 3.6, i: 1.05, c: [1, .7, .4] });
+  e.lights.push({ x: 3.9, z: 2.5, r: 3, i: .75, c: [1, .12, .1] }, { x: 9.9, z: 2.5, r: 3, i: .75, c: [1, .12, .1] });
+  e.lights.push({ x: 6.5, z: 9.4, r: 2, i: .6, c: [1, .1, .08] });
+  e.lights.push({ x: 11.2, z: 5.6, r: 3.2, i: .7, c: [.75, .82, .9] }); // 거울 앞
+  e.lights.push({ x: 3.4, z: 6.6, r: 3, i: .7, c: [1, .72, .45] }); // 옷장 옆 촛대
+  e.lights.push({ x: 9.4, z: 8.0, r: 3, i: .8, c: [1, .7, .42] }); // 침대 머리맡
+  e.lights.push({ x: 7.5, z: 2.6, r: 2.4, i: .55, c: [.9, .8, .6] }); // 초상화
+  e.bake();
+  const ch0 = chicken();
+
+  /* ---- 그림들 ---- */
+  const winEmis = (x, face, open) => {
+    const gr = x.createLinearGradient(0, 6, 0, 56); gr.addColorStop(0, '#2a0404'); gr.addColorStop(.55, '#5c0b0b'); gr.addColorStop(1, '#160202');
+    x.fillStyle = gr; x.fillRect(6, 6, 52, 50);
+    E2(x, 46, 17, 5, 5, '#b01c1c'); E2(x, 47, 16, 4, 4, '#c83030');
+    x.fillStyle = 'rgba(14,1,1,.9)'; x.fillRect(6, 30, 52, 2); x.fillRect(12, 38, 40, 1); x.fillRect(6, 46, 30, 1);
+    for (let i = 0; i < 6; i++) { x.fillStyle = '#100202'; x.fillRect(8 + i * 9, 50 - (i % 3) * 3, 3, 10); } // 먼 첨탑
+    if (face) {
+      if (ch0) { x.save(); x.translate(20, 22); x.rotate(Math.PI); ghostOn(x, 0, 0, 7, { col: '#ffd6e6' }); x.restore(); }
+      else {
+        x.fillStyle = '#4a3e38'; x.fillRect(16.5, 6, 5, 7); // 목 (위로 매달림)
+        x.fillStyle = '#0a0606'; for (let i = 0; i < 12; i++) x.fillRect(9.5 + i * 1.6, 28, 1.2, 12 + ((i * 7) % 6) * 2.4); // 늘어진 머리카락
+        E2(x, 19, 22, 9, 11, '#a89a8c'); E2(x, 19, 23, 7.5, 9.5, '#b8aa9a');
+        x.strokeStyle = '#1a0606'; x.lineWidth = 1.2; x.beginPath(); x.arc(19, 15.5, 4.2, 1.1 * Math.PI, 1.9 * Math.PI); x.stroke(); // 뒤집힌 미소
+        if (open > .3) { E2(x, 15.5, 26, 2.4, 2.8 * open, '#050202'); E2(x, 22.5, 26, 2.4, 2.8 * open, '#050202'); E2(x, 15.5, 26.6, .6, .6, '#f0e8d8'); E2(x, 22.5, 26.6, .6, .6, '#f0e8d8'); }
+        else { x.fillStyle = '#2a1a16'; x.fillRect(13.5, 26, 4, 1); x.fillRect(20.5, 26, 4, 1); }
+        x.fillStyle = 'rgba(60,4,4,.7)'; x.fillRect(15, 27, .8, 3); x.fillRect(22.2, 27, .8, 2);
+      }
+    }
+    x.fillStyle = '#1a1614'; x.fillRect(30, 6, 4, 50); x.fillRect(6, 29, 52, 3); // 창살
+  };
+  const winSpr = (face, open) => canvasSprite(64, 60, x => { x.fillStyle = '#2c2824'; x.fillRect(0, 0, 64, 60); x.fillStyle = '#3a3530'; x.fillRect(2, 54, 60, 6); }, x => winEmis(x, face, open));
+  const WIN_A = e.addPic([[3, 1], [4, 1]], 'z+', { spr: winSpr(true, 0), yb: .45, yt: 1.2 });
+  e.addPic([[9, 1], [10, 1]], 'z+', { spr: winSpr(false, 0), yb: .45, yt: 1.2 });
+  // 초상화
+  const pcv = document.createElement('canvas'); pcv.width = 80; pcv.height = 112; const px = pcv.getContext('2d');
+  function portrait(k, t) {
+    const x = px; x.setTransform(2, 0, 0, 2, 0, 0); x.clearRect(0, 0, 40, 56);
+    x.fillStyle = '#6a5418'; x.fillRect(0, 0, 40, 56); x.fillStyle = '#8a7224'; x.fillRect(1, 1, 38, 1); x.fillStyle = '#14120e'; x.fillRect(3, 3, 34, 50);
+    if (ch0) {
+      ghostOn(x, 20 + Math.sin(t * 7) * k * 3, 28, 11 + k * 3, { col: '#d8ffe4', boo: k > .4 });
+      for (let i = 0; i < k * 6; i++) { const a = t * 2 + i; E2(x, 20 + Math.cos(a) * 13, 28 + Math.sin(a) * 16, 1.6, 1.4, '#ff8cb0'); }
+    } else {
+      x.save(); x.translate(20, 30); x.rotate(Math.sin(t * 3.1) * k * .35); x.translate(-20, -30);
+      E2(x, 20, 52, 14, 9, '#1f4a2a'); E2(x, 20, 49, 9, 4, '#2a5e36'); x.fillStyle = '#cfc5b2'; x.fillRect(18, 37, 4, 6);
+      E2(x, 20, 26, 10, 13 + k * 3, '#0f1a12'); // 머리카락
+      E2(x, 20, 28, 7.5 - k * 1.5, 9.5 + k * 6, k > .3 ? '#bfb39c' : '#d8cfbd');
+      P2(x, [14, 18, 16, 14, 18, 17, 20, 13, 22, 17, 24, 14, 26, 18], '#b08e2a');
+      const ey = 26 + k * 7, er = 1.2 + k * 3.4;
+      E2(x, 17 - k, ey, 1.7 + k * 1.5, er, '#060303'); E2(x, 23 + k, ey + k * 2, 1.7 + k * 1.5, er * (1 + k * .4), '#060303');
+      if (k < .2) { E2(x, 17.4, 25.6, .4, .4, '#e8e4dc'); E2(x, 23.4, 25.6, .4, .4, '#e8e4dc'); }
+      x.fillStyle = '#6a0808'; if (k > .1) { x.fillRect(16.4 - k, ey + er, .9, k * 22); x.fillRect(22.6 + k, ey + er + k * 2, .9, k * 18); }
+      const mh = 1 + k * 10, my = 34 + k * 6;
+      E2(x, 20, my, 2.6 + k * 2, mh, k > .15 ? '#0a0303' : '#a02a2a');
+      if (k > .3) { x.fillStyle = '#d8d0bc'; for (let i = -2; i <= 2; i++) { x.fillRect(20 + i * 1.4 - .4, my - mh + .6, .8, 1.6); x.fillRect(20 + i * 1.4 - .4, my + mh - 2.2, .8, 1.6); } }
+      for (let i = 0; i < k * 12; i++) E2(x, 20 + Math.sin(i * 5.3) * 7, 28 + Math.cos(i * 2.9) * 10, 1.5 + i % 3, 1 + i % 2, 'rgba(34,26,10,.85)');
+      x.restore();
+    }
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    const d = x.getImageData(0, 0, 80, 112).data, n = 80 * 112;
+    const sp = { w: 80, h: 112, r: new Uint8Array(n), g: new Uint8Array(n), b: new Uint8Array(n), a: new Uint8Array(n), e: new Uint8Array(n) };
+    const A = k * 7;
+    for (let yy = 0; yy < 112; yy++) for (let xx = 0; xx < 80; xx++) {
+      let sx = xx, sy = yy;
+      if (A > 0 && xx > 6 && xx < 74 && yy > 6 && yy < 106) { sx = clamp(Math.round(xx + Math.sin(yy * .11 + t * 6) * A), 6, 73); sy = clamp(Math.round(yy + Math.cos(xx * .09 + t * 4.3) * A * .6), 6, 105); }
+      const si = (sy * 80 + sx) * 4, o = yy * 80 + xx;
+      sp.r[o] = d[si]; sp.g[o] = d[si + 1]; sp.b[o] = d[si + 2]; sp.a[o] = 1;
+    }
+    return sp;
+  }
+  const PORT = e.addPic([[7, 1]], 'z+', { spr: portrait(0, 0), yb: .3, yt: 1.15 });
+  // 거울
+  const mirSpr = (front, fade) => canvasSprite(64, 72, x => {
+    E2(x, 32, 36, 30, 35, '#6a5418'); E2(x, 32, 36, 27, 32, '#a08a3a'); E2(x, 32, 36, 25.5, 30.5, '#5a4818');
+    x.save(); x.beginPath(); x.ellipse(32, 36, 24, 29, 0, 0, 7); x.clip();
+    const gr = x.createLinearGradient(0, 6, 0, 66); gr.addColorStop(0, '#3a4448'); gr.addColorStop(1, '#141a1c'); x.fillStyle = gr; x.fillRect(0, 0, 64, 72);
+    x.fillStyle = '#20282a'; x.fillRect(0, 52, 64, 20); x.fillStyle = 'rgba(200,220,230,.08)'; P2(x, [14, 8, 22, 8, 10, 60, 6, 60], 'rgba(200,220,230,.07)');
+    if (fade < 1) {
+      x.globalAlpha = 1 - fade;
+      if (ch0) ghostOn(x, 32, 38, 10, { col: '#dcfae6', boo: front });
+      else {
+        P2(x, [27, 37, 37, 37, 39, 46, 46, 68, 18, 68, 25, 46], '#1d4a28'); E2(x, 32, 38, 6.5, 2.6, '#1d4a28'); x.fillStyle = '#143a1e'; x.fillRect(31, 46, 2, 22);
+        x.fillStyle = '#cfc5b2'; x.fillRect(30.5, 33, 3, 4);
+        if (!front) { E2(x, 32, 28, 4.6, 5.6, '#0a0c0a'); P2(x, [27.4, 28, 36.6, 28, 37.5, 47, 26.5, 47], '#0a0c0a'); for (let i = 0; i < 5; i++) x.fillRect(27 + i * 2.2, 44, 1, 4 + (i % 2) * 2); }
+        else {
+          E2(x, 32, 28, 5, 6, '#0a0c0a'); E2(x, 32, 29, 3.6, 4.8, '#b8b0a0');
+          E2(x, 30.6, 28.4, 1, 1.5, '#050303'); E2(x, 33.4, 28.4, 1, 1.5, '#050303');
+          x.strokeStyle = '#3a0a0a'; x.lineWidth = .6; x.beginPath(); x.arc(32, 30.6, 1.8, .15 * Math.PI, .85 * Math.PI); x.stroke();
+          x.fillStyle = '#0a0c0a'; x.fillRect(27, 28, 1.6, 18); x.fillRect(35.4, 28, 1.6, 18);
+        }
+      }
+      x.globalAlpha = 1;
+    }
+    x.restore();
+  }, null);
+  const MIR = e.addPic([[12, 5], [12, 6]], 'x-', { spr: mirSpr(false, 0), yb: .05, yt: 1.25, glow: .22 });
+  // 괘종시계 (멀쩡하다 — 미끼)
+  const clockSpr = t => canvasSprite(24, 60, x => {
+    x.fillStyle = '#3a2416'; x.fillRect(3, 0, 18, 60); x.fillStyle = '#2a180e'; x.fillRect(3, 0, 18, 2); x.fillRect(3, 58, 18, 2);
+    E2(x, 12, 13, 8, 8, '#a08a3a'); E2(x, 12, 13, 7, 7, '#d8cfb8');
+    x.fillStyle = '#1a1210'; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; x.fillRect(12 + Math.cos(a) * 5.6 - .4, 13 + Math.sin(a) * 5.6 - .4, .8, .8); }
+    const hm = (t / 60) % 1, hh = (t / 720) % 1;
+    x.strokeStyle = '#1a1210'; x.lineWidth = .8; x.beginPath(); x.moveTo(12, 13); x.lineTo(12 + Math.sin(hm * 7 - 0) * 5, 13 - Math.cos(hm * 7) * 5); x.moveTo(12, 13); x.lineTo(12 + Math.sin(hh * 7 + 2) * 3.2, 13 - Math.cos(hh * 7 + 2) * 3.2); x.stroke();
+    x.fillStyle = '#120a06'; x.fillRect(7, 25, 10, 28);
+    const sw = Math.sin(t * Math.PI) * 3; x.strokeStyle = '#8a7224'; x.lineWidth = .6; x.beginPath(); x.moveTo(12, 26); x.lineTo(12 + sw, 46); x.stroke(); E2(x, 12 + sw, 47, 2.2, 2.2, '#b09030');
+  }, null, 2);
+  const CLK = e.addPic([[1, 4]], 'x+', { spr: clockSpr(0), yb: .2, yt: 1.25 });
+  // 문 (조금 열려 있다)
+  e.addPic([[6, 10]], 'z-', { spr: canvasSprite(32, 56, x => { x.fillStyle = '#3a2416'; x.fillRect(0, 0, 32, 56); x.fillStyle = '#2a180e'; x.fillRect(2, 2, 20, 54); x.fillStyle = '#4a3020'; x.fillRect(4, 6, 16, 18); x.fillRect(4, 30, 16, 22); E2(x, 19, 30, 1.2, 1.2, '#a08a3a'); },
+    x => { const gr = x.createLinearGradient(0, 0, 0, 56); gr.addColorStop(0, '#2a0303'); gr.addColorStop(1, '#5a0808'); x.fillStyle = gr; x.fillRect(23, 2, 7, 54); x.fillStyle = '#120202'; x.fillRect(23, 2, 1, 54); }, 2), yb: 0, yt: 1.15 });
+  // 옷장 (틈 사이의 눈)
+  const wardSpr = (look, shut) => canvasSprite(48, 60, x => {
+    x.fillStyle = '#4a3020'; x.fillRect(0, 0, 48, 60); x.fillStyle = '#3a2416'; x.fillRect(2, 2, 21, 56); x.fillRect(25, 2, 21, 56);
+    x.fillStyle = '#5a3a26'; x.fillRect(5, 6, 15, 20); x.fillRect(5, 32, 15, 22); x.fillRect(28, 6, 15, 20); x.fillRect(28, 32, 15, 22);
+    E2(x, 21, 30, .9, .9, '#a08a3a'); E2(x, 27, 30, .9, .9, '#a08a3a');
+    x.fillStyle = '#040303'; x.fillRect(22.6, 2, shut ? 1 : 3, 56);
+  }, shut || ch0 ? null : x => { E2(x, 24.1, 24, 1.4, 1, '#a49c8c'); E2(x, 24.1 + look * .6, 24, .6, .7, '#050303'); x.fillStyle = 'rgba(80,8,8,.9)'; x.fillRect(23.4, 24.9, 1.4, .4); }, 2);
+  const WARD = e.addPic([[2, 8], [2, 7]], 'x+', { spr: wardSpr(0, false), yb: 0, yt: 1.25 });
+  // 빌보드 소품
+  const SPx = {
+    bed: canvasSprite(48, 26, x => { x.fillStyle = '#2a180e'; x.fillRect(0, 0, 48, 12); x.fillStyle = '#3a2416'; x.fillRect(2, 2, 44, 3); x.fillStyle = '#cfc6b4'; x.fillRect(1, 10, 46, 8); E2(x, 12, 11, 7, 3, '#e4dccb'); x.fillStyle = '#2c4a30'; x.fillRect(1, 14, 46, 8); x.fillStyle = '#2a180e'; x.fillRect(1, 22, 3, 4); x.fillRect(44, 22, 3, 4); }, null, 2),
+    lump: canvasSprite(32, 12, x => { E2(x, 16, 12, 15, 11, '#33553a'); E2(x, 10, 6, 6, 4, '#3f6446'); E2(x, 22, 9, 6, 3, '#2a4630'); }, null, 2),
+    table: canvasSprite(32, 20, x => { x.fillStyle = '#2a1a10'; x.fillRect(3, 6, 3, 14); x.fillRect(26, 6, 3, 14); x.fillStyle = '#244a2c'; x.fillRect(0, 2, 32, 7); x.fillStyle = '#1a3a20'; for (let i = 0; i < 8; i++) x.fillRect(i * 4, 9, 2, 2); }, null, 2),
+    crown: canvasSprite(12, 8, x => { P2(x, [0, 8, 0, 2, 3, 5, 6, 0, 9, 5, 12, 2, 12, 8], '#b08e2a'); }, x => { E2(x, 6, 5.5, 1, 1, '#2aa860'); }, 3),
+    candleInv: canvasSprite(8, 24, x => { x.fillStyle = '#d8ccb0'; x.fillRect(2, 2, 4, 13); x.fillStyle = '#b8ac90'; x.fillRect(5, 2, 1, 13); x.fillStyle = '#e8dcc0'; x.fillRect(2, 0, 1, 3); x.fillRect(5, 0, 1, 2); x.fillStyle = '#5a4a30'; x.fillRect(2, 22, 4, 2); },
+      x => { P2(x, [4, 22, 6, 17, 4, 14.5, 2, 17], '#ffbe55'); E2(x, 4, 17.2, 1, 1.6, '#fff4c8'); }),
+    candleInvOut: canvasSprite(8, 24, x => { x.fillStyle = '#9c927c'; x.fillRect(2, 2, 4, 13); x.fillStyle = '#222'; x.fillRect(4, 15, 1, 2); x.fillStyle = '#5a4a30'; x.fillRect(2, 22, 4, 2); })
+  };
+  /* ---- 틀린 것 ---- */
+  const right = () => ({ x: -Math.sin(cam.yaw), z: Math.cos(cam.yaw) });
+  const TG = [
+    { id: 'mirror', x: 11.9, z: 6.0, r: .95, line: '거울 속에 내가 없다. 대신… 누군가 서 있다.' },
+    { id: 'window', x: 4.0, z: 2.1, r: .8, line: '창밖에 거꾸로 매달린 얼굴이… 웃었다.' },
+    { id: 'wardrobe', x: 3.1, z: 8.0, r: .55, line: '옷장 틈의 눈이 천천히 감겼다.' },
+    { id: 'candle', get x() { return TB.x + right().x * -.1; }, get z() { return TB.z + right().z * -.1; }, r: .3, line: '불꽃이… 아래로 타고 있었다.' },
+    { id: 'bed', x: BED.x, z: BED.z, r: .85, line: '이불 아래의 숨소리가 멈췄다.' }
+  ];
+  for (const t of TG) { t.f = false; t.ft = 0; }
+  const byId = id => TG.find(t => t.id === id);
+  const cam = { x: 5.0, z: 8.4, yaw: -1.15, bob: 0 };
+  const blot = Array.from({ length: 30 }, () => { const edge = Math.random() < .5; return { x: Math.random() * W, y: edge ? Math.random() * 60 : H - 70 + Math.random() * 70, r: 5 + Math.random() * 18, th: Math.random() }; });
+  let phase = 'search', time = TT, bob = 0, stepAcc = 0, idle = 0, moved = false, selN = 0, found = 0, scareT = 0, scareDone = false, winLook = 0, buzzT = 0;
+  let leadT = 0, tw = 0, route = null, ri = 0, portT = 0, clkT = 0, dark = 0, lumpH = 1;
+  const inView = (x, z, lim = .55) => { const dx = x - cam.x, dz = z - cam.z, d = Math.hypot(dx, dz); return Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)) < lim && e.los(cam.x, cam.z, x - dx / d * .12, z - dz / d * .12); };
+  function bfs(tx, tz) { // 방 안 최단 경로 (칸 중심)
+    const prev = new Int16Array(N * N).fill(-1), s0 = (cam.z | 0) * N + (cam.x | 0), goal = (tz | 0) * N + (tx | 0), q = [s0]; prev[s0] = s0;
+    for (let h = 0; h < q.length; h++) { const k = q[h]; if (k === goal) break; const x = k % N, z = (k / N) | 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nk = (z + dz) * N + x + dx; if (prev[nk] >= 0 || e.wall[nk] || e.block[nk]) continue; prev[nk] = k; q.push(nk); } }
+    const path = []; let k = goal; if (prev[k] < 0) return [{ x: tx, z: tz }];
+    while (k !== s0) { path.unshift({ x: k % N + .5, z: ((k / N) | 0) + .5 }); k = prev[k]; }
+    path[path.length - 1] = { x: tx, z: tz }; return path;
+  }
+  const S = {
+    game: true, fp: true, touch: 'h3d', act: '지목',
+    get noJoy() { return phase !== 'search'; }, get noAct() { return phase !== 'search'; },
+    dbg: { cam, TG, get phase() { return phase; }, get time() { return time; }, set time(v) { time = v; }, findAll() { for (const t of TG) if (!t.f) { t.f = true; t.ft = now(); found++; } phase = 'lead'; leadT = 0; } },
+    enter() { setFx({ noise: .12, wobble: .5, ca: 1.2 }); drone(.06, .9, 2); say('초록 여왕의 방. 무언가… 틀렸다.', 3); },
+    exit() { exitLock(); api.hint(null); },
+    select() {
+      if (phase !== 'search') return; selN++;
+      let best = null, bs = 1e9;
+      for (const t of TG) {
+        if (t.f) continue;
+        const dx = t.x - cam.x, dz = t.z - cam.z, d = Math.hypot(dx, dz); if (d > 6.5) continue;
+        const a = Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)), lim = Math.atan2(t.r, d) + .04; if (a > lim) continue;
+        if (!e.los(cam.x, cam.z, t.x - dx / d * .15, t.z - dz / d * .15)) continue;
+        if (a / lim < bs) { bs = a / lim; best = t; }
+      }
+      if (best) {
+        best.f = true; best.ft = now(); found++; fx.glitch = 1; sfx.sting(); sfx.whisper(1.2, clamp(Math.sin(angDiff(Math.atan2(best.z - cam.z, best.x - cam.x) - cam.yaw)), -1, 1) * .8); vib(50);
+        say(best.line, 2.8); api.hint(null);
+        if (best.id === 'wardrobe') nz(.25, { type: 'lowpass', f: 300, vol: .4, a: .003 });
+        if (found >= TG.length) { phase = 'lead'; leadT = 0; exitLock(); drone(.14, .7, 3); }
+        return;
+      }
+      time -= 6; say('아니야.', 1.4); scareT = .55; bigScare();
+    },
+    key(k) { if (k === ' ' || k === 'Enter' || k === 'x' || k === 'j') this.select(); },
+    pointer(t, x) { if (phase !== 'search') return; fpPointer(cam, t, x); if (t === 'down' && !TOUCH && document.pointerLockElement === api.cv) this.select(); },
+    update(dt) {
+      scareT = Math.max(0, scareT - dt);
+      e.flick = .9 + Math.sin(now() * 11) * .04 + Math.sin(now() * 27) * .03;
+      const rot = phase === 'search' ? 1 - time / TT : 1;
+      // 시계는 멀쩡히 간다
+      clkT -= dt; if (clkT <= 0) { clkT = .12; CLK.spr = clockSpr(now()); }
+      // 창밖의 얼굴: 오래 볼수록 눈을 뜬다
+      const wt = byId('window');
+      if (!wt.f) { if (inView(4, 2.1, .5)) winLook += dt; else winLook = Math.max(0, winLook - dt * .5); }
+      { const gone = wt.f && now() - wt.ft > 2.2, wo = wt.f ? 1 : clamp((winLook - 1.6) / 1.2, 0, 1), key = gone ? 'g' : (Math.round(wo * 5) / 5).toFixed(1);
+        if (key !== WIN_A.key) { WIN_A.key = key; WIN_A.spr = winSpr(!gone, wo); } }
+      // 거울 속 여인
+      const mt = byId('mirror'); if (mt.f) { const k = now() - mt.ft, fade = clamp((k - 2) / 1.5, 0, 1); if (!MIR.done) { MIR.spr = mirSpr(true, fade); if (fade >= 1) MIR.done = true; } }
+      // 옷장 틈의 눈은 나를 따라 본다
+      const wd = byId('wardrobe');
+      { const lk = wd.f ? 'shut' : (clamp((cam.z - 8) * .6, -1, 1)).toFixed(1); if (lk !== WARD.lk) { WARD.lk = lk; WARD.spr = wardSpr(+lk || 0, wd.f); } }
+      // 이불의 숨
+      const bd = byId('bed'); lumpH = bd.f ? Math.max(.2, lumpH - dt * .4) : 1 + Math.sin(now() * 2.2) * .28;
+      if (!bd.f && !ch0 && Math.hypot(BED.x - cam.x, BED.z - cam.z) < 3 && Math.random() < dt * .6) nz(.9, { type: 'lowpass', f: 380, vol: .05, a: .4 });
+      if (phase === 'search') {
+        time -= dt;
+        const c = fpControls(cam, dt, { speed: 1.8 });
+        if (c.moving) { moved = true; e.move(cam, c.vx, c.vz, .22); bob += dt * 6.5; stepAcc += dt; if (stepAcc > .52) { stepAcc = 0; sfx.step(); } }
+        cam.bob = Math.sin(bob) * (c.moving ? 1.5 : 0);
+        idle = c.moving ? 0 : idle + dt;
+        e.lantern = 1.8 + 1.6 * clamp(time / TT, 0, 1); e.lightMul = 1 - rot * .3;
+        buzzT -= dt; if (buzzT <= 0 && !ch0) { buzzT = 1.6 - rot * 1.1 + Math.random(); osc('sawtooth', 190 + Math.random() * 60, .5 + Math.random() * .5, { vol: .012 + rot * .03, f2: 170 + Math.random() * 80, pan: (Math.random() - .5) * 1.8 }); }
+        if (!scareDone && time < TT * .55) { scareDone = true; scareT = .4; bigScare(); say('…누가 있어?', 1.6); }
+        if (time < TT * .3 && Math.random() < dt * .4) { fx.glitch = .6; sfx.stat && sfx.stat(.08); }
+        if (time <= 0) { api.die('촛불이 꺼졌다. 여왕이 당신을 찾아냈다.', HCh3); return; }
+        if (!moved && idle > 5) api.hint(TOUCH ? '◀ 왼쪽 원으로 걷기 · 화면을 끌어 둘러보기 ▶' : '▶ W / ↑  걷기   ·   마우스·← →  둘러보기');
+        else if (selN === 0 && this.t > 22) api.hint(TOUCH ? '☞ 이상한 것을 화면 가운데에 두고 「지목」' : '☞ 이상한 것을 화면 가운데에 두고 SPACE / 클릭');
+        else api.hint(null);
+      } else if (phase === 'lead') {
+        leadT += dt; api.hint(null);
+        if (leadT > .2 && leadT - dt <= .2) setTimeout(() => say('내 몸이 어딘가로 이끈다…', 3.2), 1200);
+        if (leadT > 1.6) {
+          if (!route) { route = bfs(7.5, 3.3); ri = 0; }
+          const wp = route[ri];
+          if (wp) {
+            const dx = wp.x - cam.x, dz = wp.z - cam.z, d = Math.hypot(dx, dz), want = Math.atan2(dz, dx);
+            cam.yaw += angDiff(want - cam.yaw) * Math.min(1, dt * 2.4);
+            if (Math.abs(angDiff(want - cam.yaw)) < .6) { const sp = Math.min(d, .8 * dt); cam.x += dx / (d || 1) * sp; cam.z += dz / (d || 1) * sp; bob += dt * 4.5; stepAcc += dt; if (stepAcc > .7) { stepAcc = 0; sfx.step(); } }
+            cam.bob = Math.sin(bob) * 1.2;
+            if (d < .06) ri++;
+          } else {
+            cam.bob *= .9; cam.yaw += angDiff(-Math.PI / 2 - cam.yaw) * Math.min(1, dt * 2);
+            if (Math.abs(angDiff(-Math.PI / 2 - cam.yaw)) < .015) { cam.yaw = -Math.PI / 2; phase = 'twist'; tw = 0; drone(.22, 1.3, 5); }
+          }
+        }
+      } else if (phase === 'twist') {
+        tw += dt;
+        const k = clamp((tw - .6) / 6.2, 0, 1);
+        portT -= dt; if (portT <= 0) { portT = .06; PORT.spr = portrait(k, now()); }
+        PORT.glow = .35 + Math.random() * .1 * k; e.dyn = [{ x: 7.5, z: 2.4, r: 2, i: .5, c: [.75, .85, .8] }];
+        const zk = clamp(tw / 8.2, 0, 1); cam.z = lerp(3.3, 2.42, zk * zk * (3 - 2 * zk)); cam.bob = 0;
+        if (!ch0 && Math.random() < dt * (2 + k * 8)) nz(.2, { type: 'bandpass', f: 300 + Math.random() * 500, q: 3, vol: .06 + k * .1, pan: (Math.random() - .5) * .6 });
+        if (Math.random() < dt * (1 + k * 3)) sfx.whisper(1, (Math.random() - .5) * 1.6);
+        fx.wobble = .5 + k * 1.4; fx.noise = .12 + k * .15; if (k > .5) fx.shake = Math.max(fx.shake || 0, (k - .5) * 3);
+        if (tw > 4.6 && tw - dt <= 4.6) say('「 나는 아직… 아름다워? 」', 3);
+        if (tw > 8.4 && tw - dt <= 8.4) { bigScare(); dark = 1; }
+        if (tw > 10.2) go(Card(T.e3, () => api.startChapter(4), { drone: .03 }));
+      }
+    },
+    draw() {
+      const ch = chicken();
+      if (dark) { g.fillStyle = '#000'; g.fillRect(-20, -20, W + 40, H + 40); if (Math.random() < .5) { g.fillStyle = 'rgba(200,200,200,.05)'; g.fillRect(0, Math.random() * H, W, 2); } return; }
+      const sprites = [], R = right();
+      sprites.push({ spr: SPx.table, x: TB.x, z: TB.z, w: 1.1, h: .55, y0: 0 });
+      const ct = byId('candle');
+      [-.28, -.1, .08].forEach((o, i) => {
+        const inv = i === 1, sp = inv ? (ct.f ? SPx.candleInvOut : SPx.candleInv) : SP.candle;
+        sprites.push({ spr: sp, x: TB.x + R.x * o - Math.cos(cam.yaw) * .02, z: TB.z + R.z * o - Math.sin(cam.yaw) * .02, w: .08, h: .26, y0: .5 });
+      });
+      sprites.push({ spr: SPx.crown, x: TB.x + R.x * .3 - Math.cos(cam.yaw) * .02, z: TB.z + R.z * .3 - Math.sin(cam.yaw) * .02, w: .22, h: .14, y0: .53 });
+      sprites.push({ spr: SPx.bed, x: BED.x, z: BED.z, w: 2, h: .7, y0: 0 });
+      { const dx = cam.x - BED.x, dz = cam.z - BED.z, d = Math.hypot(dx, dz) || 1; sprites.push({ spr: SPx.lump, x: BED.x + dx / d * .06, z: BED.z + dz / d * .06, w: 1.3, h: .26 * lumpH, y0: .3 }); }
+      if (phase !== 'twist') e.dyn = ct.f ? [] : [{ x: TB.x, z: TB.z, r: 1.6, i: .25, c: [1, .7, .4] }];
+      e.render(cam, sprites);
+      if (phase === 'search') {
+        const rot = 1 - time / TT;
+        if (!ch) for (const b of blot) if (rot > b.th) ell(b.x, b.y, b.r * (.5 + (rot - b.th)), b.r * .7 * (.5 + (rot - b.th)), 'rgba(30,22,8,.45)');
+        g.fillStyle = 'rgba(232,220,200,.55)'; g.fillRect(W / 2 - 1, H / 2 - 1, 2, 2);
+        // 손에 든 촛불 = 남은 시간
+        const ht = 6 + 34 * clamp(time / TT, 0, 1), bx = 22, by = H - 6;
+        g.fillStyle = '#d8ccb0'; g.fillRect(bx, by - ht, 7, ht); g.fillStyle = '#b8ac90'; g.fillRect(bx + 5, by - ht, 2, ht);
+        const fl = 1 + Math.sin(now() * 17) * .15; ell(bx + 3.5, by - ht - 6 * fl, 2.6, 6 * fl, '#ffbe55'); ell(bx + 3.5, by - ht - 4, 1.3, 2.6, '#fff4c8');
+      }
+      if (phase === 'twist') { const k = clamp((tw - .6) / 6.2, 0, 1); g.fillStyle = `rgba(0,0,0,${k * .15})`; g.fillRect(0, 0, W, H); const v = g.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 230); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${.4 + k * .5})`); g.fillStyle = v; g.fillRect(0, 0, W, H); }
+      if (scareT > 0) scareOverlay(scareT, .55, true);
+    }
+  };
+  return S;
+}
+
+/* =========================================================
    하드 최종장 : 이름을 적으면 화면이 빨간 글씨로 가득 찬다
    ========================================================= */
 function RedWords(next) {
@@ -1563,6 +1868,6 @@ function RedWords(next) {
   };
 }
 
-return { HCh1, HCh2, HCh4, TapeScene, RedWords, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
+return { HCh1, HCh2, HCh3, HCh4, TapeScene, RedWords, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
 };
 })();

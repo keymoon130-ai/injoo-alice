@@ -115,7 +115,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="hard.js?v=13"></script>
+<script src="hard.js?v=14"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -576,7 +576,7 @@ function startChapter(n){
   const H_ = hard && HARD;
   if (n === 1) go(Card(T.pro, () => go(Card(T.i1, () => go(H_ ? HARD.HCh1() : Ch1()), { drone:.02 })), { drone:.015, pitch:.8, speed:13, sound:playOpening }));
   else if (n === 2) go(Card(T.i2, () => go(H_ && HARD.HCh2 ? HARD.HCh2() : Ch2()), { drone:.05 }));
-  else if (n === 3) go(Card(T.i3, () => go(Ch3({ hard:!!H_ })), { drone:.05 }));
+  else if (n === 3) go(Card(T.i3, () => go(H_ && HARD.HCh3 ? HARD.HCh3() : Ch3({ hard:!!H_ })), { drone:.05 }));
   else if (n === 4) go(Card(T.i4, () => go(H_ && HARD.HCh4 ? HARD.HCh4() : Ch4()), { drone:.05 }));
   else go(Card(T.i5, () => go(NameScene()), { drone:.07, pitch:.7 }));
 }
