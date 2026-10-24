@@ -16,6 +16,10 @@ let chicken = store.get('chicken', false);
 let myName = store.get('name', '');
 let bright = (() => { try { const v = JSON.parse(localStorage.getItem('injoo_bright')); return v == null ? 2 : v; } catch (e) { return 2; } })();
 const BRIGHT = [[.72, -4], [.86, -2], [1, 0], [1.2, 7], [1.45, 16]];
+// 시점 감도 (1~9, 기본 5) — 솔로와 같은 저장값
+const SENS = [0, .4, .55, .7, .85, 1, 1.2, 1.45, 1.75, 2.1];
+let sens = (() => { try { const v = JSON.parse(localStorage.getItem('injoo_sens')); return v >= 1 && v <= 9 ? v : 5; } catch (e) { return 5; } })();
+function setSens(v) { sens = clamp(v, 1, 9); try { localStorage.setItem('injoo_sens', JSON.stringify(sens)); } catch (e) {} const el = $('selSens'); if (el) el.value = sens; }
 function setBright(v) { bright = clamp(v, 0, 4); try { localStorage.setItem('injoo_bright', JSON.stringify(bright)); } catch (e) {} const el = $('selBright'); if (el) el.value = bright; }
 const SERVER = String(window.INJOO_SERVER || '').replace(/\/+$/, '');
 const HTTP = SERVER || location.origin;
@@ -124,6 +128,7 @@ $('btnStart').addEventListener('click', () => send({ type: 'start' }));
 $('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map }));
 $('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map }));
 { const sb = $('selBright'); for (let i = 0; i < 5; i++) { const o = document.createElement('option'); o.value = i; o.textContent = '■'.repeat(i + 1) + '□'.repeat(4 - i); sb.append(o); } sb.value = bright; sb.addEventListener('change', e => setBright(+e.target.value)); }
+{ const ss = $('selSens'); for (let i = 1; i <= 9; i++) { const o = document.createElement('option'); o.value = i; o.textContent = `${i}${i === 5 ? ' (기본)' : ''}`; ss.append(o); } ss.value = sens; ss.addEventListener('change', e => setSens(+e.target.value)); }
 $('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value }));
 $('lbChatForm').addEventListener('submit', e => { e.preventDefault(); const v = $('lbChatIn').value.trim(); if (v) send({ type: 'chat', text: v }); $('lbChatIn').value = ''; });
 
@@ -800,6 +805,7 @@ window.addEventListener('keydown', e => {
   if (k === 'shift') ctl.dashQ = true;
   if (k === 'm') game.mapOn = !game.mapOn;
   if (k === 'tab' || k === 'h' || k === '?') game.briefOn = !game.briefOn;
+  if (k === '[' || k === ']') { setSens(sens + (k === ']' ? 1 : -1)); say(`시점 감도 ${sens}`, '#cfc6b6', 1.5); }
   if (k === 'b') { setBright((bright + 1) % 5); say(`밝기 ${'■'.repeat(bright + 1)}${'□'.repeat(4 - bright)}`, '#cfc6b6', 1.5); }
 });
 window.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase(); keys[k] = false; });
@@ -818,8 +824,8 @@ cv.addEventListener('mousedown', e => {
 window.addEventListener('mouseup', () => { dragLook = false; });
 window.addEventListener('mousemove', e => {
   if (!game || device === 'phone') return;
-  if (document.pointerLockElement === cv) game.yaw += e.movementX * .0026;
-  else if (dragLook) game.yaw += e.movementX * .006;
+  if (document.pointerLockElement === cv) game.yaw += e.movementX * .0026 * SENS[sens];
+  else if (dragLook) game.yaw += e.movementX * .006 * SENS[sens];
 });
 document.addEventListener('pointerlockchange', () => { if (game) $('lockHint').hidden = device === 'phone' || document.pointerLockElement === cv; });
 
@@ -848,7 +854,7 @@ cv.addEventListener('pointermove', e => {
   if (e.pointerId !== lookId || !game) return;
   const r = cv.getBoundingClientRect();
   const v = ROT() ? e.clientY : e.clientX, span = ROT() ? r.height : r.width;
-  game.yaw += (v - lookX) / span * 4.2; lookX = v;
+  game.yaw += (v - lookX) / span * 4.2 * SENS[sens]; lookX = v;
 });
 const endLook = e => { if (e.pointerId === lookId) lookId = null; };
 cv.addEventListener('pointerup', endLook); cv.addEventListener('pointercancel', endLook);
@@ -1228,7 +1234,7 @@ function update(dt) {
   const g = game;
   revealFog(g);
   // 시점 회전 (방향키)
-  if (!chatOpen) { if (keys.arrowleft) g.yaw -= 2.4 * dt; if (keys.arrowright) g.yaw += 2.4 * dt; }
+  if (!chatOpen) { if (keys.arrowleft) g.yaw -= 2.4 * dt * SENS[sens]; if (keys.arrowright) g.yaw += 2.4 * dt * SENS[sens]; }
   // 입력을 30Hz로 쪼개어 예측 이동 + 서버 전송
   g.acc += dt; let n = 0;
   while (g.acc >= CFG.INPUT_DT && n < 6) {
@@ -1404,7 +1410,7 @@ function drawBrief(c, g, alpha, count) {
       ? [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['잡기'], '잡기 · 감옥에 가두기'], [['대시'], `순간 돌진 (${CFG.DASH_CD}초마다)`], [['지도'], '지도 열기']]
       : [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['행동'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['행동'], '잡혔을 때 연타로 몸부림'], [['지도'], '지도 열기']])
     : (dream
-      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '잡기 · 감옥에 가두기'], [['Shift'], `순간 돌진 (${CFG.DASH_CD}초마다)`], [['M'], '지도'], [['B'], '밝기'], [['Enter'], '채팅']]
+      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '잡기 · 감옥에 가두기'], [['Shift'], `순간 돌진 (${CFG.DASH_CD}초마다)`], [['M'], '지도'], [['B'], '밝기'], [['[', ']'], '시점 감도'], [['Enter'], '채팅']]
       : [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['E'], '잡혔을 때 연타로 몸부림'], [['M'], '지도'], [['Enter'], '채팅']]);
   let y = 166;
   for (const [ks, desc] of rows) {

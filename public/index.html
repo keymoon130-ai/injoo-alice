@@ -115,7 +115,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="hard.js?v=9"></script>
+<script src="hard.js?v=10"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -152,7 +152,9 @@ let modeHard = store.get('modeHard', false);
 let endings = store.get('endings', {});            // normal / hardBad / hardTrue / archive
 let hroute = store.get('hroute', 'bad');           // 하드 4장에서 고른 길
 let hasTape = store.get('tape', false), tapeSeen = store.get('tapeSeen', false), tapePending = store.get('tapePending', false);
-let bright = store.get('bright', 2);               // 밝기 0~4
+let bright = store.get('bright', 2);
+let sens = store.get('sens', 5);                   // 시점 감도 1~9
+const SENS = [0, .4, .55, .7, .85, 1, 1.2, 1.45, 1.75, 2.1];               // 밝기 0~4
 const BRIGHT = [[.72, -4], [.86, -2], [1, 0], [1.2, 7], [1.45, 16]];
 
 /* ---------------- audio ---------------- */
@@ -453,9 +455,10 @@ window.addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (paused) {
     if (k === 'Escape' || k === 'p') setPause(false);
-    else if (k === 'ArrowUp' || k === 'w') { pauseSel = (pauseSel + 2) % 3; sfx.tick(); }
-    else if (k === 'ArrowDown' || k === 's') { pauseSel = (pauseSel + 1) % 3; sfx.tick(); }
+    else if (k === 'ArrowUp' || k === 'w') { pauseSel = (pauseSel + 3) % 4; sfx.tick(); }
+    else if (k === 'ArrowDown' || k === 's') { pauseSel = (pauseSel + 1) % 4; sfx.tick(); }
     else if ((k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') && pauseSel === 1) { bright = k === 'ArrowLeft' || k === 'a' ? Math.max(0, bright - 1) : Math.min(4, bright + 1); store.set('bright', bright); sfx.tick(); }
+    else if ((k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') && pauseSel === 2) { sens = k === 'ArrowLeft' || k === 'a' ? Math.max(1, sens - 1) : Math.min(9, sens + 1); store.set('sens', sens); sfx.tick(); }
     else if (k === 'Enter' || k === ' ') pauseChoose(pauseSel);
     return;
   }
@@ -620,10 +623,12 @@ function Options(){
   const rows = () => [
     ...ENDS.map(e => ({ end:e })),
     { bright:true },
+    { sens:true },
     { l:'진행 이어하기 코드', f:() => { mode = 'code'; sfx.clunk(); } },
     { l:'‹  돌아가기', f:() => go(Title()) }
   ];
-  const ry = i => 66 + i * 26 + (i >= 4 ? 10 : 0);
+  const CODE_ROW = 6;
+  const ry = i => i < 4 ? 62 + i * 26 : 176 + (i - 4) * 22;
   return {
     noPause:true,
     enter(){ setFx({ noise:.1, flicker:.03 }); },
@@ -632,6 +637,7 @@ function Options(){
       const r = rows()[i]; if (!r) return;
       if (r.end){ if (r.end.id === 'archive' && endings.archive && HARD){ sfx.clunk(); go(HARD.TapeScene(() => go(Options()))); } else sfx.tick(); return; }
       if (r.bright){ bright = (bright + 1) % 5; store.set('bright', bright); sfx.tick(); return; }
+      if (r.sens){ sens = sens % 9 + 1; store.set('sens', sens); sfx.tick(); return; }
       r.f();
     },
     submit(){
@@ -644,6 +650,8 @@ function Options(){
       if (k === 'ArrowUp' || k === 'w'){ sel = (sel + n - 1) % n; sfx.tick(); }
       else if (k === 'ArrowDown' || k === 's'){ sel = (sel + 1) % n; sfx.tick(); }
       else if ((k === 'ArrowLeft' || k === 'a') && rows()[sel].bright){ bright = Math.max(0, bright - 1); store.set('bright', bright); sfx.tick(); }
+      else if ((k === 'ArrowLeft' || k === 'a') && rows()[sel].sens){ sens = Math.max(1, sens - 1); store.set('sens', sens); sfx.tick(); }
+      else if ((k === 'ArrowRight' || k === 'd') && rows()[sel].sens){ sens = Math.min(9, sens + 1); store.set('sens', sens); sfx.tick(); }
       else if ((k === 'ArrowRight' || k === 'd') && rows()[sel].bright){ bright = Math.min(4, bright + 1); store.set('bright', bright); sfx.tick(); }
       else if (k === 'Enter' || k === ' ') this.choose(sel);
       else if (k === 'Escape') go(Title());
@@ -657,7 +665,7 @@ function Options(){
         if (y > 236 && y < 262 && x >= 200) { mode = 'menu'; nameForm.hidden = true; return; }
         return;
       }
-      rows().forEach((r, i) => { const yy = ry(i); if (y > yy - 15 && y < yy + 9){ if (t === 'move') sel = i; else { sel = i; if (r.bright){ bright = x < W / 2 ? Math.max(0, bright - 1) : Math.min(4, bright + 1); store.set('bright', bright); sfx.tick(); } else this.choose(i); } } });
+      rows().forEach((r, i) => { const yy = ry(i); if (y > yy - 15 && y < yy + 9){ if (t === 'move') sel = i; else { sel = i; if (r.bright){ bright = x < W / 2 ? Math.max(0, bright - 1) : Math.min(4, bright + 1); store.set('bright', bright); sfx.tick(); } else if (r.sens){ sens = x < W / 2 ? Math.max(1, sens - 1) : Math.min(9, sens + 1); store.set('sens', sens); sfx.tick(); } else this.choose(i); } } });
     },
     update(dt){ msgT -= dt; },
     draw(){
@@ -681,6 +689,8 @@ function Options(){
           if (seen) { txt(r.end.sub, 60 + 16, y + 12, { size:9, color:'#6f675e', font:MONO, align:'left' }); if (r.end.tag) txt(r.end.tag, W - 56, y, { size:14, color:r.end.col, font:OSDF, align:'right' }); }
         } else if (r.bright){
           txt(`${on ? '› ' : '  '}밝기   ◀  ${'■'.repeat(bright + 1)}${'□'.repeat(4 - bright)}  ▶`, 60, y, { size:13, color:on ? '#e9e0cf' : '#6f675e', font:MONO, align:'left' });
+        } else if (r.sens){
+          txt(`${on ? '› ' : '  '}시점 감도  ◀  ${sens}${sens === 5 ? ' (기본)' : ''}  ▶`, 60, y, { size:13, color:on ? '#e9e0cf' : '#6f675e', font:MONO, align:'left' });
         } else txt((on ? '› ' : '  ') + r.l, 60, y, { size:13, color:on ? '#e9e0cf' : '#6f675e', font:MONO, align:'left' });
       });
       // 밝기 확인용 회색 띠
@@ -1521,7 +1531,7 @@ function drawSubs(){
 
 /* ---------------- 일시정지 ---------------- */
 let paused = false, pauseSel = 0;
-const PAUSE_ROWS = [{ l:'▶  계속하기', y:150 }, { bright:true, y:176 }, { l:'■  타이틀로 나가기', y:202 }];
+const PAUSE_ROWS = [{ l:'▶  계속하기', y:144 }, { bright:true, y:166 }, { sens:true, y:188 }, { l:'■  타이틀로 나가기', y:212 }];
 const canPause = () => !!(scene && !scene.noPause);
 function setPause(v){
   if (v && !canPause()) return;
@@ -1536,7 +1546,7 @@ function quitToTitle(){
   stopTrack(.3); sfx.clunk();
   go(Static(.5, () => go(Title())));
 }
-function pauseChoose(i, x){ if (i === 0) setPause(false); else if (i === 1){ bright = x != null && x < W / 2 ? Math.max(0, bright - 1) : (x != null ? Math.min(4, bright + 1) : (bright + 1) % 5); store.set('bright', bright); sfx.tick(); } else quitToTitle(); }
+function pauseChoose(i, x){ if (i === 0) setPause(false); else if (i === 1){ bright = x != null && x < W / 2 ? Math.max(0, bright - 1) : (x != null ? Math.min(4, bright + 1) : (bright + 1) % 5); store.set('bright', bright); sfx.tick(); } else if (i === 2){ sens = x != null && x < W / 2 ? Math.max(1, sens - 1) : (x != null ? Math.min(9, sens + 1) : sens % 9 + 1); store.set('sens', sens); sfx.tick(); } else quitToTitle(); }
 function pausePointer(t, x, y){
   PAUSE_ROWS.forEach((r, i) => {
     if (y > r.y - 18 && y < r.y + 8 && x > 70 && x < 330) { if (t === 'move') pauseSel = i; if (t === 'down') { pauseSel = i; pauseChoose(i, x); } }
@@ -1544,10 +1554,10 @@ function pausePointer(t, x, y){
 }
 function drawPause(){
   g.fillStyle = 'rgba(0,0,0,.72)'; g.fillRect(0, 0, W, H);
-  txt('일시정지', W / 2, 118, { size:20, color:'#e3dccf', w:800 });
-  PAUSE_ROWS.forEach((r, i) => txt((i === pauseSel ? '› ' : '  ') + (r.bright ? `밝기  ◀ ${'■'.repeat(bright + 1)}${'□'.repeat(4 - bright)} ▶` : r.l), W / 2, r.y, { size:14, color:i === pauseSel ? (i === 2 ? '#ff8a8a' : '#e9e0cf') : '#6f675e', font:MONO }));
-  txt('진행 상황은 장 단위로 저장돼요. 다시 하면 그 장 처음부터.', W / 2, 232, { size:10, color:'#7a7166', font:MONO });
-  txt(TOUCH ? '' : 'ESC: 계속하기', W / 2, 248, { size:10, color:'#5f5850', font:MONO });
+  txt('일시정지', W / 2, 112, { size:20, color:'#e3dccf', w:800 });
+  PAUSE_ROWS.forEach((r, i) => txt((i === pauseSel ? '› ' : '  ') + (r.bright ? `밝기  ◀ ${'■'.repeat(bright + 1)}${'□'.repeat(4 - bright)} ▶` : r.sens ? `시점 감도  ◀ ${sens} ▶` : r.l), W / 2, r.y, { size:14, color:i === pauseSel ? (i === 3 ? '#ff8a8a' : '#e9e0cf') : '#6f675e', font:MONO }));
+  txt('진행 상황은 장 단위로 저장돼요. 다시 하면 그 장 처음부터.', W / 2, 238, { size:10, color:'#7a7166', font:MONO });
+  txt(TOUCH ? '' : 'ESC: 계속하기', W / 2, 252, { size:10, color:'#5f5850', font:MONO });
 }
 const pauseBtn = document.getElementById('pauseBtn');
 pauseBtn.addEventListener('click', () => { initAudio(); paused ? setPause(false) : setPause(true); });
@@ -1658,7 +1668,7 @@ if (window.matchMedia) {
 
 const HARD = window.InjooHard ? window.InjooHard({
   W, H, g, cv, keys, ptr, joy, sfx, osc, nz, fx, setFx, drone, say, go, Card, T, txt, ell, poly, cuteGhost, drawFace, heart, vib, MONO, SERIF, OSDF, TOUCH, reduced, hint, stopOpening, playTrack, stopTrack,
-  chicken:() => chicken, now:() => now, scene:() => scene, paused:() => paused, osd, playerName:() => playerName, Title:() => Title(), Static,
+  chicken:() => chicken, sens:() => SENS[sens] || 1, now:() => now, scene:() => scene, paused:() => paused, osd, playerName:() => playerName, Title:() => Title(), Static,
   die:(m, f) => die(m, f), startChapter:n => startChapter(n), Jump, CuteJump, darkness, rgb,
   setRoute:r => { hroute = r; store.set('hroute', r); }, gotTape:() => { hasTape = true; store.set('tape', true); }
 }) : null;

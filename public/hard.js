@@ -347,7 +347,7 @@ function Engine(o) {
 let lockedLook = 0, lastMX = null;
 api.cv.addEventListener('mousemove', ev => {
   const s = api.scene(); if (!s || !s.fp || api.paused()) return;
-  if (document.pointerLockElement === api.cv) lockedLook += ev.movementX * .0028;
+  if (document.pointerLockElement === api.cv) lockedLook += ev.movementX * .0028 * api.sens();
 });
 function fpControls(cam, dt, o = {}) {
   const sp = o.speed || 2.2;
@@ -360,7 +360,7 @@ function fpControls(cam, dt, o = {}) {
   if (keys.ArrowRight || keys.e) turn += 1;
   const J = api.joy; f += -J.y; s += J.x;
   f = clamp(f, -1, 1); s = clamp(s, -1, 1);
-  cam.yaw += turn * 2.4 * dt + lockedLook; lockedLook = 0;
+  cam.yaw += turn * 2.4 * dt * api.sens() + lockedLook; lockedLook = 0;
   if (o.lock) { f = 0; s = 0; }
   const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
   const dirX = Math.cos(cam.yaw), dirZ = Math.sin(cam.yaw);
@@ -370,7 +370,7 @@ function fpControls(cam, dt, o = {}) {
 // 드래그로 시점 (터치 · 잠기지 않은 마우스)
 function fpPointer(cam, t, x) {
   if (t === 'down') { lastMX = x; if (!TOUCH && document.pointerLockElement !== api.cv && api.cv.requestPointerLock) { try { const r = api.cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} } }
-  else if (t === 'move' && ptr.down && lastMX != null && document.pointerLockElement !== api.cv) { cam.yaw += (x - lastMX) / W * (TOUCH ? 3.4 : 2.6); lastMX = x; }
+  else if (t === 'move' && ptr.down && lastMX != null && document.pointerLockElement !== api.cv) { cam.yaw += (x - lastMX) / W * (TOUCH ? 3.4 : 2.6) * api.sens(); lastMX = x; }
   else if (t === 'up') lastMX = null;
 }
 function exitLock() { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (_) {} }
