@@ -693,7 +693,7 @@ function HCh2() {
   const N = 40;
   const FT = [{ col: [40, 22, 30], tex: 'carpet' }, { col: [70, 50, 32], tex: 'board' }, { col: [30, 30, 40] }];
   const WT = [null, { col: [44, 46, 70] }, { col: [40, 38, 120], tex: 'curtain', h: 1.6 }, { col: [66, 46, 32], tex: 'wood', h: 1.3 }];
-  const e = Engine({ N, indoor: true, WT, FT, wallH: 1.3, fogD: 15, fogC: [4, 4, 9], amb: .34, ceilC: [24, 22, 46], lantern: 3.4, lanternC: [.7, .72, .85] });
+  const e = Engine({ N, indoor: true, WT, FT, wallH: 1.3, fogD: 31, fogC: [3, 3, 7], amb: .27, ceilC: [24, 22, 46], lantern: 3.4, lanternC: [.7, .72, .85] });
   for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
     const k = z * N + x;
     if (x < 3 || x > 36 || z < 3 || z > 37) { e.wall[k] = (z < 3 && x >= 3 && x <= 36) ? 2 : 3; continue; }
@@ -713,7 +713,7 @@ function HCh2() {
     }
   }
   // 조명: 무대 스포트라이트 + 벽 등
-  e.lights.push({ x: 20, z: 7.2, r: 6.5, i: 1.5, c: [.75, .82, 1] });
+  e.lights.push({ x: 20.5, z: 7.0, r: 2.8, i: 2.4, c: [.8, .86, 1] }); // 오르골 하나만 비추는 핀 조명
   for (let z = 12; z <= 34; z += 5) { e.lights.push({ x: 4, z, r: 4, i: .8, c: [.55, .6, 1] }); e.lights.push({ x: 35.5, z, r: 4, i: .8, c: [.55, .6, 1] }); }
   for (let z = 14; z <= 34; z += 6) e.lights.push({ x: 20.5, z, r: 3.5, i: .45, c: [.7, .6, .7] });
   e.bake();
@@ -843,6 +843,20 @@ function HCh2() {
       list.push({ spr: SP.piano, x: 20.5, z: 6.6, w: 2.2, h: 1.1, y0: 0, glow: phase === 'walk' ? .55 : 0 });
       return list;
     },
+    beam(c) { // 천장에서 오르골로 떨어지는 한 줄기 빛
+      const bx = 20.5, bz = 6.6, dx = bx - c.x, dz = bz - c.z, dX = Math.cos(c.yaw), dZ = Math.sin(c.yaw);
+      const ty = dx * dX + dz * dZ; if (ty < .4) return;
+      const tx = (-dZ * dx + dX * dz) / FOVP, sx = W / 2 * (1 + tx / ty);
+      const sc = H / ty, hor = H / 2 + (c.bob || 0), yb = hor + .5 * sc, yt = hor - 2.4 * sc;
+      const cx_ = clamp(sx | 0, 0, W - 1); if (e.zcol && ty > e.zcol[cx_] + .5 && sx > 0 && sx < W) return;
+      const fl = (.85 + Math.sin(now() * 9) * .05 + (Math.random() < .03 ? -.3 : 0)) * (1 + clamp((ty - 6) / 14, 0, 1) * 1.8), wt = Math.max(1.5, .12 * sc), wb = Math.max(9, .95 * sc);
+      g.save(); g.globalCompositeOperation = 'lighter';
+      const gr = g.createLinearGradient(0, yt, 0, yb); gr.addColorStop(0, `rgba(150,170,255,${.02 * fl})`); gr.addColorStop(.75, `rgba(170,185,255,${.1 * fl})`); gr.addColorStop(1, `rgba(200,210,255,${.16 * fl})`);
+      g.fillStyle = gr; g.beginPath(); g.moveTo(sx - wt, yt); g.lineTo(sx + wt, yt); g.lineTo(sx + wb, yb); g.lineTo(sx - wb, yb); g.closePath(); g.fill();
+      const pg = g.createRadialGradient(sx, yb, 1, sx, yb, wb * 1.2); pg.addColorStop(0, `rgba(190,205,255,${.22 * fl})`); pg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = pg; g.save(); g.translate(sx, yb); g.scale(1, .28); g.beginPath(); g.arc(0, 0, wb * 1.2, 0, 7); g.restore(); g.fill();
+      g.restore();
+    },
     draw() {
       const ch = chicken();
       if (phase === 'box') {
@@ -875,8 +889,9 @@ function HCh2() {
         if (white > 0) { g.fillStyle = `rgba(255,255,255,${white})`; g.fillRect(0, 0, W, H); }
         return;
       }
-      if (rear > 0) { const rc = { x: cam.x, z: cam.z, yaw: cam.yaw + Math.PI, bob: 0 }; e.render(rc, this.sprites()); g.fillStyle = 'rgba(120,0,0,.18)'; g.fillRect(0, 0, W, H); txt('▶ 뒤', 20, 52, { size: 11, color: '#ff8080', font: MONO, align: 'left' }); return; }
+      if (rear > 0) { const rc = { x: cam.x, z: cam.z, yaw: cam.yaw + Math.PI, bob: 0 }; e.render(rc, this.sprites()); this.beam(rc); g.fillStyle = 'rgba(120,0,0,.18)'; g.fillRect(0, 0, W, H); txt('▶ 뒤', 20, 52, { size: 11, color: '#ff8080', font: MONO, align: 'left' }); return; }
       e.render(cam, this.sprites());
+      this.beam(cam);
       if (phase === 'perf') {
         const v = g.createLinearGradient(0, H * .55, 0, H); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.75)'); g.fillStyle = v; g.fillRect(0, 0, W, H);
         for (let i = 0; i < 5; i++) {
