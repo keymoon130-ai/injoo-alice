@@ -164,6 +164,15 @@ function renderLobby() {
     if (p.want) add('꿈 지원', 'dream');
     if (!p.on) add('연결 끊김');
     add(p.ready ? '준비 완료' : '대기', p.ready ? 'ready' : '');
+    if (isHost && p.id !== myId) {
+      const kb = document.createElement('button'); kb.type = 'button'; kb.className = 'kick'; kb.textContent = '추방';
+      kb.addEventListener('click', () => {
+        if (kb.dataset.sure) { send({ type: 'kick', id: p.id }); kb.disabled = true; return; }
+        kb.dataset.sure = '1'; kb.textContent = '정말?'; kb.classList.add('sure');
+        setTimeout(() => { if (kb.isConnected) { delete kb.dataset.sure; kb.textContent = '추방'; kb.classList.remove('sure'); } }, 3000);
+      });
+      li.append(kb);
+    }
     ul.append(li);
   }
   const sd = $('selDreams'), sm = $('selMax');

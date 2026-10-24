@@ -63,6 +63,7 @@ export class Room {
     }
     const id = String(q.get('id') || '').slice(0, 64);
     if (!id) return err('접속 정보가 잘못됐어요.');
+    if (this.banned && this.banned.has(id)) return err('방장이 이 방에서 내보냈어요.');
     let p = this.players.get(id);
     if (p) {
       if (p.ws) { try { p.ws.close(4001, 'replaced'); } catch (e) {} }
@@ -123,6 +124,19 @@ export class Room {
         const now = Date.now(); p.chatT = p.chatT.filter(t => t > now - 5000);
         if (p.chatT.length >= 5) return; p.chatT.push(now);
         this.all({ type: 'chat', id: p.id, name: p.name, role: this.phase === 'game' ? p.role : null, text });
+        break;
+      }
+      case 'kick': {
+        if (p.id !== this.host || m.id === p.id) return;
+        const t = this.players.get(String(m.id || '')); if (!t) return;
+        (this.banned || (this.banned = new Set())).add(t.id);
+        this.send(t, { type: 'err', msg: '방장이 이 방에서 내보냈어요.' });
+        const tw = t.ws; t.ws = null; t.on = false;
+        if (this.phase === 'lobby') { this.players.delete(t.id); this.order = this.order.filter(i => i !== t.id); }
+        else if (this.g && t.role === 'dream' && t.carry) this.drop(t);
+        try { tw && tw.close(4002, 'kicked'); } catch (e) {}
+        this.sys(`${t.name} 님을 방장이 내보냈어요.`);
+        this.pushLobby();
         break;
       }
       case 'ready': if (this.phase === 'lobby') { p.ready = !!m.v; this.pushLobby(); } break;
