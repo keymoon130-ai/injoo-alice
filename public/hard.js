@@ -207,7 +207,8 @@ function Engine(o) {
         else if (F.tex === 'blood') { const s = hash((fx_ * 2) | 0, (fz_ * 2) | 0); if (s > 120) { r = 96; gg = 8; b = 10; } }
         if (F.decal != null) { const D = decals[F.decal]; if (D) { const u = ((fx_ - D.x) / D.w * D.iw) | 0, v = ((fz_ - D.z) / D.h * D.ih) | 0; if (u >= 0 && v >= 0 && u < D.iw && v < D.ih) { const k = (v * D.iw + u) * 4; if (D.d[k + 3] > 100) { r = D.d[k]; gg = D.d[k + 1]; b = D.d[k + 2]; } } } }
         litAt(fx_, fz_, lt);
-        const lr = lt[0] * m, lg = lt[1] * m, lb = lt[2] * m;
+        let lr = lt[0] * m, lg = lt[1] * m, lb = lt[2] * m;
+        if (F.glow) { const gw = F.glow * m; if (lr < gw) lr = gw; if (lg < gw) lg = gw; if (lb < gw) lb = gw; }
         pix[row + x] = pack((r * lr * kf + fogC[0] * ft) | 0, (gg * lg * kf + fogC[1] * ft) | 0, (b * lb * kf + fogC[2] * ft) | 0);
         if (e.indoor && yc >= 0 && yc < H) {
           const cm = .85 + (n & 31) / 255;
@@ -391,7 +392,7 @@ function bigScare() { sfx.screech(); if (!chicken()) { osc('sawtooth', 1200, .9,
 function HCh1() {
   buildSprites();
   const N = 72, R = rng((Math.random() * 1e9) | 0);
-  const FT = [{ col: [26, 30, 20] }, { col: [70, 54, 38] }, { col: [92, 12, 12], tex: 'blood' }, { col: [30, 34, 24] }];
+  const FT = [{ col: [26, 30, 20] }, { col: [70, 54, 38] }, { col: [92, 12, 12], tex: 'blood' }, { col: [30, 34, 24] }, { col: [120, 10, 12], tex: 'blood', glow: .55 }];
   const e = Engine({ N, WT: [null, { col: [30, 40, 26], tex: 'hedge', h: 2.6 }], FT, fogD: 9.5, fogC: [5, 6, 8], amb: .24, lantern: 3, lanternC: [.75, .72, .68] });
   // 길: 휘어지며 숲을 가로지른다
   const path = [];
@@ -430,6 +431,8 @@ function HCh1() {
     if (!e.treeCells) { /* 인덱스는 끝에 */ }
   }
   e.indexTrees();
+  const pathTiles = []; for (let k = 0; k < N * N; k++) if (e.floor[k] === 1) pathTiles.push(k);
+  let endS = null;
   // 촛불
   const candles = [];
   for (let i = 3, side = 1; i < PL - 2; i += 2, side = -side) {
@@ -450,7 +453,7 @@ function HCh1() {
   const drops = [];
   const S = {
     game: true, fp: true, touch: 'h3d', act: '베기',
-    dbg: { cam, path, get prog() { return prog; }, set prog(v) { prog = v; }, get kills() { return kills; }, get phase() { return phase; }, foes },
+    dbg: { cam, path, get prog() { return prog; }, set prog(v) { prog = v; }, get kills() { return kills; }, get phase() { return phase; }, foes, e },
     enter() { setFx({ noise: .12, wobble: .55 }); drone(.09, .95, 3); api.stopOpening(3.5); say('촛불이 길을 밝히고 있다.', 3); },
     exit() { exitLock(); api.hint(null); },
     slash() {
@@ -541,7 +544,10 @@ function HCh1() {
         else if (!slashed && foes.some(f => f.alive && Math.hypot(f.x - cam.x, f.z - cam.z) < 3.2)) api.hint(TOUCH ? '● 베기 버튼' : '● SPACE / 클릭  베기');
         else if (wv > .2) api.hint('촛불이 있는 곳으로 돌아가');
         else api.hint(null);
-        if (prog >= PL - 2 && Math.hypot(cam.x - path[PL].x, cam.z - path[PL].z) < 1.6) { phase = 'end'; endT = 0; api.hint(null); drone(.22, 1.4, 6); exitLock(); }
+        if (prog >= PL - 2 && Math.hypot(cam.x - path[PL].x, cam.z - path[PL].z) < 1.6) {
+          phase = 'end'; endT = 0; api.hint(null); drone(.22, 1.4, 6); exitLock();
+          const back = path[Math.max(0, PL - 12)];
+          endS = { yaw0: cam.yaw, turn: angDiff(Math.atan2(back.z - cam.z, back.x - cam.x) - cam.yaw), fog0: e.fogD, fogC0: e.fogC.slice(), left: pathTiles.slice(), shown: false };        }
       } else if (phase === 'horde') {
         horde.t += dt;
         for (const f of horde.list) { const fd = Math.hypot(f.x - cam.x, f.z - cam.z); if (fd > .6) { f.x += (cam.x - f.x) / fd * f.sp * dt; f.z += (cam.z - f.z) / fd * f.sp * dt; } }
@@ -549,15 +555,36 @@ function HCh1() {
         if (horde.t > 1.15 && !horde.dead) { horde.dead = true; api.die('촛불 길을 벗어났다.\n숲이 당신을 삼켰다.', HCh1); }
       } else {
         endT += dt;
-        for (const t of e.trees) { const d = Math.hypot(t.x - cam.x, t.z - cam.z); if (d < 6 && d > .8) { t.x += (cam.x - t.x) * dt * .06; t.z += (cam.z - t.z) * dt * .06; } }
-        e.indexTrees();
-        e.lightMul = Math.max(.2, 1 - endT * .08);
-        if (endT > .4 && endT - dt <= .4) say('길이 끝났다. 촛불이 하나씩 꺼진다.', 2.8);
-        if (endT > 3.4 && endT - dt <= 3.4) { say('나무들이 다가온다.', 2.6); sfx.whisper(2, -.6); sfx.whisper(2, .6); }
-        if (endT > 6.4 && endT - dt <= 6.4) say('돌아갈 길은… 온통 붉었다.', 3);
-        cam.yaw += dt * .25;
-        fx.wobble = .6 + endT * .3;
-        if (endT > 10) go(Card(T.e1, () => api.startChapter(2), { drone: .04 }));
+        const at = t0 => endT > t0 && endT - dt <= t0;
+        // 보이지 않는 곳부터 길을 붉게 — 돌아보기 전엔 아무도 모른다
+        if (!endS.shown && endS.left.length) {
+          const dX = Math.cos(cam.yaw), dZ = Math.sin(cam.yaw);
+          endS.left = endS.left.filter(k => {
+            const x = k % N + .5, z = (k / N | 0) + .5, vx = x - cam.x, vz = z - cam.z, d = Math.hypot(vx, vz);
+            if (d < .9 || (vx * dX + vz * dZ) / (d || 1) < .62) { e.floor[k] = 4; return false; }
+            return true;
+          });
+        }
+        // 등 뒤로 천천히 — 강제로 돌아본다
+        const tk = clamp((endT - 2.6) / 3.6, 0, 1), ez = tk * tk * (3 - 2 * tk);
+        cam.yaw = endS.yaw0 + endS.turn * ez;
+        if (endT > 2.6 && endT < 6.2) { fx.shake = Math.max(fx.shake || 0, .6); }
+        if (at(.4)) say('길이 끝났다.', 2.2);
+        if (at(2.4)) { say('…등 뒤가 조용하다.', 2.4); sfx.whisper(1.6, 0); }
+        if (at(2.5)) { for (const k of endS.left) e.floor[k] = 4; endS.left = []; fx.glitch = 1.2; nz(.22, { type: 'highpass', f: 2400, vol: .3, a: .002 }); } // 테이프가 한 번 튄다
+        if (at(6.2)) { // 드러남
+          endS.shown = true; for (const k of endS.left) e.floor[k] = 4; endS.left = [];
+          osc('sine', 52, 2.6, { vol: .55, f2: 30, a: .01 }); nz(1.6, { type: 'lowpass', f: 300, vol: .35, a: .02 }); osc('sawtooth', 110, 2.2, { vol: .06, f2: 92 });
+          fx.glitch = .9; vib([60, 40, 120]);
+        }
+        if (at(6.6)) say('돌아갈 길은… 온통 붉었다.', 3.2);
+        if (endS.shown) { const fk = clamp((endT - 6.2) / 1.6, 0, 1); e.fogD = endS.fog0 + fk * 9; e.fogC = [endS.fogC0[0] + fk * 14 | 0, endS.fogC0[1] | 0, endS.fogC0[2] - fk * 4 | 0]; }
+        if (at(9.4)) { say('촛불이 하나씩 꺼진다.', 2.4); }
+        if (at(11.6)) { say('나무들이 다가온다.', 2.4); sfx.whisper(2, -.6); sfx.whisper(2, .6); }
+        if (endT > 11.6) { for (const t of e.trees) { const d = Math.hypot(t.x - cam.x, t.z - cam.z); if (d < 7 && d > .8) { t.x += (cam.x - t.x) * dt * .09; t.z += (cam.z - t.z) * dt * .09; } } e.indexTrees(); }
+        e.lightMul = endT < 9.4 ? 1 : Math.max(.15, 1 - (endT - 9.4) * .2);
+        fx.wobble = .6 + Math.max(0, endT - 6) * .25;
+        if (endT > 15) { e.fogD = endS.fog0; e.fogC = endS.fogC0; go(Card(T.e1, () => api.startChapter(2), { drone: .04 })); }
       }
     },
     unleash() {
@@ -573,7 +600,7 @@ function HCh1() {
     draw() {
       const sprites = [];
       const ch = chicken();
-      for (const c of candles) sprites.push({ spr: (c.out || (phase === 'end' && c.i < prog - (endT * 6))) ? SP.candleOut : SP.candle, x: c.x, z: c.z, w: .12, h: .36, y0: 0 });
+      for (const c of candles) sprites.push({ spr: (c.out || (phase === 'end' && endT > 9.4 && c.i > PL - (endT - 9.4) * 14)) ? SP.candleOut : SP.candle, x: c.x, z: c.z, w: .12, h: .36, y0: 0 });
       for (const f of foes) {
         if (f.alive) sprites.push({ spr: ch ? SP.ghost : (f.mode === 'rush' || Math.hypot(f.x - cam.x, f.z - cam.z) < 2 ? SP.huskR : SP.husk), x: f.x, z: f.z, w: ch ? .8 : .6, h: ch ? .95 : 1.75, y0: ch ? .35 : 0, shake: Math.hypot(f.x - cam.x, f.z - cam.z) < 4 ? 3 : 0 });
         else sprites.push({ spr: ch ? SP.ghostDead : SP.huskDead, x: f.x, z: f.z, w: .9 * f.fall, h: .45 * f.fall, y0: 0 });
@@ -602,6 +629,7 @@ function HCh1() {
         else { txt('▲ 앞', W / 2, 70, { size: 13, color: '#ffb0b0', font: MONO }); }
       }
       if (scareT > 0) scareOverlay(scareT, .22, true);
+      if (phase === 'end' && endT > 2.44 && endT < 2.68) { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
       if (phase === 'horde') { g.fillStyle = `rgba(0,0,0,${clamp(horde.t * .5, 0, .6)})`; g.fillRect(0, 0, W, H); }
     }
   };

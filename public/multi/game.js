@@ -1,5 +1,5 @@
 // 人柱愛麗絲 : 망가진 꿈 — 클라이언트
-import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint } from './shared.js';
+import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint, SKIN_PAL, SKIN_MASK, SKIN_DEFAULT, SKIN_W, SKIN_H, SKIN_DARK_MAX, skinValid } from './shared.js';
 
 const $ = id => document.getElementById(id);
 const W = 400, H = 300;
@@ -114,6 +114,7 @@ function onMsg(m) {
       sess.set('rejoinN', 0);
       break;
     case 'lobby':
+      if (skinWs !== ws) { skinWs = ws; sendSkin(); }
       lobby = m; renderLobby();
       if (m.phase === 'lobby' && game) { stopGame(); show('scLobby'); }
       else if (!game) show('scLobby');
@@ -138,11 +139,12 @@ $('btnCopy').addEventListener('click', async () => {
 $('btnReady').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'ready', v: !(me && me.ready) }); });
 $('btnWant').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'want', v: !(me && me.want) }); });
 $('btnStart').addEventListener('click', () => send({ type: 'start' }));
-$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map }));
-$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map }));
+$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins }));
+$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map, skins: !!lobby.settings.skins }));
 { const sb = $('selBright'); for (let i = 0; i < 5; i++) { const o = document.createElement('option'); o.value = i; o.textContent = '■'.repeat(i + 1) + '□'.repeat(4 - i); sb.append(o); } sb.value = bright; sb.addEventListener('change', e => setBright(+e.target.value)); }
 { const ss = $('selSens'); for (let i = 1; i <= 9; i++) { const o = document.createElement('option'); o.value = i; o.textContent = `${i}${i === 5 ? ' (기본)' : ''}`; ss.append(o); } ss.value = sens; ss.addEventListener('change', e => setSens(+e.target.value)); }
-$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value }));
+$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins }));
+$('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked }));
 $('lbChatForm').addEventListener('submit', e => { e.preventDefault(); const v = $('lbChatIn').value.trim(); if (v) send({ type: 'chat', text: v }); $('lbChatIn').value = ''; });
 
 function renderLobby() {
@@ -170,6 +172,9 @@ function renderLobby() {
   for (const k of ['random', ...MAPS]) { const o = document.createElement('option'); o.value = k; o.textContent = MAP_NAMES[k]; smp.append(o); }
   smp.value = L.settings.map || 'random';
   sd.disabled = sm.disabled = smp.disabled = !isHost;
+  $('chkSkins').checked = !!L.settings.skins; $('chkSkins').disabled = !isHost;
+  $('skinPanel').hidden = !L.settings.skins;
+  if (L.settings.skins) skinEd.draw();
   $('btnReady').textContent = me && me.ready ? '준비 취소' : '준비';
   $('btnReady').classList.toggle('on', !!(me && me.ready));
   $('btnWant').textContent = me && me.want ? '꿈 지원 중' : '꿈 하고 싶어요';
@@ -683,12 +688,12 @@ function renderWorld(g, cam, feed) {
       push(chick ? SPR.ghost : SPR.body, ip.x, ip.z, .55, 1.0, 1.3, 0, pl);
     } else {
       if (st === 1 && Math.hypot(ip.x - cam.x, ip.z - cam.z) < 1.3) continue;
-      push(SPR.alice, ip.x, ip.z, .55, 1.05, st === 1 ? .55 : 0, dream ? 1 : 0, pl);
+      push((g.skins && g.skins.get(pl.id)) || SPR.alice, ip.x, ip.z, .55, 1.05, st === 1 ? .55 : 0, dream ? 1 : 0, pl);
     }
   }
   // 거울 속의 사람들 (나 자신 포함)
   if (MIR) {
-    const meSpr = chick ? (dream ? SPR.ghost : SPR.alice) : (dream ? SPR.dream : SPR.alice);
+    const meA = (g.skins && g.skins.get(myId)) || SPR.alice, meSpr = chick ? (dream ? SPR.ghost : meA) : (dream ? SPR.dream : meA);
     if (!g.spectating) raw.push({ spr: meSpr, x: cam.x, z: cam.z, ww: dream && !chick ? .75 : .55, wh: dream && !chick ? 1.8 : 1.05, z0: 0, mode: 0 });
     const planes = new Map();
     for (let x = 0; x < W; x++) if (mN[x]) { const key = mA[x * 3] * 100000 + mC[x * 3]; if (!planes.has(key)) planes.set(key, [mA[x * 3], mC[x * 3]]); }
@@ -941,6 +946,76 @@ function readControls() {
   return { f: clamp(f, -1, 1), s: clamp(s, -1, 1), act, dash };
 }
 
+
+/* =========================================================
+   앨리스 꾸미기 (실루엣 고정 · 색만)
+   ========================================================= */
+function skinSprite(str) {
+  const n = SKIN_W * SKIN_H, R = new Uint8Array(n), G = new Uint8Array(n), B = new Uint8Array(n), A_ = new Uint8Array(n), E = new Uint8Array(n);
+  SKIN_MASK.forEach((k, i) => { const c = SKIN_PAL[parseInt(str[i], 16)] || SKIN_PAL[0]; R[k] = c[0]; G[k] = c[1]; B[k] = c[2]; A_[k] = 1; });
+  return { w: SKIN_W, h: SKIN_H, r: R, g: G, b: B, a: A_, e: E };
+}
+let mySkin = (() => { const v = store.get('skin', null); return skinValid(v) ? v : SKIN_DEFAULT; })();
+let skinWs = null, skinSendT = 0;
+function sendSkin() { send({ type: 'skin', v: mySkin === SKIN_DEFAULT ? null : mySkin }); }
+const skinEd = (() => {
+  const cv_ = $('skinCv'), cx = cv_.getContext('2d'), pv = $('skinPv'), px = pv.getContext('2d');
+  const CS = 14; cv_.width = SKIN_W * CS; cv_.height = SKIN_H * CS;
+  pv.width = SKIN_W; pv.height = SKIN_H;
+  const idxOf = new Int16Array(SKIN_W * SKIN_H).fill(-1); SKIN_MASK.forEach((k, i) => idxOf[k] = i);
+  let col = 8, sym = true, tool = 'pen', painting = false, msgT = 0;
+  const hex = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+  const pal = $('skinPal');
+  SKIN_PAL.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = hex(c); b.setAttribute('aria-label', `색 ${i + 1}`); b.addEventListener('click', () => { col = i; mark(); }); pal.append(b); });
+  const mark = () => { [...pal.children].forEach((b, i) => b.classList.toggle('on', i === col)); $('skinSym').classList.toggle('on', sym); $('skinFill').classList.toggle('on', tool === 'fill'); };
+  const darkN = s => { let n = 0; for (const ch of s) if (ch === '2' || ch === '7') n++; return n; };
+  const say_ = t => { $('skinMsg').textContent = t; clearTimeout(msgT); msgT = setTimeout(() => { $('skinMsg').textContent = ''; }, 1800); };
+  function commit(next) {
+    if (next === mySkin) return;
+    if ((col === 2 || col === 7) && darkN(next) > SKIN_DARK_MAX && darkN(next) > darkN(mySkin)) { say_(`아주 어두운 색은 ${SKIN_DARK_MAX}칸까지만 칠할 수 있어요.`); return; }
+    mySkin = next; store.set('skin', mySkin === SKIN_DEFAULT ? null : mySkin); draw();
+    clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 250);
+  }
+  function setCells(list) { const a = mySkin.split(''); const h = col.toString(16); for (const i of list) a[i] = h; commit(a.join('')); }
+  function cellsAt(x, y) { const out = []; const add = (xx) => { const i = idxOf[y * SKIN_W + xx]; if (i >= 0 && !out.includes(i)) out.push(i); }; add(x); if (sym) add(SKIN_W - 1 - x); return out; }
+  function flood(x, y) {
+    const st = idxOf[y * SKIN_W + x]; if (st < 0) return [];
+    const from = mySkin[st], seen = new Set(), q = [[x, y]], out = [];
+    while (q.length) { const [cx_, cy] = q.pop(); if (cx_ < 0 || cy < 0 || cx_ >= SKIN_W || cy >= SKIN_H) continue; const k = cy * SKIN_W + cx_; if (seen.has(k)) continue; seen.add(k); const i = idxOf[k]; if (i < 0 || mySkin[i] !== from) continue; out.push(i); q.push([cx_ + 1, cy], [cx_ - 1, cy], [cx_, cy + 1], [cx_, cy - 1]); }
+    if (sym) for (const i of out.slice()) { const k = SKIN_MASK[i], mx = SKIN_W - 1 - (k % SKIN_W), my = (k / SKIN_W) | 0; for (const j of flood_(mx, my, seen)) out.push(j); }
+    return out;
+  }
+  function flood_(x, y, seen) { // 대칭 쪽 영역
+    const st = idxOf[y * SKIN_W + x]; if (st < 0) return [];
+    const from = mySkin[st], q = [[x, y]], out = [];
+    while (q.length) { const [cx_, cy] = q.pop(); if (cx_ < 0 || cy < 0 || cx_ >= SKIN_W || cy >= SKIN_H) continue; const k = cy * SKIN_W + cx_; if (seen.has(k)) continue; seen.add(k); const i = idxOf[k]; if (i < 0 || mySkin[i] !== from) continue; out.push(i); q.push([cx_ + 1, cy], [cx_ - 1, cy], [cx_, cy + 1], [cx_, cy - 1]); }
+    return out;
+  }
+  function at(e) { const r = cv_.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * SKIN_W), Math.floor((e.clientY - r.top) / r.height * SKIN_H)]; }
+  cv_.addEventListener('pointerdown', e => { e.preventDefault(); const [x, y] = at(e); if (tool === 'fill') { setCells(flood(x, y)); return; } painting = true; try { cv_.setPointerCapture(e.pointerId); } catch (_) {} setCells(cellsAt(x, y)); });
+  cv_.addEventListener('pointermove', e => { if (!painting) return; const [x, y] = at(e); if (x >= 0 && y >= 0 && x < SKIN_W && y < SKIN_H) setCells(cellsAt(x, y)); });
+  const stop = () => { painting = false; };
+  cv_.addEventListener('pointerup', stop); cv_.addEventListener('pointercancel', stop);
+  $('skinSym').addEventListener('click', () => { sym = !sym; mark(); });
+  $('skinFill').addEventListener('click', () => { tool = tool === 'fill' ? 'pen' : 'fill'; mark(); });
+  $('skinReset').addEventListener('click', () => { mySkin = SKIN_DEFAULT; store.set('skin', null); draw(); clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 100); say_('기본 앨리스로 돌아왔어요.'); });
+  function draw() {
+    cx.fillStyle = '#0a0809'; cx.fillRect(0, 0, cv_.width, cv_.height);
+    for (let y = 0; y < SKIN_H; y++) for (let x = 0; x < SKIN_W; x++) {
+      const i = idxOf[y * SKIN_W + x];
+      if (i < 0) { cx.fillStyle = (x + y) & 1 ? '#121012' : '#0d0b0c'; cx.fillRect(x * CS, y * CS, CS, CS); continue; }
+      cx.fillStyle = hex(SKIN_PAL[parseInt(mySkin[i], 16)]); cx.fillRect(x * CS, y * CS, CS, CS);
+      cx.strokeStyle = 'rgba(0,0,0,.25)'; cx.strokeRect(x * CS + .5, y * CS + .5, CS - 1, CS - 1);
+    }
+    const im = px.createImageData(SKIN_W, SKIN_H);
+    SKIN_MASK.forEach((k, i) => { const c = SKIN_PAL[parseInt(mySkin[i], 16)]; im.data.set([c[0], c[1], c[2], 255], k * 4); });
+    px.clearRect(0, 0, SKIN_W, SKIN_H); px.putImageData(im, 0, 0);
+    $('skinState').textContent = mySkin === SKIN_DEFAULT ? '기본 앨리스' : '꾸민 앨리스';
+  }
+  mark(); draw();
+  return { draw };
+})();
+
 /* =========================================================
    게임 상태
    ========================================================= */
@@ -962,6 +1037,7 @@ function startGame(m) {
     cam: { x: m.me.x, z: m.me.z, yaw: m.me.yaw, bob: 0 }, mapImg: null, nearDream: 99, lastSnap: performance.now(),
     revealN: Math.floor((CFG.GAME_TIME - m.time) / CFG.REVEAL_EVERY), reveal: null
   };
+  game.skins = new Map(); for (const p of m.players) if (p.skin && skinValid(p.skin)) game.skins.set(p.id, skinSprite(p.skin));
   game.mapImg = buildMap(world);
   game.pdist = cellField(world);
   if (world.fogOfWar && game.role === 'alice') { game.seen = new Uint8Array(world.N * world.N); game.fogImg = document.createElement('canvas'); game.fogImg.width = game.fogImg.height = world.N; const fx_ = game.fogImg.getContext('2d'); fx_.fillStyle = '#050403'; fx_.fillRect(0, 0, world.N, world.N); }

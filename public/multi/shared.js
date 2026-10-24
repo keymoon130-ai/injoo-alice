@@ -42,6 +42,29 @@ export const MAPS = ['forest', 'theater', 'tea', 'mirror', 'studio'];
 export const MAP_NAMES = { random: '랜덤', forest: '숲', theater: '푸른 앨리스의 극장', tea: '노란 앨리스의 다과회 실', mirror: '초록 여왕의 거울 미궁', studio: '감시 테이프 방송국' };
 export const PORTAL_COLS = [[120, 255, 170], [150, 190, 255], [255, 210, 120], [235, 140, 255]];
 
+// 앨리스 꾸미기 — 실루엣은 고정, 안쪽 색만 바꾼다
+export const ALICE_ROWS = [
+  '....hhhh....', '...hhhhhh...', '..hhffffhh..', '..hfeffefh..', '..hffffffh..', '..hhffffhh..', '..hh.ff.hh..',
+  '....dddd....', '...dddddd...', '..addwwdda..', '..adwwwwda..', '.aadwwwwdaa.', '.a.dwwwwd.a.', '.a.dwwwwd.a.',
+  '..ddwwwwdd..', '..dddddddd..', '.dddddddddd.', 'dddddddddddd', 'dddddddddddd', '...ll..ll...', '...ll..ll...',
+  '...ll..ll...', '..sss..sss..'
+];
+export const SKIN_PAL = [
+  [200, 186, 140], [232, 220, 203], [26, 20, 24], [72, 88, 128], [230, 226, 216], [224, 212, 196], [216, 208, 196], [20, 18, 18],
+  [178, 34, 40], [232, 140, 170], [224, 130, 50], [230, 200, 70], [70, 140, 80], [110, 170, 220], [130, 80, 160], [110, 72, 44]
+];
+const SKIN_DEF_IDX = { h: 0, f: 1, e: 2, d: 3, w: 4, a: 5, l: 6, s: 7 };
+export const SKIN_W = 12, SKIN_H = ALICE_ROWS.length;
+export const SKIN_MASK = []; // 칠할 수 있는 칸 (y*W+x)
+export let SKIN_DEFAULT = '';
+for (let y = 0; y < SKIN_H; y++) for (let x = 0; x < SKIN_W; x++) { const c = ALICE_ROWS[y][x]; if (c && c !== '.') { SKIN_MASK.push(y * SKIN_W + x); SKIN_DEFAULT += SKIN_DEF_IDX[c].toString(16); } }
+export const SKIN_DARK_MAX = 16; // 너무 어두운 색(2, 7)은 최대 16칸까지
+export function skinValid(s) {
+  if (typeof s !== 'string' || s.length !== SKIN_MASK.length || !/^[0-9a-f]+$/.test(s)) return false;
+  let dark = 0; for (const ch of s) if (ch === '2' || ch === '7') dark++;
+  return dark <= SKIN_DARK_MAX;
+}
+
 export const TRACE_INFO = [
   { kind: 'sword',    suit: '♠', color: '#b42121', name: '붉은 앨리스의 검',     dur: 3 },
   { kind: 'musicbox', suit: '♦', color: '#4a64c8', name: '푸른 앨리스의 오르골', dur: 5 },

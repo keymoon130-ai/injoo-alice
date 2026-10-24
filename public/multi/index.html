@@ -53,8 +53,8 @@ input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;p
 #scLobby{justify-content:flex-start}
 .lobbyHead{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}
 .code{font-family:var(--osd);font-size:44px;letter-spacing:.3em;color:#f0e6d6;line-height:1}
-.lobbyGrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;width:min(900px,100%);flex:1;min-height:0}
-@media (max-width:720px){.lobbyGrid{grid-template-columns:1fr}}
+.lobbyGrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;width:min(900px,100%);flex:1 0 auto}
+@media (max-width:720px){.lobbyGrid{grid-template-columns:1fr}.lobbyGrid .chat{order:2}}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
 .panel h3{margin:0;font-size:12px;letter-spacing:.2em;color:var(--dim);font-weight:400}
 #lbPlayers{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
@@ -71,6 +71,17 @@ input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;p
 .chatlog b{font-weight:700;color:#e5d9c6}
 .chatlog .r-dream b{color:#e08a8a}
 .chatform{display:flex;gap:8px}
+.skin{grid-column:1/-1}
+.skin h3 span{color:#cfc6b6;letter-spacing:.05em;margin-left:6px}
+.skinBody{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+#skinCv{width:168px;height:322px;image-rendering:pixelated;border:1px solid var(--line);touch-action:none;cursor:crosshair;flex:none}
+.skinSide{display:flex;flex-direction:column;gap:12px;flex:1;min-width:200px}
+#skinPal{display:grid;grid-template-columns:repeat(8,30px);gap:6px}
+#skinPal button{width:30px;height:30px;padding:0;border-radius:3px;border:2px solid #3a3236}
+#skinPal button.on{border-color:#f1dcd6;box-shadow:0 0 0 2px #6d1a1d}
+.skinPrev{display:flex;gap:12px;align-items:flex-end}
+#skinPv{width:36px;height:69px;image-rendering:pixelated;background:radial-gradient(ellipse at 50% 70%,#2a221c,#08070a);padding:8px 14px;box-sizing:content-box;border:1px solid var(--line);border-radius:3px}
+.skinPrev .hint{text-align:left}
 .chatform input{flex:1}
 /* game */
 #scGame{padding:0;background:#000;gap:0}
@@ -139,6 +150,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <span>맵</span><select id="selMap" aria-label="맵"></select>
         <span>밝기</span><select id="selBright" aria-label="화면 밝기 (이 기기)"></select>
         <span>시점 감도</span><select id="selSens" aria-label="시점 감도 (이 기기)"></select>
+        <span>앨리스 꾸미기</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label>
       </div>
       <div class="row">
         <button type="button" id="btnWant">꿈 하고 싶어요</button>
@@ -151,6 +163,23 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
       <h3>채팅</h3>
       <div class="chatlog" id="lbChat" aria-live="polite"></div>
       <form class="chatform" id="lbChatForm" autocomplete="off"><input id="lbChatIn" maxlength="120" placeholder="메시지" aria-label="채팅 입력"><button>보내기</button></form>
+    </div>
+    <div class="panel skin" id="skinPanel" hidden>
+      <h3>앨리스 꾸미기 <span id="skinState"></span></h3>
+      <div class="skinBody">
+        <canvas id="skinCv" aria-label="도트 칠하기 판"></canvas>
+        <div class="skinSide">
+          <div id="skinPal"></div>
+          <div class="row" style="justify-content:flex-start">
+            <button type="button" id="skinSym">좌우 대칭</button>
+            <button type="button" id="skinFill">채우기</button>
+            <button type="button" id="skinReset">기본으로</button>
+          </div>
+          <div class="skinPrev"><canvas id="skinPv"></canvas><span class="hint">게임 속 모습<br>(앨리스일 때만 보여요)</span></div>
+          <p class="hint" id="skinMsg" style="text-align:left;min-height:1.2em"></p>
+        </div>
+      </div>
+      <p class="hint" style="text-align:left">안 꾸미면 기본 앨리스 그대로예요. 모양은 고정이고 색만 바꿀 수 있어요.</p>
     </div>
   </div>
 </section>

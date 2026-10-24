@@ -2,7 +2,7 @@
 // 방 하나 = Durable Object 하나. 그 방의 모든 플레이어가 같은 객체에 연결되므로
 // 위치·잡힘·감옥·흔적·문을 전부 서버 한 곳에서 판정한다 (권위 서버).
 
-import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint } from '../public/multi/shared.js';
+import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint, skinValid } from '../public/multi/shared.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
@@ -43,7 +43,7 @@ export class Room {
     this.inited = false; this.code = '';
     this.players = new Map(); this.order = [];
     this.host = null;
-    this.settings = { dreams: 1, max: 8, map: 'random' };
+    this.settings = { dreams: 1, max: 8, map: 'random', skins: false };
     this.phase = 'lobby';
     this.g = null; this.loop = null; this.backTimer = null;
   }
@@ -132,6 +132,7 @@ export class Room {
         this.settings.max = clamp(m.max | 0 || this.settings.max, Math.max(2, this.players.size), CFG.MAX_PLAYERS);
         this.settings.dreams = clamp(m.dreams | 0 || this.settings.dreams, 1, Math.min(CFG.MAX_DREAMS, this.settings.max - 1));
         if (m.map === 'random' || MAPS.includes(m.map)) this.settings.map = m.map;
+        if (typeof m.skins === 'boolean') this.settings.skins = m.skins;
         this.pushLobby();
         break;
       case 'start':
@@ -144,6 +145,7 @@ export class Room {
         for (const inp of m.l.slice(0, 12)) if (inp && typeof inp.q === 'number') p.q.push(inp);
         if (p.q.length > 40) p.q.splice(0, p.q.length - 40);
         break;
+      case 'skin': if (m.v === null) p.skin = null; else if (skinValid(m.v)) p.skin = m.v; break;
       case 'ping': this.send(p, { type: 'pong', t: m.t }); break;
       case 'rtt': p.rtt = clamp(+m.v || 100, 0, 1000); break;
     }
@@ -161,7 +163,7 @@ export class Room {
     const g = this.g;
     return {
       type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time,
-      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role })),
+      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: this.settings.skins && x.role !== 'dream' ? x.skin || null : null })),
       me: { x: p.x, z: p.z, yaw: p.yaw, seq: p.seq }
     };
   }
