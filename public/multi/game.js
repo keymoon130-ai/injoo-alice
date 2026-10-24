@@ -1038,7 +1038,11 @@ function handleEv(e) {
       sfx.chime();
       say(e.a === myId ? '꿈에서 빠져나왔다.' : `${josa(nameOf(e.a), '이', '가')} 꿈에서 빠져나갔다`, '#ffffff', 5);
       break;
-    case 'warp': { if (e.a !== myId) { at(e.x, e.z, 25, sfx.warp); at(e.fx, e.fz, 25, sfx.warp); } break; }
+    case 'warp': {
+      if (e.a !== myId) { at(e.x, e.z, 25, sfx.warp); at(e.fx, e.fz, 25, sfx.warp); }
+      else if (e.ey != null && Math.hypot(g.pred.x - e.fx, g.pred.z - e.fz) > 1.5) { g.yaw = e.ey; g.smooth.x = g.smooth.z = 0; sfx.warp(); fx.glitch = 1.2; } // 서버에서만 넘어간 경우에도 시점을 맞춘다
+      break;
+    }
     case 'mb': { const tr = w.traces[e.i]; at(tr.x, tr.z, 45, () => sfx.music((now * 3 | 0) % 5)); break; }
   }
 }
@@ -1427,7 +1431,9 @@ function drawHud(g, tags) {
   const bar = (x, y, wd, v, col) => { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - wd / 2 - 1, y - 1, wd + 2, 6); c.fillStyle = col; c.fillRect(x - wd / 2, y, wd * clamp(v, 0, 1), 4); };
   let prompt = '', pv = -1, pcol = '#e8e0d0';
   if (g.spectate) {
-    prompt = `${ms && ms.s === 4 ? '탈출했다' : '성 위에 걸린 채'} — ${g.spectating ? nameOf(g.spectating) + ' 관전 중' : '관전 중'} (${device === 'phone' ? '화면 탭' : '클릭'}: 다음 사람)`;
+    const sp = g.spectating && g.players.get(g.spectating), spRole = sp ? (sp.role === 'dream' ? '꿈' : '앨리스') : '';
+    prompt = `${ms && ms.s === 4 ? '탈출했다' : '전시대에 걸린 채'} — ${sp ? `${sp.name} (${spRole}) 관전 중` : '관전 중'} (${device === 'phone' ? '화면 탭' : '클릭'}: 다음 사람)`;
+    if (sp) { const big = `${spRole === '꿈' ? '꿈' : '앨리스'} ─ ${sp.name}`; sh(big, W / 2, 50, spRole === '꿈' ? '#ff6a6a' : '#9fe0ff', `800 16px 'Nanum Myeongjo', serif`, 'center'); }
   } else if (ms && ms.s === 1) {
     prompt = `몸부림쳐라! ${actKey} 연타`; pv = ms.sg; pcol = '#ff6a6a';
   } else if (ms && ms.s === 2) {

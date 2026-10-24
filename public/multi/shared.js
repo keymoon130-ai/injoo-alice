@@ -55,6 +55,9 @@ export function mulberry32(a) {
   };
 }
 
+// 기기마다 정렬 방식이 달라도 똑같은 결과가 나오는 섞기 (서버와 폰의 맵이 어긋나지 않게)
+export function shuffleR(a, r) { for (let i = a.length - 1; i > 0; i--) { const j = (r() * (i + 1)) | 0; const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
 function segDist(px, pz, ax, az, bx, bz) {
   const vx = bx - ax, vz = bz - az, wx = px - ax, wz = pz - az;
   const L = vx * vx + vz * vz;
@@ -177,13 +180,13 @@ function genTea(seed) {
   }
   for (let k = 0; k < 6; k++) props.push({ kind: 'table', x: 37.5 + k, z: 32.5 });
   // 흔적: 가운데에서 멀리, 서로 떨어진 방에
-  const far = rooms.filter(rm => Math.hypot(rm.x - 40, rm.z - 40) > 18).sort(() => r() - .5);
+  const far = shuffleR(rooms.filter(rm => Math.hypot(rm.x - 40, rm.z - 40) > 18), r);
   const picks = []; for (const rm of far) { if (picks.every(p => Math.hypot(p.x - rm.x, p.z - rm.z) > 22)) picks.push(rm); if (picks.length >= 5) break; }
   while (picks.length < 5) picks.push(far[picks.length]);
   const traces = picks.map((p, i) => ({ id: i, ...TRACE_INFO[i], x: p.x + .5, z: p.z + .5 }));
   for (const t of traces) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { if (wall[I((t.x | 0) + dx, (t.z | 0) + dz)] === WL.PILLAR) setW((t.x | 0) + dx, (t.z | 0) + dz, 0); }
   const used = new Set(picks);
-  const spawnA = rooms.filter(rm => !used.has(rm) && Math.hypot(rm.x - 40, rm.z - 40) > 20).sort(() => r() - .5).slice(0, 8).map(rm => ({ x: rm.x + .5, z: rm.z + 2.5 }));
+  const spawnA = shuffleR(rooms.filter(rm => !used.has(rm) && Math.hypot(rm.x - 40, rm.z - 40) > 20), r).slice(0, 8).map(rm => ({ x: rm.x + .5, z: rm.z + 2.5 }));
   for (const sp of spawnA) setW(sp.x | 0, sp.z | 0, 0);
   const spawnD = [{ x: 40, z: 45 }, { x: 37, z: 46 }, { x: 43, z: 46 }, { x: 35, z: 43 }, { x: 45, z: 43 }, { x: 40, z: 48 }, { x: 38, z: 41 }];
   const doorCands = [{ x: 5, z: 5 }, { x: 75, z: 5 }, { x: 5, z: 75 }, { x: 75, z: 75 }];
@@ -241,7 +244,7 @@ function genMirror(seed) {
   }
   // 빛나는 거울 문 네 쌍: 서로 멀리 떨어진 방의 벽에
   const faces = [];
-  const shuffled = rooms.slice().sort(() => r() - .5);
+  const shuffled = shuffleR(rooms.slice(), r);
   for (const rm of shuffled) {
     const cand = [];
     for (let k = -3; k <= 3; k++) {
@@ -261,14 +264,14 @@ function genMirror(seed) {
     }
   }
   const portalAt = new Int16Array(N * N).fill(-1); portals.forEach((p, i) => { portalAt[I(p.wx, p.wz)] = i; });
-  const far = rooms.filter(rm => Math.hypot(rm.x - 40, rm.z - 40) > 18).sort(() => r() - .5);
+  const far = shuffleR(rooms.filter(rm => Math.hypot(rm.x - 40, rm.z - 40) > 18), r);
   const picks = []; for (const rm of far) { if (picks.every(p => Math.hypot(p.x - rm.x, p.z - rm.z) > 22)) picks.push(rm); if (picks.length >= 5) break; }
   while (picks.length < 5) picks.push(far[picks.length]);
   const traces = picks.map((p, i) => ({ id: i, ...TRACE_INFO[i], x: p.x + .5, z: p.z + 2.5 }));
   const clearAround = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const k = I((x | 0) + dx, (z | 0) + dz); if (wall[k] === WL.MIRROR && ((x | 0) + dx) % S && ((z | 0) + dz) % S) wall[k] = 0; } };
   for (const t of traces) clearAround(t.x, t.z);
   const used = new Set(picks);
-  const spawnA = rooms.filter(rm => !used.has(rm) && Math.hypot(rm.x - 40, rm.z - 40) > 20).sort(() => r() - .5).slice(0, 8).map(rm => ({ x: rm.x + .5, z: rm.z + 3.5 }));
+  const spawnA = shuffleR(rooms.filter(rm => !used.has(rm) && Math.hypot(rm.x - 40, rm.z - 40) > 20), r).slice(0, 8).map(rm => ({ x: rm.x + .5, z: rm.z + 3.5 }));
   for (const sp of spawnA) clearAround(sp.x, sp.z);
   const spawnD = [{ x: 40, z: 45 }, { x: 37, z: 46 }, { x: 43, z: 46 }, { x: 35, z: 43 }, { x: 45, z: 43 }, { x: 40, z: 48 }, { x: 38, z: 41 }];
   const doorCands = [{ x: 5, z: 5 }, { x: 75, z: 5 }, { x: 5, z: 75 }, { x: 75, z: 75 }];
@@ -440,10 +443,10 @@ export function stepPlayer(w, p, inp, dt) {
   if (w.portals) {
     if (p.pc > 0) p.pc = Math.max(0, p.pc - dt);
     else for (const q of w.portals) {
-      if (Math.abs(p.x - q.fx) + Math.abs(p.z - q.fz) > 1.2) continue;
+      if (Math.abs(p.x - q.fx) + Math.abs(p.z - q.fz) > 1.4) continue;
       const along = q.nx ? Math.abs(p.z - (q.wz + .5)) : Math.abs(p.x - (q.wx + .5));
       const dist = q.nx ? (p.x - (q.wx + .5 + q.nx * .5)) * q.nx : (p.z - (q.wz + .5 + q.nz * .5)) * q.nz;
-      if (along < .55 && dist < CFG.R + .04 && (vx * q.nx + vz * q.nz) < 0) { p.x = q.ex; p.z = q.ez; p.pc = 1.2; p.warp = q.eyaw; collide(w, p); break; }
+      if (along < .5 + CFG.R * .7 && dist < CFG.R + .12 && (vx * q.nx + vz * q.nz) < -.05) { p.x = q.ex; p.z = q.ez; p.pc = .7; p.warp = q.eyaw; collide(w, p); break; }
     }
   }
 }

@@ -261,7 +261,7 @@ export class Room {
         if (p.st === 0) {
           const bx = p.x, bz = p.z;
           stepPlayer(w, p, { f: clamp(+inp.f || 0, -1, 1), s: clamp(+inp.s || 0, -1, 1), y: +inp.y || 0, d: inp.d ? 1 : 0 }, CFG.INPUT_DT);
-          if (p.warp != null) { p.warp = null; this.ev('warp', { a: p.id, x: bx, z: bz, fx: p.x, fz: p.z }); }
+          if (p.warp != null) { this.ev('warp', { a: p.id, x: bx, z: bz, fx: p.x, fz: p.z, ey: p.warp }); p.warp = null; }
           if (press && p.role === 'dream') this.dreamAct(p);
         } else if (p.st === 1 && press && inp.q - (p.sgQ || 0) >= CFG.STRUGGLE_GAP) { p.sg += CFG.STRUGGLE_ADD; p.sgQ = inp.q; }
       }
