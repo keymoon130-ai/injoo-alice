@@ -182,7 +182,7 @@ export class Room {
       const s = p.role === 'dream' ? w.spawnD[di++ % w.spawnD.length] : spA[ai++ % spA.length];
       Object.assign(p, {
         x: s.x, z: s.z, yaw: p.role === 'dream' ? Math.PI / 2 : Math.atan2(40 - s.z, 40 - s.x),
-        st: 0, dc: 0, dt: 0, sn: 0, pc: 0, warp: null, m: 0, carry: null, carrier: null, q: [], seq: 0,
+        st: 0, dc: 0, dt: 0, sn: 0, pc: 0, warp: null, sgQ: 0, m: 0, carry: null, carrier: null, q: [], seq: 0,
         aPrev: 0, aHeld: 0, im: 0, sg: 0, cell: -1, jt: 0, hist: []
       });
     }
