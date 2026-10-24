@@ -428,17 +428,25 @@ function HCh1() {
   const FT = [{ col: [26, 30, 20] }, { col: [70, 54, 38] }, { col: [92, 12, 12], tex: 'blood' }, { col: [30, 34, 24] }, { col: [120, 10, 12], tex: 'blood', glow: .55 }];
   const e = Engine({ N, WT: [null, { col: [30, 40, 26], tex: 'hedge', h: 2.6 }], FT, fogD: 9.5, fogC: [5, 6, 8], amb: .24, lantern: 3, lanternC: [.75, .72, .68] });
   // 길: 휘어지며 숲을 가로지른다
-  const path = [];
-  { let x = 8, z = N - 8, a = -Math.PI / 2 + .3, len = 0;
-    path.push({ x, z });
+  // 목적지에 닿고, 길끼리 5칸 이상 떨어진(샛길처럼 보이지 않는) 모양이 나올 때까지 다시 뽑는다
+  let path = [];
+  for (let tries = 0; tries < 300; tries++) {
+    const P = []; let x = 8, z = N - 8, a = -Math.PI / 2 + .3, len = 0, reached = false;
+    P.push({ x, z });
     while (len < 118) {
       const tx = N - 10, tz = 10, want = Math.atan2(tz - z, tx - x);
-      a += angDiff(want - a) * .06 + (R() - .5) * .5;
+      a += angDiff(want - a) * (tries > 150 ? .1 : .06) + (R() - .5) * .5;
       if (x < 7) a += .2; if (x > N - 7) a -= .2; if (z < 7) a += .2; if (z > N - 7) a -= .2;
       x += Math.cos(a) * 1; z += Math.sin(a) * 1; x = clamp(x, 5, N - 5); z = clamp(z, 5, N - 5); len++;
-      path.push({ x, z });
-      if (Math.hypot(tx - x, tz - z) < 2) break;
-    } }
+      P.push({ x, z });
+      if (Math.hypot(tx - x, tz - z) < 2) { reached = true; break; }
+    }
+    path = P;
+    if (!reached) continue;
+    let ok = true;
+    for (let i = 0; i < P.length && ok; i++) for (let j = i + 12; j < P.length; j++) if (Math.hypot(P[i].x - P[j].x, P[i].z - P[j].z) < 5) { ok = false; break; }
+    if (ok) break;
+  }
   const PL = path.length - 1;
   // 길까지의 거리 지도
   const LR = 2, DN = N * LR, dist = new Float32Array(DN * DN), near = new Uint16Array(DN * DN);
@@ -577,7 +585,7 @@ function HCh1() {
         else if (!slashed && foes.some(f => f.alive && Math.hypot(f.x - cam.x, f.z - cam.z) < 3.2)) api.hint(TOUCH ? '● 베기 버튼' : '● SPACE / 클릭  베기');
         else if (wv > .2) api.hint('촛불이 있는 곳으로 돌아가');
         else api.hint(null);
-        if (prog >= PL - 2 && Math.hypot(cam.x - path[PL].x, cam.z - path[PL].z) < 1.6) {
+        if (prog >= PL * .8 && Math.hypot(cam.x - path[PL].x, cam.z - path[PL].z) < 1.8) {
           phase = 'end'; endT = 0; api.hint(null); drone(.22, 1.4, 6); exitLock();
           const back = path[Math.max(0, PL - 12)];
           endS = { yaw0: cam.yaw, turn: angDiff(Math.atan2(back.z - cam.z, back.x - cam.x) - cam.yaw), fog0: e.fogD, fogC0: e.fogC.slice(), left: pathTiles.slice(), shown: false };        }
