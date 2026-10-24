@@ -221,6 +221,7 @@ function genTea(seed) {
   for (let z = 31; z <= 34; z++) for (let x = 31; x <= 49; x++) setG(x, z, GR.RUG);
   const cells = buildCells(N, wall, setW, 35, [[33, 35], [37, 39], [41, 43]], WL.YPAPER);
   for (let x = 31; x <= 49; x++) if (wall[I(x, 35)] === 0 && (x < 32 || x > 44)) setW(x, 35, WL.YPAPER);
+  braidRooms(R, S, N, wall, open, inC, r);
   // 방마다 기둥·가구
   const rooms = [];
   for (let z = 0; z < R; z++) for (let x = 0; x < R; x++) { if (x >= 3 && x <= 4 && z >= 3 && z <= 4) continue; rooms.push({ x: x * S + 5, z: z * S + 5, ix: x, iz: z }); }
@@ -248,6 +249,27 @@ function genTea(seed) {
   for (let x = 33; x <= 43; x++) if (wall[I(x, 35)] === WL.BARS) props.push({ kind: 'bars', x: x + .5, z: 35.5 });
   return { seed, N, map: 'tea', indoor: true, fogOfWar: true, ground, wall, trees: [], treeCells: new Array(N * N), cells, displays, traces, props, spawnA, spawnD, doorCands, path: [],
     labels: [{ t: '긴 식탁 (감옥)', x: 39, z: 32.5 }] };
+}
+
+// 막다른 방 없애기: 열린 면이 하나뿐인 방은 닫힌 이웃 방 하나로 길을 더 낸다 (막다른 방끼리 우선)
+function braidRooms(R, S, N, wall, open, isCenter, r) {
+  const side = (x, z, d) => { // d: 0 왼 1 오 2 위 3 아래 → 열려 있나
+    const x0 = x * S, z0 = z * S;
+    if (d === 0) { if (x === 0) return false; for (let i = z0 + 1; i < z0 + S; i++) if (!wall[i * N + x0]) return true; return false; }
+    if (d === 1) { if (x === R - 1) return false; for (let i = z0 + 1; i < z0 + S; i++) if (!wall[i * N + x0 + S]) return true; return false; }
+    if (d === 2) { if (z === 0) return false; for (let i = x0 + 1; i < x0 + S; i++) if (!wall[z0 * N + i]) return true; return false; }
+    if (z === R - 1) return false; for (let i = x0 + 1; i < x0 + S; i++) if (!wall[(z0 + S) * N + i]) return true; return false;
+  };
+  const D = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const deg = (x, z) => { let n = 0; for (let d = 0; d < 4; d++) if (side(x, z, d)) n++; return n; };
+  for (let z = 0; z < R; z++) for (let x = 0; x < R; x++) {
+    if (isCenter(x, z) || deg(x, z) > 1) continue;
+    const c = [];
+    for (let d = 0; d < 4; d++) { const nx = x + D[d][0], nz = z + D[d][1]; if (nx < 0 || nz < 0 || nx >= R || nz >= R || isCenter(nx, nz) || side(x, z, d)) continue; c.push([nx, nz, deg(nx, nz) <= 1 ? 0 : 1]); }
+    if (!c.length) continue;
+    c.sort((a, b) => a[2] - b[2]); const best = c.filter(q => q[2] === c[0][2]), [nx, nz] = best[(r() * best.length) | 0];
+    open(x, z, nx, nz);
+  }
 }
 
 /* ---------------- 초록 여왕의 거울 미궁 ---------------- */
@@ -282,6 +304,7 @@ function genMirror(seed) {
   for (let z = 31; z <= 34; z++) for (let x = 31; x <= 49; x++) setG(x, z, GR.STONE);
   const cells = buildCells(N, wall, setW, 35, [[33, 35], [37, 39], [41, 43]], WL.MIRROR);
   for (let x = 31; x <= 49; x++) if (wall[I(x, 35)] === 0 && (x < 32 || x > 44)) setW(x, 35, WL.MARBLE);
+  braidRooms(R, S, N, wall, open, inC, r);
   // 방마다 거울 기둥
   const rooms = [];
   for (let z = 0; z < R; z++) for (let x = 0; x < R; x++) { if (x >= 3 && x <= 4 && z >= 3 && z <= 4) continue; rooms.push({ x: x * S + 5, z: z * S + 5, ix: x, iz: z }); }
