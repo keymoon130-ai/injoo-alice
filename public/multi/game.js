@@ -1,5 +1,5 @@
 // 人柱愛麗絲 : 망가진 꿈 — 클라이언트
-import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint, SKIN_PAL, SKIN_MASK, SKIN_DEFAULT, SKIN_W, SKIN_H, SKIN_DARK_MAX, skinValid } from './shared.js';
+import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint, SKIN_PAL, SKIN_MASK, SKIN_DEFAULT, SKIN_W, SKIN_H, SKIN_DARK_MAX, skinValid, DSKIN_PAL, DSKIN_MASK, DSKIN_DEFAULT, DSKIN_W, DSKIN_H, DSKIN_BRIGHT, DSKIN_BRIGHT_MIN, DSKIN_BRIGHT_MAX, dskinValid } from './shared.js';
 
 const $ = id => document.getElementById(id);
 const W = 400, H = 300;
@@ -683,7 +683,7 @@ function renderWorld(g, cam, feed) {
       if (pl.cur.o === 0) continue;
       if (g.meS && g.meS.s === 1 && Math.hypot(ip.x - cam.x, ip.z - cam.z) < 1.3) continue;
       if (chick) push(SPR.ghost, ip.x, ip.z, 1.0, 1.0, .35 + Math.sin(now * 3) * .05, 0, pl);
-      else push(SPR.dream, ip.x, ip.z, .75, 1.8, 0, pl.cur.sn > 0 ? 4 : 0, pl);
+      else push((g.skins && g.skins.get(pl.id)) || SPR.dream, ip.x, ip.z, .75, 1.8, 0, pl.cur.sn > 0 ? 4 : 0, pl);
     } else if (st === 3) {
       push(chick ? SPR.ghost : SPR.body, ip.x, ip.z, .55, 1.0, 1.3, 0, pl);
     } else {
@@ -693,7 +693,7 @@ function renderWorld(g, cam, feed) {
   }
   // 거울 속의 사람들 (나 자신 포함)
   if (MIR) {
-    const meA = (g.skins && g.skins.get(myId)) || SPR.alice, meSpr = chick ? (dream ? SPR.ghost : meA) : (dream ? SPR.dream : meA);
+    const meA = (g.skins && g.skins.get(myId)) || SPR.alice, meSpr = chick ? (dream ? SPR.ghost : meA) : (dream ? meA !== SPR.alice ? meA : SPR.dream : meA);
     if (!g.spectating) raw.push({ spr: meSpr, x: cam.x, z: cam.z, ww: dream && !chick ? .75 : .55, wh: dream && !chick ? 1.8 : 1.05, z0: 0, mode: 0 });
     const planes = new Map();
     for (let x = 0; x < W; x++) if (mN[x]) { const key = mA[x * 3] * 100000 + mC[x * 3]; if (!planes.has(key)) planes.set(key, [mA[x * 3], mC[x * 3]]); }
@@ -746,7 +746,7 @@ function renderWorld(g, cam, feed) {
           if (!big || (Math.abs(ffu - .5) < .2 && Math.abs(ffv - .5) < .2)) { pix[y * W + x] = pack(r, gg, b); continue; }
           r = 22; gg = 18; b = 24;
         }
-        if (mode === 1) { r = 200; gg = 215; b = 255; }
+        if (mode === 1) { r = r * .72 + 62; gg = gg * .72 + 66; b = b * .72 + 82; }
         if (mode === 4 && (now * 10 | 0) % 2) { r = 120; gg = 20; b = 20; }
         if (pulse) { r = lerp(r, 255, pulse); gg = lerp(gg, 236, pulse); b = lerp(b, 200, pulse); }
         pix[y * W + x] = pack((r * kf + fogC[0] * ft) | 0, (gg * kf + fogC[1] * ft) | 0, (b * kf + fogC[2] * ft) | 0);
@@ -948,71 +948,90 @@ function readControls() {
 
 
 /* =========================================================
-   앨리스 꾸미기 (실루엣 고정 · 색만)
+   앨리스·꿈 꾸미기 (실루엣 고정 · 색만)
    ========================================================= */
-function skinSprite(str) {
-  const n = SKIN_W * SKIN_H, R = new Uint8Array(n), G = new Uint8Array(n), B = new Uint8Array(n), A_ = new Uint8Array(n), E = new Uint8Array(n);
-  SKIN_MASK.forEach((k, i) => { const c = SKIN_PAL[parseInt(str[i], 16)] || SKIN_PAL[0]; R[k] = c[0]; G[k] = c[1]; B[k] = c[2]; A_[k] = 1; });
-  return { w: SKIN_W, h: SKIN_H, r: R, g: G, b: B, a: A_, e: E };
+const SK = {
+  alice: { W: SKIN_W, H: SKIN_H, MASK: SKIN_MASK, PAL: SKIN_PAL, DEF: SKIN_DEFAULT, valid: skinValid, key: 'skin', name: '앨리스', bright: 99 },
+  dream: { W: DSKIN_W, H: DSKIN_H, MASK: DSKIN_MASK, PAL: DSKIN_PAL, DEF: DSKIN_DEFAULT, valid: dskinValid, key: 'dskin', name: '꿈', bright: DSKIN_BRIGHT }
+};
+function skinSprite(str, kind = 'alice') {
+  const D = SK[kind], n = D.W * D.H, R = new Uint8Array(n), G = new Uint8Array(n), B = new Uint8Array(n), A_ = new Uint8Array(n), E = new Uint8Array(n);
+  D.MASK.forEach((k, i) => { const ci = parseInt(str[i], 16), c = D.PAL[ci] || D.PAL[0]; R[k] = c[0]; G[k] = c[1]; B[k] = c[2]; A_[k] = 1; if (ci >= D.bright) E[k] = 1; });
+  return { w: D.W, h: D.H, r: R, g: G, b: B, a: A_, e: E, dreamLike: kind === 'dream' };
 }
-let mySkin = (() => { const v = store.get('skin', null); return skinValid(v) ? v : SKIN_DEFAULT; })();
+const mine = {
+  alice: (() => { const v = store.get('skin', null); return skinValid(v) ? v : SKIN_DEFAULT; })(),
+  dream: (() => { const v = store.get('dskin', null); return typeof v === 'string' && v.length === DSKIN_MASK.length ? v : DSKIN_DEFAULT; })()
+};
 let skinWs = null, skinSendT = 0;
-function sendSkin() { send({ type: 'skin', v: mySkin === SKIN_DEFAULT ? null : mySkin }); }
+function sendSkin() { send({ type: 'skin', v: mine.alice === SKIN_DEFAULT ? null : mine.alice, d: mine.dream !== DSKIN_DEFAULT && dskinValid(mine.dream) ? mine.dream : null }); }
 const skinEd = (() => {
   const cv_ = $('skinCv'), cx = cv_.getContext('2d'), pv = $('skinPv'), px = pv.getContext('2d');
-  const CS = 14; cv_.width = SKIN_W * CS; cv_.height = SKIN_H * CS;
-  pv.width = SKIN_W; pv.height = SKIN_H;
-  const idxOf = new Int16Array(SKIN_W * SKIN_H).fill(-1); SKIN_MASK.forEach((k, i) => idxOf[k] = i);
-  let col = 8, sym = true, tool = 'pen', painting = false, msgT = 0;
+  const CS = 14;
+  let kind = 'alice', D = SK.alice, idxOf = null;
+  const col = { alice: 8, dream: 11 };
+  let sym = true, tool = 'pen', painting = false, msgT = 0;
   const hex = c => `rgb(${c[0]},${c[1]},${c[2]})`;
   const pal = $('skinPal');
-  SKIN_PAL.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = hex(c); b.setAttribute('aria-label', `색 ${i + 1}`); b.addEventListener('click', () => { col = i; mark(); }); pal.append(b); });
-  const mark = () => { [...pal.children].forEach((b, i) => b.classList.toggle('on', i === col)); $('skinSym').classList.toggle('on', sym); $('skinFill').classList.toggle('on', tool === 'fill'); };
+  function setKind(k) {
+    kind = k; D = SK[k];
+    cv_.width = D.W * CS; cv_.height = D.H * CS; cv_.style.height = (D.H * CS) + 'px'; pv.width = D.W; pv.height = D.H; pv.style.height = (D.H * 3) + 'px';
+    idxOf = new Int16Array(D.W * D.H).fill(-1); D.MASK.forEach((kk, i) => idxOf[kk] = i);
+    pal.textContent = '';
+    D.PAL.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = hex(c); b.setAttribute('aria-label', `색 ${i + 1}`); if (i >= D.bright) b.classList.add('glow'); b.addEventListener('click', () => { col[kind] = i; mark(); }); pal.append(b); });
+    $('skinTabA').classList.toggle('on', k === 'alice'); $('skinTabD').classList.toggle('on', k === 'dream');
+    $('skinRule').textContent = k === 'alice' ? '모양은 고정이고 색만 바꿀 수 있어요. 앨리스가 됐을 때 이 모습으로 나와요.' : `꿈은 어두운 색 위주예요. 빛나는 색(아래 줄)을 ${DSKIN_BRIGHT_MIN}칸 이상 칠해야 적용돼요 (최대 ${DSKIN_BRIGHT_MAX}칸). 꿈이 됐을 때 이 모습으로 나와요.`;
+    mark(); draw();
+  }
+  const mark = () => { [...pal.children].forEach((b, i) => b.classList.toggle('on', i === col[kind])); $('skinSym').classList.toggle('on', sym); $('skinFill').classList.toggle('on', tool === 'fill'); };
   const darkN = s => { let n = 0; for (const ch of s) if (ch === '2' || ch === '7') n++; return n; };
-  const say_ = t => { $('skinMsg').textContent = t; clearTimeout(msgT); msgT = setTimeout(() => { $('skinMsg').textContent = ''; }, 1800); };
+  const brightN = s => { let n = 0; for (const ch of s) if (parseInt(ch, 16) >= DSKIN_BRIGHT) n++; return n; };
+  const say_ = t => { $('skinMsg').textContent = t; clearTimeout(msgT); msgT = setTimeout(() => { $('skinMsg').textContent = ''; }, 2200); };
   function commit(next) {
-    if (next === mySkin) return;
-    if ((col === 2 || col === 7) && darkN(next) > SKIN_DARK_MAX && darkN(next) > darkN(mySkin)) { say_(`아주 어두운 색은 ${SKIN_DARK_MAX}칸까지만 칠할 수 있어요.`); return; }
-    mySkin = next; store.set('skin', mySkin === SKIN_DEFAULT ? null : mySkin); draw();
+    const cur = mine[kind]; if (next === cur) return;
+    if (kind === 'alice' && darkN(next) > SKIN_DARK_MAX && darkN(next) > darkN(cur)) { say_(`아주 어두운 색은 ${SKIN_DARK_MAX}칸까지만 칠할 수 있어요.`); return; }
+    if (kind === 'dream' && brightN(next) > DSKIN_BRIGHT_MAX && brightN(next) > brightN(cur)) { say_(`빛나는 색은 ${DSKIN_BRIGHT_MAX}칸까지만 칠할 수 있어요.`); return; }
+    mine[kind] = next; store.set(D.key, next === D.DEF ? null : next); draw();
     clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 250);
   }
-  function setCells(list) { const a = mySkin.split(''); const h = col.toString(16); for (const i of list) a[i] = h; commit(a.join('')); }
-  function cellsAt(x, y) { const out = []; const add = (xx) => { const i = idxOf[y * SKIN_W + xx]; if (i >= 0 && !out.includes(i)) out.push(i); }; add(x); if (sym) add(SKIN_W - 1 - x); return out; }
-  function flood(x, y) {
-    const st = idxOf[y * SKIN_W + x]; if (st < 0) return [];
-    const from = mySkin[st], seen = new Set(), q = [[x, y]], out = [];
-    while (q.length) { const [cx_, cy] = q.pop(); if (cx_ < 0 || cy < 0 || cx_ >= SKIN_W || cy >= SKIN_H) continue; const k = cy * SKIN_W + cx_; if (seen.has(k)) continue; seen.add(k); const i = idxOf[k]; if (i < 0 || mySkin[i] !== from) continue; out.push(i); q.push([cx_ + 1, cy], [cx_ - 1, cy], [cx_, cy + 1], [cx_, cy - 1]); }
-    if (sym) for (const i of out.slice()) { const k = SKIN_MASK[i], mx = SKIN_W - 1 - (k % SKIN_W), my = (k / SKIN_W) | 0; for (const j of flood_(mx, my, seen)) out.push(j); }
+  function setCells(list) { const a = mine[kind].split(''); const h = col[kind].toString(16); for (const i of list) a[i] = h; commit(a.join('')); }
+  function cellsAt(x, y) { const out = []; const add = xx => { const i = idxOf[y * D.W + xx]; if (i >= 0 && !out.includes(i)) out.push(i); }; add(x); if (sym) add(D.W - 1 - x); return out; }
+  function region(x, y, seen) {
+    const st = idxOf[y * D.W + x]; if (st < 0) return [];
+    const s = mine[kind], from = s[st], q = [[x, y]], out = [];
+    while (q.length) { const [qx, qy] = q.pop(); if (qx < 0 || qy < 0 || qx >= D.W || qy >= D.H) continue; const k = qy * D.W + qx; if (seen.has(k)) continue; seen.add(k); const i = idxOf[k]; if (i < 0 || s[i] !== from) continue; out.push(i); q.push([qx + 1, qy], [qx - 1, qy], [qx, qy + 1], [qx, qy - 1]); }
     return out;
   }
-  function flood_(x, y, seen) { // 대칭 쪽 영역
-    const st = idxOf[y * SKIN_W + x]; if (st < 0) return [];
-    const from = mySkin[st], q = [[x, y]], out = [];
-    while (q.length) { const [cx_, cy] = q.pop(); if (cx_ < 0 || cy < 0 || cx_ >= SKIN_W || cy >= SKIN_H) continue; const k = cy * SKIN_W + cx_; if (seen.has(k)) continue; seen.add(k); const i = idxOf[k]; if (i < 0 || mySkin[i] !== from) continue; out.push(i); q.push([cx_ + 1, cy], [cx_ - 1, cy], [cx_, cy + 1], [cx_, cy - 1]); }
-    return out;
-  }
-  function at(e) { const r = cv_.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * SKIN_W), Math.floor((e.clientY - r.top) / r.height * SKIN_H)]; }
+  function flood(x, y) { const seen = new Set(), out = region(x, y, seen); if (sym) out.push(...region(D.W - 1 - x, y, seen)); return out; }
+  function at(e) { const r = cv_.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * D.W), Math.floor((e.clientY - r.top) / r.height * D.H)]; }
   cv_.addEventListener('pointerdown', e => { e.preventDefault(); const [x, y] = at(e); if (tool === 'fill') { setCells(flood(x, y)); return; } painting = true; try { cv_.setPointerCapture(e.pointerId); } catch (_) {} setCells(cellsAt(x, y)); });
-  cv_.addEventListener('pointermove', e => { if (!painting) return; const [x, y] = at(e); if (x >= 0 && y >= 0 && x < SKIN_W && y < SKIN_H) setCells(cellsAt(x, y)); });
+  cv_.addEventListener('pointermove', e => { if (!painting) return; const [x, y] = at(e); if (x >= 0 && y >= 0 && x < D.W && y < D.H) setCells(cellsAt(x, y)); });
   const stop = () => { painting = false; };
   cv_.addEventListener('pointerup', stop); cv_.addEventListener('pointercancel', stop);
   $('skinSym').addEventListener('click', () => { sym = !sym; mark(); });
   $('skinFill').addEventListener('click', () => { tool = tool === 'fill' ? 'pen' : 'fill'; mark(); });
-  $('skinReset').addEventListener('click', () => { mySkin = SKIN_DEFAULT; store.set('skin', null); draw(); clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 100); say_('기본 앨리스로 돌아왔어요.'); });
+  $('skinReset').addEventListener('click', () => { mine[kind] = D.DEF; store.set(D.key, null); draw(); clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 100); say_(`기본 ${D.name}(으)로 돌아왔어요.`); });
+  $('skinTabA').addEventListener('click', () => setKind('alice'));
+  $('skinTabD').addEventListener('click', () => setKind('dream'));
   function draw() {
+    const s = mine[kind];
     cx.fillStyle = '#0a0809'; cx.fillRect(0, 0, cv_.width, cv_.height);
-    for (let y = 0; y < SKIN_H; y++) for (let x = 0; x < SKIN_W; x++) {
-      const i = idxOf[y * SKIN_W + x];
+    for (let y = 0; y < D.H; y++) for (let x = 0; x < D.W; x++) {
+      const i = idxOf[y * D.W + x];
       if (i < 0) { cx.fillStyle = (x + y) & 1 ? '#121012' : '#0d0b0c'; cx.fillRect(x * CS, y * CS, CS, CS); continue; }
-      cx.fillStyle = hex(SKIN_PAL[parseInt(mySkin[i], 16)]); cx.fillRect(x * CS, y * CS, CS, CS);
-      cx.strokeStyle = 'rgba(0,0,0,.25)'; cx.strokeRect(x * CS + .5, y * CS + .5, CS - 1, CS - 1);
+      cx.fillStyle = hex(D.PAL[parseInt(s[i], 16)]); cx.fillRect(x * CS, y * CS, CS, CS);
+      cx.strokeStyle = kind === 'dream' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.25)'; cx.strokeRect(x * CS + .5, y * CS + .5, CS - 1, CS - 1);
     }
-    const im = px.createImageData(SKIN_W, SKIN_H);
-    SKIN_MASK.forEach((k, i) => { const c = SKIN_PAL[parseInt(mySkin[i], 16)]; im.data.set([c[0], c[1], c[2], 255], k * 4); });
-    px.clearRect(0, 0, SKIN_W, SKIN_H); px.putImageData(im, 0, 0);
-    $('skinState').textContent = mySkin === SKIN_DEFAULT ? '기본 앨리스' : '꾸민 앨리스';
+    const im = px.createImageData(D.W, D.H);
+    D.MASK.forEach((k, i) => { const c = D.PAL[parseInt(s[i], 16)]; im.data.set([c[0], c[1], c[2], 255], k * 4); });
+    px.clearRect(0, 0, D.W, D.H); px.putImageData(im, 0, 0);
+    let st;
+    if (kind === 'alice') st = s === D.DEF ? '기본 앨리스' : '꾸민 앨리스';
+    else if (s === D.DEF) st = '기본 꿈';
+    else { const n = brightN(s); st = n < DSKIN_BRIGHT_MIN ? `빛나는 색 ${n}/${DSKIN_BRIGHT_MIN} — 아직 기본 꿈으로 나와요` : '꾸민 꿈'; }
+    $('skinState').textContent = st;
   }
-  mark(); draw();
+  setKind('alice');
   return { draw };
 })();
 
@@ -1037,7 +1056,7 @@ function startGame(m) {
     cam: { x: m.me.x, z: m.me.z, yaw: m.me.yaw, bob: 0 }, mapImg: null, nearDream: 99, lastSnap: performance.now(),
     revealN: Math.floor((CFG.GAME_TIME - m.time) / CFG.REVEAL_EVERY), reveal: null
   };
-  game.skins = new Map(); for (const p of m.players) if (p.skin && skinValid(p.skin)) game.skins.set(p.id, skinSprite(p.skin));
+  game.skins = new Map(); for (const p of m.players) { if (!p.skin) continue; if (p.role === 'dream') { if (dskinValid(p.skin)) game.skins.set(p.id, skinSprite(p.skin, 'dream')); } else if (skinValid(p.skin)) game.skins.set(p.id, skinSprite(p.skin)); }
   game.mapImg = buildMap(world);
   game.pdist = cellField(world);
   if (world.fogOfWar && game.role === 'alice') { game.seen = new Uint8Array(world.N * world.N); game.fogImg = document.createElement('canvas'); game.fogImg.width = game.fogImg.height = world.N; const fx_ = game.fogImg.getContext('2d'); fx_.fillStyle = '#050403'; fx_.fillRect(0, 0, world.N, world.N); }
@@ -1199,16 +1218,19 @@ function onEnd(m) {
    지도
    ========================================================= */
 function buildMap(w) {
-  const c = document.createElement('canvas'); c.width = w.N; c.height = w.N;
-  const x = c.getContext('2d'), id = x.createImageData(w.N, w.N);
-  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [150, 132, 70], [40, 38, 50], [40, 80, 56], [80, 88, 96], [44, 44, 52]];
+  // 한 칸 = 4픽셀로 그려서, 작게 줄여도 얇은 벽이 사라지지 않게
+  const MS = 4, c = document.createElement('canvas'); c.width = w.N * MS; c.height = w.N * MS;
+  const x = c.getContext('2d'), id = x.createImageData(w.N * MS, w.N * MS), NW = w.N * MS;
+  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [88, 74, 38], [40, 38, 50], [40, 80, 56], [80, 88, 96], [44, 44, 52]];
   for (let i = 0; i < w.N * w.N; i++) {
     let col = cols[w.ground[i]];
     if (w.wall[i]) col = w.wall[i] === WL.BARS ? [160, 160, 160] : w.wall[i] === WL.CURTAIN ? [70, 70, 160] : w.wall[i] === WL.YPAPER ? [230, 214, 140] : w.wall[i] === WL.VELVET ? [160, 40, 60] : w.wall[i] === WL.MIRROR ? [170, 235, 205] : w.wall[i] === WL.PORTAL ? PORTAL_COLS[(w.portals[w.portalAt[i]] || { pair: 0 }).pair % 4] : w.wall[i] === WL.MARBLE ? [90, 150, 110] : w.wall[i] === WL.TVWALL ? [120, 200, 150] : w.wall[i] === WL.SHELF ? [130, 100, 70] : w.wall[i] === WL.ACOUSTIC ? [110, 110, 120] : [190, 190, 180];
-    id.data[i * 4] = col[0]; id.data[i * 4 + 1] = col[1]; id.data[i * 4 + 2] = col[2]; id.data[i * 4 + 3] = 255;
+    if (w.wall[i] === WL.YPAPER) col = [255, 240, 170];
+    const cx0 = (i % w.N) * MS, cz0 = ((i / w.N) | 0) * MS;
+    for (let dz = 0; dz < MS; dz++) for (let dx = 0; dx < MS; dx++) { const o = ((cz0 + dz) * NW + cx0 + dx) * 4; id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = 255; }
   }
-  for (const t of w.trees) { const i = ((t.z | 0) * w.N + (t.x | 0)) * 4; if (t.seat) { id.data[i] = 80; id.data[i + 1] = 20; id.data[i + 2] = 30; } else { id.data[i] = 20; id.data[i + 1] = 30; id.data[i + 2] = 18; } }
   x.putImageData(id, 0, 0);
+  for (const t of w.trees) { x.fillStyle = t.seat ? 'rgb(80,20,30)' : 'rgb(20,30,18)'; x.fillRect(t.x * MS - 1.5, t.z * MS - 1.5, 3, 3); }
   return c;
 }
 const ENTRANCES = [{ x: 40, z: 49.2 }, { x: 30.8, z: 43 }, { x: 49.2, z: 37.5 }];
@@ -1277,14 +1299,19 @@ function mapMarkers(g, ox, oy, k, big) {
   }
 }
 function drawMinimap(g) {
-  const S = 76, ox = 8, oy = 32, k = S / g.world.N, c = ctx, cam = g.cam;
+  // 내 주변만 크게 (한 칸이 2픽셀 넘게 보이도록)
+  const S = 80, ox = 8, oy = 32, N = g.world.N, VR = 16, k = S / (VR * 2), c = ctx, cam = g.cam;
+  const OX = ox - (cam.x - VR) * k, OY = oy - (cam.z - VR) * k;
   c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(ox - 2, oy - 2, S + 4, S + 4);
-  c.imageSmoothingEnabled = false; c.globalAlpha = .75; c.drawImage(g.mapImg, ox, oy, S, S); c.globalAlpha = 1;
-  if (g.fogImg) c.drawImage(g.fogImg, ox, oy, S, S);
-  g.world.traces.forEach((t, i) => { if (g.tr[i] || (g.seen && !g.seen[(t.z | 0) * g.world.N + (t.x | 0)])) return; c.fillStyle = t.color === '#4a64c8' ? '#8095ff' : t.color; c.fillRect(ox + t.x * k - 1.5, oy + t.z * k - 1.5, 3, 3); });
-  if (g.door) { c.fillStyle = '#fff'; c.beginPath(); c.arc(ox + g.door.x * k, oy + g.door.z * k, 2.5 + Math.sin(now * 5), 0, 7); c.fill(); }
-  mapMarkers(g, ox, oy, k, false);
-  c.save(); c.translate(ox + cam.x * k, oy + cam.z * k); c.rotate(cam.yaw);
+  c.save(); c.beginPath(); c.rect(ox, oy, S, S); c.clip();
+  c.fillStyle = '#050403'; c.fillRect(ox, oy, S, S);
+  c.imageSmoothingEnabled = false; c.globalAlpha = .85; c.drawImage(g.mapImg, OX, OY, N * k, N * k); c.globalAlpha = 1;
+  if (g.fogImg) c.drawImage(g.fogImg, OX, OY, N * k, N * k);
+  g.world.traces.forEach((t, i) => { if (g.tr[i] || (g.seen && !g.seen[(t.z | 0) * N + (t.x | 0)])) return; c.fillStyle = t.color === '#4a64c8' ? '#8095ff' : t.color; c.fillRect(OX + t.x * k - 2, OY + t.z * k - 2, 4, 4); });
+  if (g.door) { c.fillStyle = '#fff'; c.beginPath(); c.arc(OX + g.door.x * k, OY + g.door.z * k, 2.5 + Math.sin(now * 5), 0, 7); c.fill(); }
+  mapMarkers(g, OX, OY, k, false);
+  c.restore();
+  c.save(); c.translate(OX + cam.x * k, OY + cam.z * k); c.rotate(cam.yaw);
   c.fillStyle = g.role === 'dream' ? '#ff5050' : '#ffffff';
   c.beginPath(); c.moveTo(4.5, 0); c.lineTo(-3, -3); c.lineTo(-1.5, 0); c.lineTo(-3, 3); c.closePath(); c.fill(); c.restore();
   c.strokeStyle = 'rgba(220,210,200,.35)'; c.lineWidth = 1; c.strokeRect(ox - 1.5, oy - 1.5, S + 3, S + 3);
@@ -1328,9 +1355,9 @@ function drawMap(g, cam) {
 function revealFog(g) {
   if (!g.seen) return;
   const w = g.world, N = w.N, cx = g.cam.x, cz = g.cam.z, fc = g.fogImg.getContext('2d');
-  for (let a = 0; a < 32; a++) {
-    const ang = a / 32 * Math.PI * 2, dx = Math.cos(ang), dz = Math.sin(ang);
-    for (let r = 0; r < 7; r += .5) {
+  for (let a = 0; a < 120; a++) {
+    const ang = a / 120 * Math.PI * 2, dx = Math.cos(ang), dz = Math.sin(ang);
+    for (let r = 0; r < 9; r += .3) {
       const x = (cx + dx * r) | 0, z = (cz + dz * r) | 0; if (x < 0 || z < 0 || x >= N || z >= N) break;
       const k = z * N + x;
       if (!g.seen[k]) { g.seen[k] = 1; fc.clearRect(x, z, 1, 1); }

@@ -65,6 +65,31 @@ export function skinValid(s) {
   return dark <= SKIN_DARK_MAX;
 }
 
+// 꿈 꾸미기 — 어두운 색 위주, 밝은 색(스스로 빛남)은 최소 4칸
+export const DREAM_ROWS = [
+  '....kkkk....', '...kkkkkk...', '..kkkkkkkk..', '..kEkkkkEk..', '..kkkkkkkk..', '..kkmmmmkk..', '...kmmmmk...',
+  '....kkkk....', '...kkkkkk...', '..kkkkkkkk..', '.kkkkkkkkkk.', '.kk.kkkk.kk.', 'kk..kkkk..kk', 'kk..kkkk..kk',
+  'kk..kkkk..kk', 'k...kkkk...k', 'k...kkkk...k', 'k...kkkk...k', 'k..kkkkkk..k', 'c..kkkkkk..c', 'c..kkkkkk..c',
+  'c..kkkkkk..c', '...kkkkkk...', '...kk..kk...', '...kk..kk...', '...kk..kk...', '...kk..kk...', '...kk..kk...',
+  '...kk..kk...', '..kkk..kkk..'
+];
+export const DSKIN_PAL = [
+  [24, 20, 26], [70, 4, 8], [74, 66, 62], [8, 8, 10], [40, 28, 48], [18, 32, 24], [48, 14, 14], [24, 28, 46], [58, 50, 46], [38, 26, 16],
+  [245, 240, 230], [255, 40, 40], [255, 214, 80], [120, 236, 255], [205, 130, 255], [255, 140, 190]
+];
+export const DSKIN_BRIGHT = 10; // 이 번호부터 밝은 색
+const DSKIN_DEF_IDX = { k: 0, E: 10, m: 1, c: 2 };
+export const DSKIN_W = 12, DSKIN_H = DREAM_ROWS.length;
+export const DSKIN_MASK = [];
+export let DSKIN_DEFAULT = '';
+for (let y = 0; y < DSKIN_H; y++) for (let x = 0; x < DSKIN_W; x++) { const c = DREAM_ROWS[y][x]; if (c && c !== '.') { DSKIN_MASK.push(y * DSKIN_W + x); DSKIN_DEFAULT += DSKIN_DEF_IDX[c].toString(16); } }
+export const DSKIN_BRIGHT_MIN = 4, DSKIN_BRIGHT_MAX = 24;
+export function dskinValid(s) {
+  if (typeof s !== 'string' || s.length !== DSKIN_MASK.length || !/^[0-9a-f]+$/.test(s)) return false;
+  let n = 0; for (const ch of s) if (parseInt(ch, 16) >= DSKIN_BRIGHT) n++;
+  return n >= DSKIN_BRIGHT_MIN && n <= DSKIN_BRIGHT_MAX;
+}
+
 export const TRACE_INFO = [
   { kind: 'sword',    suit: '♠', color: '#b42121', name: '붉은 앨리스의 검',     dur: 3 },
   { kind: 'musicbox', suit: '♦', color: '#4a64c8', name: '푸른 앨리스의 오르골', dur: 5 },
