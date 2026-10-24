@@ -157,7 +157,7 @@ function Engine(o) {
     let r = e.amb, gg = e.amb, b = e.amb;
     const lx = (x * LR) | 0, lz = (z * LR) | 0;
     if (lx >= 0 && lz >= 0 && lx < LN && lz < LN) { const i = lz * LN + lx, m = e.lightMul * e.flick; r += e.lmR[i] * m; gg += e.lmG[i] * m; b += e.lmB[i] * m; }
-    if (cam && e.lantern > 0) { const d = Math.hypot(x - cam.x, z - cam.z); if (d < e.lantern) { const k = 1 - d / e.lantern, v = k * k * .9; r += v * e.lanternC[0]; gg += v * e.lanternC[1]; b += v * e.lanternC[2]; } }
+    if (cam && e.lantern > 0) { const d = Math.hypot(x - cam.x, z - cam.z); if (d < e.lantern) { const k = 1 - d / e.lantern, v = k * k * (e.lanternI || .9); r += v * e.lanternC[0]; gg += v * e.lanternC[1]; b += v * e.lanternC[2]; } }
     for (const L of e.dyn) { const d = Math.hypot(x - L.x, z - L.z); if (d < L.r) { const k = 1 - d / L.r, v = k * k * L.i; r += v * L.c[0]; gg += v * L.c[1]; b += v * L.c[2]; } }
     return [r, gg, b];
   };
@@ -168,13 +168,14 @@ function Engine(o) {
     const dirX = Math.cos(cam.yaw), dirZ = Math.sin(cam.yaw), plX = -dirZ * FOVP, plZ = dirX * FOVP;
     const hor = (H / 2 + (cam.bob || 0)) | 0;
     const fogT = d => { const t = clamp((d - fogS) / (fogD - fogS), 0, 1); return t * t * (3 - 2 * t); };
+    const lanI = e.lanternI || .9, EM = e.spot ? e.emisB || (e.emisB = new Uint8Array(W * H)) : null; if (EM) EM.fill(0);
     const LM = e.lightMul * e.flick, lmR = e.lmR, lmG = e.lmG, lmB = e.lmB, amb = e.amb, lan = e.lantern, lc = e.lanternC, dyn = e.dyn;
     const camX = cam.x, camZ = cam.z;
     const litAt = (x, z, out) => {
       let r = amb, gg = amb, b = amb;
       const lx = (x * LR) | 0, lz = (z * LR) | 0;
       if (lx >= 0 && lz >= 0 && lx < LN && lz < LN) { const i = lz * LN + lx; r += lmR[i] * LM; gg += lmG[i] * LM; b += lmB[i] * LM; }
-      if (lan > 0) { const dx = x - camX, dz = z - camZ, d2 = dx * dx + dz * dz; if (d2 < lan * lan) { const k = 1 - Math.sqrt(d2) / lan, v = k * k * .9; r += v * lc[0]; gg += v * lc[1]; b += v * lc[2]; } }
+      if (lan > 0) { const dx = x - camX, dz = z - camZ, d2 = dx * dx + dz * dz; if (d2 < lan * lan) { const k = 1 - Math.sqrt(d2) / lan, v = k * k * lanI; r += v * lc[0]; gg += v * lc[1]; b += v * lc[2]; } }
       for (let q = 0; q < dyn.length; q++) { const L = dyn[q], dx = x - L.x, dz = z - L.z, d2 = dx * dx + dz * dz; if (d2 < L.r * L.r) { const k = 1 - Math.sqrt(d2) / L.r, v = k * k * L.i; r += v * L.c[0]; gg += v * L.c[1]; b += v * L.c[2]; } }
       out[0] = r; out[1] = gg; out[2] = b;
     };
@@ -248,7 +249,7 @@ function Engine(o) {
       litAt(hx, hz, lt);
       const base = Wd.col, tex = Wd.tex;
       const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H - 1, Math.floor(bot));
-      if (Wd.emis) { const kk = .4 * kf + .6; for (let y = y0; y <= y1; y++) { const vh = (bot - y) / lh, m = .85 + .15 * Math.sin(vh * 9 + now() * 3) + (hash(x, y) & 15) / 255; pix[y * W + x] = pack((base[0] * m * kk) | 0, (base[1] * m * kk) | 0, (base[2] * m * kk) | 0); } continue; }
+      if (Wd.emis) { const kk = .4 * kf + .6; for (let y = y0; y <= y1; y++) { const vh = (bot - y) / lh, m = .85 + .15 * Math.sin(vh * 9 + now() * 3) + (hash(x, y) & 15) / 255; pix[y * W + x] = pack((base[0] * m * kk) | 0, (base[1] * m * kk) | 0, (base[2] * m * kk) | 0); if (EM) EM[y * W + x] = 1; } continue; }
       const patch = hash(mx * 3 + 1, mz * 7 + 3);
       const fi = side ? (stz > 0 ? 2 : 3) : (stx > 0 ? 0 : 1), pc = e.pics.size ? e.pics.get((mz * N + mx) * 4 + fi) : null;
       let pu = 0, PS = null, PP = null;
@@ -258,7 +259,7 @@ function Engine(o) {
         if (PS && vh >= PP.yb && vh <= PP.yt) {
           const pv = Math.min(PS.h - 1, ((PP.yt - vh) / (PP.yt - PP.yb) * PS.h) | 0), k = pv * PS.w + pu;
           if (PS.a[k]) {
-            if (PS.e[k]) { const kk = .45 * kf + .55; pix[y * W + x] = pack((PS.r[k] * kk) | 0, (PS.g[k] * kk) | 0, (PS.b[k] * kk) | 0); continue; }
+            if (PS.e[k]) { const kk = .45 * kf + .55; pix[y * W + x] = pack((PS.r[k] * kk) | 0, (PS.g[k] * kk) | 0, (PS.b[k] * kk) | 0); if (EM) EM[y * W + x] = 1; continue; }
             let l0 = lt[0], l1 = lt[1], l2 = lt[2]; if (PP.glow) { l0 = Math.max(l0, PP.glow); l1 = Math.max(l1, PP.glow); l2 = Math.max(l2, PP.glow); }
             pix[y * W + x] = pack((PS.r[k] * sh * l0 * kf + fogC[0] * ft) | 0, (PS.g[k] * sh * l1 * kf + fogC[1] * ft) | 0, (PS.b[k] * sh * l2 * kf + fogC[2] * ft) | 0); continue;
           }
@@ -335,10 +336,28 @@ function Engine(o) {
           const k = pv * spr.w + pu;
           if (!spr.a[k]) continue;
           let r = spr.r[k], gg = spr.g[k], b = spr.b[k];
-          if (spr.e[k]) { pix[y * W + x] = pack(r, gg, b); continue; }
+          if (spr.e[k]) { pix[y * W + x] = pack(r, gg, b); if (EM) EM[y * W + x] = 1; continue; }
           if (tint) { r = lerp(r, tint[0], tint[3]); gg = lerp(gg, tint[1], tint[3]); b = lerp(b, tint[2], tint[3]); }
           pix[y * W + x] = pack((r * lr * kf + fogC[0] * ft) | 0, (gg * lg * kf + fogC[1] * ft) | 0, (b * lb * kf + fogC[2] * ft) | 0);
         }
+      }
+    }
+    // 손전등: 화면 가운데 원만 밝고 나머지는 어둠 (스스로 빛나는 것은 그대로)
+    if (e.spot) {
+      const sp = e.spot, key = (sp.r | 0) + ':' + (sp.soft | 0) + ':' + sp.out + ':' + (sp.cy | 0);
+      if (e.maskKey !== key) {
+        e.maskKey = key; const M = e.mask || (e.mask = new Float32Array(W * H)), cy = sp.cy == null ? H / 2 : sp.cy;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const d = Math.hypot((x - W / 2) * .92, (y - cy) * 1.08), c = clamp(1 - (d - sp.r) / sp.soft, 0, 1), cc = c * c * (3 - 2 * c);
+          const spill = clamp(1 - d / (sp.r + sp.soft * 3.2), 0, 1) * .22;
+          M[y * W + x] = sp.out + (1 - sp.out) * Math.max(cc, spill);
+        }
+      }
+      const M = e.mask, fk = sp.k == null ? 1 : sp.k;
+      for (let i = 0; i < W * H; i++) {
+        if (EM[i]) continue;
+        const m = sp.out + (M[i] - sp.out) * fk; if (m >= .999) continue;
+        const v = pix[i]; pix[i] = (0xff000000 | (((v >>> 16 & 255) * m) << 16) | (((v >>> 8 & 255) * m) << 8) | ((v & 255) * m)) >>> 0;
       }
     }
     e.cx.putImageData(e.img, 0, 0);
@@ -1541,7 +1560,8 @@ function HCh3() {
   const N = 14, TT = 90;
   const FT = [{ col: [58, 40, 28], tex: 'board' }, { col: [34, 58, 38], tex: 'carpet' }];
   const WT = [null, { col: [74, 78, 64] }, { col: [70, 46, 28], tex: 'wood', h: 1.25 }];
-  const e = Engine({ N, indoor: true, WT, FT, wallH: 1.4, fogD: 14, fogC: [5, 3, 3], amb: .3, ceilC: [30, 24, 20], lantern: 3.4, lanternC: [.95, .75, .5] });
+  const e = Engine({ N, indoor: true, WT, FT, wallH: 1.4, fogD: 14, fogC: [2, 1, 1], amb: .1, ceilC: [30, 24, 20], lantern: 6.5, lanternC: [1, .96, .88] });
+  e.lanternI = 2.7; e.spot = { r: 62, soft: 34, out: .2, k: 1 };
   for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
     const k = z * N + x;
     if (x < 2 || x > 11 || z < 2 || z > 9) { e.wall[k] = 1; continue; }
@@ -1551,13 +1571,9 @@ function HCh3() {
   const TB = { x: 6.5, z: 5.5 }, BED = { x: 11.0, z: 9.0 };
   e.block[5 * N + 6] = 1;
   for (const [x, z] of [[10, 8], [11, 8], [10, 9], [11, 9]]) e.block[z * N + x] = 1;
-  e.lights.push({ x: 6.5, z: 5.5, r: 3.6, i: 1.05, c: [1, .7, .4] });
-  e.lights.push({ x: 3.9, z: 2.5, r: 3, i: .75, c: [1, .12, .1] }, { x: 9.9, z: 2.5, r: 3, i: .75, c: [1, .12, .1] });
-  e.lights.push({ x: 6.5, z: 9.4, r: 2, i: .6, c: [1, .1, .08] });
-  e.lights.push({ x: 11.2, z: 5.6, r: 3.2, i: .7, c: [.75, .82, .9] }); // 거울 앞
-  e.lights.push({ x: 3.4, z: 6.6, r: 3, i: .7, c: [1, .72, .45] }); // 옷장 옆 촛대
-  e.lights.push({ x: 9.4, z: 8.0, r: 3, i: .8, c: [1, .7, .42] }); // 침대 머리맡
-  e.lights.push({ x: 7.5, z: 2.6, r: 2.4, i: .55, c: [.9, .8, .6] }); // 초상화
+  e.lights.push({ x: 6.5, z: 5.5, r: 2.2, i: .6, c: [1, .7, .4] }); // 탁자 위 촛불만 조금
+  e.lights.push({ x: 3.9, z: 2.5, r: 2.4, i: .55, c: [1, .12, .1] }, { x: 9.9, z: 2.5, r: 2.4, i: .55, c: [1, .12, .1] });
+  e.lights.push({ x: 6.5, z: 9.4, r: 1.8, i: .5, c: [1, .1, .08] });
   e.bake();
   const ch0 = chicken();
 
@@ -1676,7 +1692,7 @@ function HCh3() {
   const byId = id => TG.find(t => t.id === id);
   const cam = { x: 5.0, z: 8.4, yaw: -1.15, bob: 0 };
   const blot = Array.from({ length: 30 }, () => { const edge = Math.random() < .5; return { x: Math.random() * W, y: edge ? Math.random() * 60 : H - 70 + Math.random() * 70, r: 5 + Math.random() * 18, th: Math.random() }; });
-  let phase = 'search', time = TT, bob = 0, stepAcc = 0, idle = 0, moved = false, selN = 0, found = 0, scareT = 0, scareDone = false, winLook = 0, buzzT = 0;
+  let phase = 'search', time = TT, bob = 0, stepAcc = 0, idle = 0, moved = false, selN = 0, found = 0, scareT = 0, scareDone = false, winLook = 0, buzzT = 0, flickT = 0, tapX = 0, tapT = 0;
   let leadT = 0, tw = 0, twitT = 0, route = null, ri = 0, portT = 0, clkT = 0, dark = 0, lumpH = 1;
   const inView = (x, z, lim = .55) => { const dx = x - cam.x, dz = z - cam.z, d = Math.hypot(dx, dz); return Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)) < lim && e.los(cam.x, cam.z, x - dx / d * .12, z - dz / d * .12); };
   function bfs(tx, tz) { // 방 안 최단 경로 (칸 중심)
@@ -1685,6 +1701,15 @@ function HCh3() {
     const path = []; let k = goal; if (prev[k] < 0) return [{ x: tx, z: tz }];
     while (k !== s0) { path.unshift({ x: k % N + .5, z: ((k / N) | 0) + .5 }); k = prev[k]; }
     path[path.length - 1] = { x: tx, z: tz }; return path;
+  }
+  function torch() { // 손에 든 손전등 (오른쪽 아래)
+    const by = Math.sin(bob) * 2.2 + (phase === 'lead' ? Math.sin(bob * .5) * 1.5 : 0);
+    g.save(); g.translate(W * .86, H + 20 + by); g.rotate(-.55); g.scale(1.1, 1.1);
+    const gr = g.createLinearGradient(-15, 0, 15, 0); gr.addColorStop(0, '#0c0b0a'); gr.addColorStop(.45, '#3a3632'); gr.addColorStop(1, '#100f0e');
+    g.fillStyle = gr; g.fillRect(-11, -70, 22, 90); g.fillRect(-15, -92, 30, 26);
+    g.fillStyle = '#4a4642'; g.fillRect(-15, -92, 30, 3); g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(-6, -66, 3, 80);
+    const lit = e.spot.k > .5; g.fillStyle = lit ? 'rgba(255,250,230,.55)' : 'rgba(60,60,60,.5)'; g.fillRect(-12, -94, 24, 2);
+    g.restore();
   }
   const S = {
     game: true, fp: true, touch: 'h3d', act: '지목',
@@ -1712,7 +1737,13 @@ function HCh3() {
       time -= 6; say('아니야.', 1.4); scareT = .55; bigScare();
     },
     key(k) { if (k === ' ' || k === 'Enter' || k === 'x' || k === 'j') this.select(); },
-    pointer(t, x) { if (phase !== 'search') return; fpPointer(cam, t, x); if (t === 'down' && !TOUCH && document.pointerLockElement === api.cv) this.select(); },
+    pointer(t, x) {
+      if (phase !== 'search') return; fpPointer(cam, t, x);
+      if (TOUCH) return;
+      if (t === 'down') { if (document.pointerLockElement === api.cv) this.select(); else { tapX = x; tapT = now(); } }
+      else if (t === 'up' && tapT && now() - tapT < .3 && Math.abs(x - tapX) < 8 && this.lockTried) { tapT = 0; this.select(); }
+      if (t === 'up') this.lockTried = true;
+    },
     update(dt) {
       scareT = Math.max(0, scareT - dt);
       e.flick = .9 + Math.sin(now() * 11) * .04 + Math.sin(now() * 27) * .03;
@@ -1738,7 +1769,9 @@ function HCh3() {
         if (c.moving) { moved = true; e.move(cam, c.vx, c.vz, .22); bob += dt * 6.5; stepAcc += dt; if (stepAcc > .52) { stepAcc = 0; sfx.step(); } }
         cam.bob = Math.sin(bob) * (c.moving ? 1.5 : 0);
         idle = c.moving ? 0 : idle + dt;
-        e.lantern = 1.8 + 1.6 * clamp(time / TT, 0, 1); e.lightMul = 1 - rot * .3;
+        const bat = clamp(time / TT, 0, 1); e.lantern = 4.2 + 2.3 * bat; e.lightMul = 1 - rot * .3;
+        e.spot.r = 40 + 24 * bat; flickT -= dt; if (flickT <= 0 && Math.random() < dt * (rot > .6 ? 2.5 : rot > .35 ? .6 : 0)) { flickT = .05 + Math.random() * .25 * rot; sfx.stat && sfx.stat(.03); }
+        e.spot.k = flickT > 0 ? (Math.random() < .5 ? .05 : .4) : 1;
         buzzT -= dt; if (buzzT <= 0 && !ch0) { buzzT = 1.6 - rot * 1.1 + Math.random(); osc('sawtooth', 190 + Math.random() * 60, .5 + Math.random() * .5, { vol: .012 + rot * .03, f2: 170 + Math.random() * 80, pan: (Math.random() - .5) * 1.8 }); }
         if (!scareDone && time < TT * .55) { scareDone = true; scareT = .4; bigScare(); say('…누가 있어?', 1.6); }
         if (time < TT * .3 && Math.random() < dt * .4) { fx.glitch = .6; sfx.stat && sfx.stat(.08); }
@@ -1747,7 +1780,7 @@ function HCh3() {
         else if (selN === 0 && this.t > 22) api.hint(TOUCH ? '☞ 이상한 것을 화면 가운데에 두고 「지목」' : '☞ 이상한 것을 화면 가운데에 두고 SPACE / 클릭');
         else api.hint(null);
       } else if (phase === 'lead') {
-        leadT += dt; api.hint(null);
+        leadT += dt; api.hint(null); e.spot.k = 1; e.spot.r = 58;
         if (leadT > .2 && leadT - dt <= .2) setTimeout(() => say('내 몸이 어딘가로 이끈다…', 3.2), 1200);
         if (leadT > 1.6) {
           if (!route) { route = bfs(7.5, 3.7); ri = 0; }
@@ -1796,12 +1829,9 @@ function HCh3() {
       if (phase === 'search') {
         const rot = 1 - time / TT;
         if (!ch) for (const b of blot) if (rot > b.th) ell(b.x, b.y, b.r * (.5 + (rot - b.th)), b.r * .7 * (.5 + (rot - b.th)), 'rgba(30,22,8,.45)');
-        g.fillStyle = 'rgba(232,220,200,.55)'; g.fillRect(W / 2 - 1, H / 2 - 1, 2, 2);
-        // 손에 든 촛불 = 남은 시간
-        const ht = 6 + 34 * clamp(time / TT, 0, 1), bx = 22, by = H - 6;
-        g.fillStyle = '#d8ccb0'; g.fillRect(bx, by - ht, 7, ht); g.fillStyle = '#b8ac90'; g.fillRect(bx + 5, by - ht, 2, ht);
-        const fl = 1 + Math.sin(now() * 17) * .15; ell(bx + 3.5, by - ht - 6 * fl, 2.6, 6 * fl, '#ffbe55'); ell(bx + 3.5, by - ht - 4, 1.3, 2.6, '#fff4c8');
+        torch();
       }
+      if (phase === 'lead') torch();
       if (phase === 'twist') { const k = clamp((tw - .6) / 6.2, 0, 1); g.fillStyle = `rgba(0,0,0,${k * .15})`; g.fillRect(0, 0, W, H); const v = g.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 230); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${.4 + k * .5})`); g.fillStyle = v; g.fillRect(0, 0, W, H); }
       if (scareT > 0) scareOverlay(scareT, .55, true);
     }
