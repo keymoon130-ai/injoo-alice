@@ -1,5 +1,5 @@
 // 人柱愛麗絲 : 망가진 꿈 — 클라이언트
-import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer } from './shared.js';
+import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint } from './shared.js';
 
 const $ = id => document.getElementById(id);
 const W = 400, H = 300;
@@ -93,13 +93,26 @@ function connect(code, create) {
     stopGame(); show('scHome'); homeErr(lastErr || '연결이 끊겼어요.'); lastErr = '';
   };
 }
+// 서버가 새 버전으로 업데이트돼서 맵 코드가 다르면: 새로고침하고 같은 방으로 다시 들어간다
+function reloadAndRejoin() {
+  const n = sess.get('rejoinN', 0);
+  if (n >= 2) { leaving = true; try { ws && ws.close(); } catch (e) {} ws = null; stopGame(); show('scHome'); homeErr('게임이 방금 업데이트됐어요. 잠시 후 페이지를 새로고침해 주세요.'); return; }
+  sess.set('rejoinN', n + 1); sess.set('rejoin', { code: curCode, t: Date.now() });
+  leaving = true; try { ws && ws.close(); } catch (e) {}
+  addSys('게임이 업데이트되어 새로고침합니다…');
+  setTimeout(() => location.replace(location.pathname + '?r=' + Date.now()), 300);
+}
 function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 setInterval(() => send({ type: 'ping', t: performance.now() }), 2000);
 
 function onMsg(m) {
   switch (m.type) {
-    case 'hello': curCode = m.code; break;
     case 'err': lastErr = m.msg; break;
+    case 'hello':
+      curCode = m.code;
+      if (m.fp && m.fp !== mapFingerprint()) { reloadAndRejoin(); return; }
+      sess.set('rejoinN', 0);
+      break;
     case 'lobby':
       lobby = m; renderLobby();
       if (m.phase === 'lobby' && game) { stopGame(); show('scLobby'); }
@@ -932,6 +945,7 @@ function readControls() {
 let game = null;
 function startGame(m) {
   const world = genWorld(m.seed, m.map);
+  if (m.sig && worldSig(world) !== m.sig) { reloadAndRejoin(); return; }
   const players = new Map(m.players.map(p => [p.id, { id: p.id, name: p.name, role: p.role, snaps: [], cur: null }]));
   const me = players.get(myId); if (!me) return;
   const first = !game;
@@ -1636,4 +1650,5 @@ requestAnimationFrame(frame);
 
 // 시작 화면
 if (device) goHome(); else show('scDevice');
+{ const rj = sess.get('rejoin', null); if (rj && device && myName && Date.now() - rj.t < 60000 && /^[A-Z]{4}$/.test(rj.code)) { sess.set('rejoin', null); connect(rj.code, false); } }
 window.__injoo = { get game() { return game; }, get lobby() { return lobby; }, keys, ctl, setChicken(v) { chicken = !!v; } };

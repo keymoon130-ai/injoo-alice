@@ -510,6 +510,23 @@ function genForest(seed) {
   return { seed, N, map: 'forest', labels: [{ t: '감옥', x: 38.5, z: 33.5 }, { t: '성문', x: 40, z: 50.5 }], ground, wall, trees, treeCells, cells, displays, traces, props, spawnA, spawnD, doorCands, castle: { x0: C0, z0: C0, x1: C1 + 1, z1: C1 + 1, cx: 40, cz: 40 }, path };
 }
 
+// 맵 지문: 서버와 화면이 같은 맵 코드를 쓰는지 확인용
+export function worldSig(w) {
+  let h = 2166136261 >>> 0;
+  const mix = v => { h ^= v & 255; h = Math.imul(h, 16777619) >>> 0; };
+  for (let i = 0; i < w.wall.length; i++) mix(w.wall[i] * 31 + w.ground[i]);
+  for (const t of w.traces) { mix((t.x * 100) | 0); mix((t.z * 100) | 0); }
+  for (const c of w.cells) { mix((c.door.x * 10) | 0); mix((c.door.z * 10) | 0); }
+  for (const p of w.portals || []) { mix(p.wx); mix(p.wz); }
+  for (const c of w.cams || []) { mix((c.x * 10) | 0); mix((c.z * 10) | 0); }
+  return h.toString(36);
+}
+let FP = null;
+export function mapFingerprint() {
+  if (!FP) FP = MAPS.map(m => worldSig(genWorld(424242, m))).join('-');
+  return FP;
+}
+
 export function solid(w, x, z) {
   const N = w.N;
   if (x < 0 || z < 0 || x >= N || z >= N) return true;
