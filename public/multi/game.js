@@ -1141,7 +1141,17 @@ function mapMarkers(g, ox, oy, k, big) {
   const c = ctx, tnow = performance.now();
   c.fillStyle = 'rgba(255,90,90,.95)';
   for (const cl of g.world.cells) c.fillRect(ox + cl.x * k - (big ? 3 : 1.5), oy + cl.z * k - (big ? 2 : 1), big ? 6 : 3, big ? 4 : 2);
-  if (g.world.cams) g.world.cams.forEach((cm, i) => { const on = g.cams && g.cams[i], px = ox + cm.x * k, py = oy + cm.z * k, r = big ? 4 : 2; c.save(); c.translate(px, py); c.rotate(cm.yaw); c.fillStyle = on ? '#ff4040' : '#777'; c.beginPath(); c.moveTo(r * 1.6, 0); c.lineTo(-r, -r); c.lineTo(-r, r); c.closePath(); c.fill(); c.restore(); if (big) { c.font = `9px 'VT323', monospace`; c.textAlign = 'center'; c.fillStyle = on ? '#ff9090' : '#999'; c.fillText(String(i + 1), px, py - 6); } });
+  if (g.world.cams) g.world.cams.forEach((cm, i) => {
+    const on = g.cams && g.cams[i], px = ox + cm.x * k, py = oy + cm.z * k, r = big ? 4 : 2;
+    c.save(); c.translate(px, py); c.rotate(cm.yaw); c.fillStyle = on ? '#ff4040' : '#777'; c.beginPath(); c.moveTo(r * 1.6, 0); c.lineTo(-r, -r); c.lineTo(-r, r); c.closePath(); c.fill(); c.restore();
+    // 카메라 번호: 화살표 뒤쪽(벽 쪽)에 작은 상자로
+    const lx = px - Math.cos(cm.yaw) * (big ? 9 : 5), ly = py - Math.sin(cm.yaw) * (big ? 9 : 5), t = String(i + 1);
+    c.font = big ? `bold 10px 'Nanum Gothic Coding', monospace` : `bold 7px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const bw = big ? 10 : 6, bh = big ? 11 : 7;
+    c.fillStyle = 'rgba(0,0,0,.8)'; c.fillRect(lx - bw / 2, ly - bh / 2, bw, bh);
+    c.fillStyle = on ? '#ffb0b0' : '#bbbbbb'; c.fillText(t, lx, ly + .5);
+    c.textBaseline = 'alphabetic';
+  });
   if (g.world.monitors && big) for (const m of g.world.monitors) { c.fillStyle = '#9fe0ff'; c.fillRect(ox + m.x * k - 3, oy + m.z * k - 2, 6, 4); }
   if (g.role === 'alice') {
     c.font = `10px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
@@ -1439,6 +1449,15 @@ function renderFeed(g) {
   for (let k = 0; k < d.length; k += 4) { const v = (d[k] * .3 + d[k + 1] * .55 + d[k + 2] * .15) * 1.35 + (Math.random() - .5) * 26; d[k] = v * .9; d[k + 1] = v; d[k + 2] = v * .92; }
   fc.putImageData(id, 0, 0);
 }
+// 카메라가 어디를 비추는지 (가까운 방 이름 + 방향)
+function camPlace(w, cm) {
+  const fx = cm.x + Math.cos(cm.yaw) * 4, fz = cm.z + Math.sin(cm.yaw) * 4;
+  let best = null, bd = 1e9;
+  for (const L of w.labels || []) { const d = Math.hypot(L.x - fx, L.z - fz); if (d < bd) { bd = d; best = L; } }
+  const side = (cm.z < 26 ? '북' : cm.z > 54 ? '남' : '') + (cm.x < 26 ? '서' : cm.x > 54 ? '동' : '');
+  if (best && bd < 10) return `${best.t} 쪽`;
+  return side ? `${side}쪽 복도` : '가운데 복도';
+}
 function drawCCTV(g) {
   const c = ctx, w = g.world, cams = w.cams || [];
   c.fillStyle = '#050605'; c.fillRect(0, 0, W, H);
@@ -1451,6 +1470,7 @@ function drawCCTV(g) {
     else { for (let n = 0; n < 260; n++) { const v = Math.random() * 160 | 0; c.fillStyle = `rgb(${v},${v},${v})`; c.fillRect(x + Math.random() * pw, y + Math.random() * ph, 3, 2); } c.font = `18px 'VT323', monospace`; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText('NO SIGNAL', x + pw / 2, y + ph / 2 + 5); }
     c.font = `14px 'VT323', monospace`; c.textAlign = 'left'; c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x, y, 56, 14);
     c.fillStyle = '#e8f0e8'; c.fillText(`CAM ${String(i + 1).padStart(2, '0')}`, x + 3, y + 11);
+    { const where = camPlace(w, cams[i]); c.font = `10px 'Nanum Gothic Coding', monospace`; const tw = c.measureText(where).width + 8; c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x, y + ph - 14, tw, 14); c.fillStyle = '#cfe0cf'; c.fillText(where, x + 4, y + ph - 4); }
     if (g.cams && g.cams[i] && Math.floor(now * 2) % 2) { c.fillStyle = '#e02020'; c.beginPath(); c.arc(x + pw - 8, y + 8, 3, 0, 7); c.fill(); }
   }
   c.font = `12px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.fillStyle = '#cfd8cf';
