@@ -25,6 +25,10 @@ export const CFG = {
   GAME_TIME: 780,        // 13분
   INTRO: 10,
   ESCAPE_R: 2.4,
+  BURN_R: 4,             // 하늘의 문 빛기둥이 꿈을 태우는 반경
+  BURN_SLOW: 0.6,        // 그 안에서 꿈의 속도 배율
+  BURN_TIME: 4,          // 이만큼 머물면 튕겨 나간다
+  BURN_STUN: 2,
   MAX_PLAYERS: 8,
   MAX_DREAMS: 7,         // 꿈은 (전체 인원 - 1)명까지
   REVEAL_EVERY: 30,     // 꿈의 지도에 앨리스 위치가 드러나는 주기 (초)
@@ -566,6 +570,7 @@ export function stepPlayer(w, p, inp, dt) {
   let f = +inp.f || 0, s = +inp.s || 0;
   const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
   let sp = p.role === 'dream' ? CFG.DREAM_SPEED * (p.carry ? CFG.CARRY_MUL : 1) : CFG.ALICE_SPEED;
+  if (p.role === 'dream' && p.door && Math.hypot(p.x - p.door.x, p.z - p.door.z) < CFG.BURN_R) sp *= CFG.BURN_SLOW;
   if (p.dt > 0) { p.dt = Math.max(0, p.dt - dt); sp = CFG.DASH_SPEED; if (l < .1) { f = 1; s = 0; } }
   const co = Math.cos(p.yaw), si = Math.sin(p.yaw);
   const vx = (f * co - s * si) * sp, vz = (f * si + s * co) * sp;

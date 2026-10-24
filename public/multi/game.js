@@ -307,6 +307,8 @@ const sfx = {
   boing() { osc('sine', 300, .45, { vol: .3, f2: 900 }); osc('sine', 600, .3, { vol: .12, f2: 200, delay: .12 }); },
   chime() { [1046, 1318, 1568].forEach((f, i) => osc('sine', f, .6, { vol: .1, delay: i * .07 })); },
   pop() { osc('sine', 500, .15, { vol: .3, f2: 1200 }); },
+  burn() { nz(1, { type: 'highpass', f: 2600, vol: .5, a: .01 }); osc('sawtooth', 220, .9, { vol: .15, f2: 60 }); osc('sine', 1200, .6, { vol: .1, f2: 2400 }); },
+  sizzle(v) { nz(.25, { type: 'highpass', f: 4000 + Math.random() * 3000, vol: .05 + v * .12, a: .02 }); },
   warp() { nz(.7, { type: 'bandpass', f: 3000, f2: 400, q: 2, vol: .35, a: .02 }); osc('sine', 1400, .6, { vol: .12, f2: 220 }); osc('triangle', 2100, .4, { vol: .06, f2: 3200, delay: .1 }); }
 };
 function at(x, z, maxD, fn) {
@@ -1087,6 +1089,12 @@ function handleEv(e) {
       sfx.chime();
       say(e.a === myId ? '꿈에서 빠져나왔다.' : `${josa(nameOf(e.a), '이', '가')} 꿈에서 빠져나갔다`, '#ffffff', 5);
       break;
+    case 'burn': {
+      at(e.x, e.z, 30, sfx.burn);
+      if (e.d === myId) { fx.glitch = 1.8; g.burnFlash = 1; say('빛에 타들어 가 튕겨 나갔다… (잠시 움직일 수 없음)', '#ffe0a0', 4); vib([120, 40, 200]); }
+      else if (g.role === 'alice') say('빛기둥이 꿈을 튕겨 냈다!', '#fff6d0', 3);
+      break;
+    }
     case 'cam': {
       const c = w.cams[e.i]; at(c.x, c.z, 30, e.on ? sfx.chime : sfx.clang);
       if (e.on) say(e.by === myId ? `CAM ${String(e.i + 1).padStart(2, '0')} 을(를) 다시 켰다` : `CAM ${String(e.i + 1).padStart(2, '0')} 이(가) 다시 켜졌다`, '#9fe0ff', 3);
@@ -1266,6 +1274,7 @@ function update(dt) {
     const c = readControls();
     const inp = { q: ++g.seq, f: r2(c.f), s: r2(c.s), y: Math.round(g.yaw * 1000) / 1000, a: c.act ? 1 : 0, d: c.dash ? 1 : 0 };
     if (c.dash && g.role === 'dream' && g.pred.st === 0 && g.pred.dc <= 0 && !g.pred.carry && !(g.intro > 0)) sfx.dash();
+    g.pred.door = g.door;
     if (g.pred.st === 0 && !(g.intro > 0) && !g.ended) { stepPlayer(g.world, g.pred, inp, CFG.INPUT_DT); if (g.pred.warp != null) { g.yaw = g.pred.warp; g.pred.warp = null; g.smooth.x = g.smooth.z = 0; sfx.warp(); fx.glitch = 1.2; } }
     g.pending.push(inp); g.outbox.push(inp);
     if (g.pending.length > 90) g.pending.shift();
@@ -1423,7 +1432,7 @@ function drawBrief(c, g, alpha, count) {
   sh(dream ? '당신은  작은 꿈' : '당신은  다섯 번째 앨리스', W / 2, 44, dream ? '#ff7070' : '#f0e8d8', `800 20px 'Nanum Myeongjo', serif`);
   sh('─  목 표  ─', W / 2, 68, '#8d8478', KRS);
   const goals = dream
-    ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '13분을 버티거나 앨리스를 모두 잡으면 승리.']
+    ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '13분 버티거나 모두 잡으면 승리 · 빛기둥 곁엔 오래 못 머문다.']
     : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 하늘에 빛기둥 문이 열립니다 → 그리로 탈출!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
   if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다.' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
   if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
@@ -1498,6 +1507,18 @@ function drawHud(g, tags) {
   c.textBaseline = 'alphabetic';
   const sh = (s, x, y, col, font, al = 'left') => { c.font = font; c.textAlign = al; c.fillStyle = 'rgba(0,0,0,.85)'; c.fillText(s, x + 1, y + 1); c.fillStyle = col; c.fillText(s, x, y); };
   const OSD = `20px 'VT323', monospace`, KR = `12px 'Nanum Gothic Coding', monospace`, KRS = `11px 'Nanum Gothic Coding', monospace`;
+  // 꿈: 빛기둥 곁에서 화면이 하얗게 타들어 간다
+  if (dream && g.door && ms && ms.s === 0) {
+    const d = Math.hypot(g.cam.x - g.door.x, g.cam.z - g.door.z), bt = ms.b || 0;
+    if (d < CFG.BURN_R + 1.5) {
+      const k = clamp(bt / CFG.BURN_TIME, 0, 1), near = clamp(1 - (d - CFG.BURN_R) / 1.5, 0, 1);
+      const rg = c.createRadialGradient(W / 2, H / 2, H * (.55 - k * .45), W / 2, H / 2, H * .85);
+      rg.addColorStop(0, 'rgba(255,250,220,0)'); rg.addColorStop(1, `rgba(255,248,220,${.25 * near + .7 * k})`);
+      c.fillStyle = rg; c.fillRect(0, 0, W, H);
+      if (d < CFG.BURN_R) { if (Math.random() < .2) sfx.sizzle(k); sh(k > .6 ? '빛이 몸을 태운다! 벗어나!' : '빛기둥 곁에선 느려지고 타들어 간다', W / 2, 58, k > .6 ? '#fff0b0' : '#e8dcc0', `12px 'Nanum Gothic Coding', monospace`, 'center'); }
+    }
+  }
+  if (g.burnFlash > 0) { c.fillStyle = `rgba(255,252,235,${g.burnFlash})`; c.fillRect(0, 0, W, H); g.burnFlash = Math.max(0, g.burnFlash - frameDt * 1.5); }
   // 꿈이 가까우면 화면 가장자리가 심장 박동에 맞춰 붉게 조여든다
   if (!chicken && !dream && g.terror > .35 && !g.ended) {
     const k = (g.terror - .35) / .65, beat = .55 + .45 * Math.pow(Math.max(0, Math.sin(now * (4 + k * 6))), 6);

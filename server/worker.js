@@ -357,6 +357,22 @@ export class Room {
       g.door = { x: best.x, z: best.z };
       this.ev('door', g.door);
     }
+    // 빛기둥 곁의 꿈: 느려지고, 오래 머물면 빛에 튕겨 나간다
+    for (const d of ps) {
+      if (d.role !== 'dream') continue;
+      d.door = g.door;
+      if (!g.door || d.st !== 0) { d.burnT = 0; continue; }
+      const dx = d.x - g.door.x, dz = d.z - g.door.z, dist = Math.hypot(dx, dz);
+      if (dist < CFG.BURN_R) {
+        d.burnT = (d.burnT || 0) + dt;
+        if (d.burnT >= CFG.BURN_TIME) {
+          d.burnT = 0; if (d.carry) this.drop(d);
+          const k = (CFG.BURN_R + 1.6) / (dist || 1); d.x = g.door.x + (dist ? dx : 1) * k; d.z = g.door.z + (dist ? dz : 0) * k; collide(w, d);
+          d.sn = CFG.BURN_STUN; d.dt = 0;
+          this.ev('burn', { d: d.id, x: d.x, z: d.z });
+        }
+      } else d.burnT = Math.max(0, (d.burnT || 0) - dt * 1.5);
+    }
     if (g.door) for (const a of ps) {
       if (a.role === 'alice' && a.st === 0 && Math.hypot(a.x - g.door.x, a.z - g.door.z) < CFG.ESCAPE_R) { a.st = 4; this.ev('esc', { a: a.id }); }
     }
@@ -373,7 +389,7 @@ export class Room {
     const g = this.g;
     const p = [...this.players.values()].map(p => ({
       i: p.id, x: r2(p.x), z: r2(p.z), y: r2(p.yaw), s: p.st, m: p.m | 0, dc: r1(p.dc), dt: r2(p.dt), sn: r1(p.sn),
-      c: p.carry ? 1 : 0, pc: r2(p.pc || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell
+      c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell
     }));
     const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p });
     g.ev = [];
