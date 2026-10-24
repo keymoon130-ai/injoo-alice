@@ -24,7 +24,9 @@
   --osd:'VT323', ui-monospace, monospace;
   color-scheme: dark;
 }
-html,body{height:100%}
+html,body{height:100%; touch-action:manipulation}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%}
+input,textarea{-webkit-user-select:text;user-select:text}
 body{
   background:var(--room); color:var(--label-hi); margin:0;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
@@ -87,6 +89,16 @@ body.rot90 #stage{position:fixed; top:0; left:0; width:100vh; width:100dvh; heig
 body.rot90 .set, body.rot90 .deck{width:min(100%, calc((100vw - 58px) * 4 / 3)); width:min(100%, calc((100dvw - 58px) * 4 / 3))}
 body.rot90 .rot{display:none!important}
 </style>
+<script>
+// 연타해도 화면이 확대되지 않게 (iOS 사파리는 user-scalable=no 를 무시한다)
+(function(){
+  var last = 0, opt = { passive: false };
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, opt);
+  document.addEventListener('dblclick', function(e){ e.preventDefault(); }, opt);
+  document.addEventListener('touchmove', function(e){ if (e.touches && e.touches.length > 1) e.preventDefault(); }, opt);
+  document.addEventListener('touchend', function(e){ var t = e.target; if (t && t.closest && t.closest('input,textarea,select')) return; var n = Date.now(); if (n - last < 320) e.preventDefault(); last = n; }, opt);
+})();
+</script>
 </head>
 <body>
 <div id="stage">

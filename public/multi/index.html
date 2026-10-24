@@ -22,7 +22,9 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{height:100%;margin:0}
+html,body{height:100%;margin:0;touch-action:manipulation}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%}
+input,textarea{-webkit-user-select:text;user-select:text}
 body{background:var(--room) radial-gradient(ellipse at 50% 35%,#120e10 0%,var(--room) 70%);color:var(--fg);font-family:var(--mono);font-size:14px;overflow:hidden;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 button,input,select{font:inherit;color:inherit}
 button{background:#141012;border:1px solid var(--line);border-radius:3px;padding:10px 14px;cursor:pointer;letter-spacing:.06em;touch-action:manipulation}
@@ -108,6 +110,16 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
 #endBox{position:absolute;inset:auto 0 8% 0;display:flex;justify-content:center;pointer-events:auto}
 </style>
 <script src="config.js"></script>
+<script>
+// 연타해도 화면이 확대되지 않게 (iOS 사파리는 user-scalable=no 를 무시한다)
+(function(){
+  var last = 0, opt = { passive: false };
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, opt);
+  document.addEventListener('dblclick', function(e){ e.preventDefault(); }, opt);
+  document.addEventListener('touchmove', function(e){ if (e.touches && e.touches.length > 1) e.preventDefault(); }, opt);
+  document.addEventListener('touchend', function(e){ var t = e.target; if (t && t.closest && t.closest('input,textarea,select')) return; var n = Date.now(); if (n - last < 320) e.preventDefault(); last = n; }, opt);
+})();
+</script>
 </head>
 <body>
 
