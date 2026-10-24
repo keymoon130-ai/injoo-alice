@@ -1586,42 +1586,26 @@ function HCh3() {
   const WIN_A = e.addPic([[3, 1], [4, 1]], 'z+', { spr: winSpr(true, 0), yb: .45, yt: 1.2 });
   e.addPic([[9, 1], [10, 1]], 'z+', { spr: winSpr(false, 0), yb: .45, yt: 1.2 });
   // 초상화
-  const pcv = document.createElement('canvas'); pcv.width = 80; pcv.height = 112; const px = pcv.getContext('2d');
-  function portrait(k, t) {
-    const x = px; x.setTransform(2, 0, 0, 2, 0, 0); x.clearRect(0, 0, 40, 56);
-    x.fillStyle = '#6a5418'; x.fillRect(0, 0, 40, 56); x.fillStyle = '#8a7224'; x.fillRect(1, 1, 38, 1); x.fillStyle = '#14120e'; x.fillRect(3, 3, 34, 50);
+  // 초상화 — 2D 3장과 같은 그림. 뒤틀림도 그때처럼: 눈이 움찔거리며 흘러내리고 피눈물이 길어진다
+  const portrait = (k, tw) => canvasSprite(48, 58, x => {
+    x.scale(1, 58 / 66);
+    const j = tw > 0 ? 1 : 0, sh = j ? (Math.random() - .5) * (1 + k * 2) : 0;
+    x.fillStyle = '#4e3f16'; x.fillRect(0, 0, 48, 66); x.fillStyle = '#6a5620'; x.fillRect(1, 1, 46, 1); x.fillStyle = '#1b1712'; x.fillRect(4, 4, 40, 58);
+    x.save(); x.beginPath(); x.rect(4, 4, 40, 58); x.clip(); x.translate(sh, 0);
     if (ch0) {
-      ghostOn(x, 20 + Math.sin(t * 7) * k * 3, 28, 11 + k * 3, { col: '#d8ffe4', boo: k > .4 });
-      for (let i = 0; i < k * 6; i++) { const a = t * 2 + i; E2(x, 20 + Math.cos(a) * 13, 28 + Math.sin(a) * 16, 1.6, 1.4, '#ff8cb0'); }
+      ghostOn(x, 24, 32, 12, { col: '#dff5e6', boo: j && k > .4 });
+      x.fillStyle = '#8cc4ff'; x.fillRect(19, 33, 1.2, 4 + k * 10); x.fillRect(28.5, 33, 1.2, 3 + k * 12);
     } else {
-      x.save(); x.translate(20, 30); x.rotate(Math.sin(t * 3.1) * k * .35); x.translate(-20, -30);
-      E2(x, 20, 52, 14, 9, '#1f4a2a'); E2(x, 20, 49, 9, 4, '#2a5e36'); x.fillStyle = '#cfc5b2'; x.fillRect(18, 37, 4, 6);
-      E2(x, 20, 26, 10, 13 + k * 3, '#0f1a12'); // 머리카락
-      E2(x, 20, 28, 7.5 - k * 1.5, 9.5 + k * 6, k > .3 ? '#bfb39c' : '#d8cfbd');
-      P2(x, [14, 18, 16, 14, 18, 17, 20, 13, 22, 17, 24, 14, 26, 18], '#b08e2a');
-      const ey = 26 + k * 7, er = 1.2 + k * 3.4;
-      E2(x, 17 - k, ey, 1.7 + k * 1.5, er, '#060303'); E2(x, 23 + k, ey + k * 2, 1.7 + k * 1.5, er * (1 + k * .4), '#060303');
-      if (k < .2) { E2(x, 17.4, 25.6, .4, .4, '#e8e4dc'); E2(x, 23.4, 25.6, .4, .4, '#e8e4dc'); }
-      x.fillStyle = '#6a0808'; if (k > .1) { x.fillRect(16.4 - k, ey + er, .9, k * 22); x.fillRect(22.6 + k, ey + er + k * 2, .9, k * 18); }
-      const mh = 1 + k * 10, my = 34 + k * 6;
-      E2(x, 20, my, 2.6 + k * 2, mh, k > .15 ? '#0a0303' : '#a02a2a');
-      if (k > .3) { x.fillStyle = '#d8d0bc'; for (let i = -2; i <= 2; i++) { x.fillRect(20 + i * 1.4 - .4, my - mh + .6, .8, 1.6); x.fillRect(20 + i * 1.4 - .4, my + mh - 2.2, .8, 1.6); } }
-      for (let i = 0; i < k * 12; i++) E2(x, 20 + Math.sin(i * 5.3) * 7, 28 + Math.cos(i * 2.9) * 10, 1.5 + i % 3, 1 + i % 2, 'rgba(34,26,10,.85)');
-      x.restore();
+      E2(x, 24, 52, 18, 18, '#16301f'); E2(x, 24, 30, 12, 15, '#c4bba7');
+      x.fillStyle = '#16301f'; x.fillRect(10, 14, 28, 8); x.fillRect(9, 18, 5, 30); x.fillRect(34, 18, 5, 30);
+      const jt = j ? (Math.random() - .5) * (3 + k * 3) : 0, ey = j ? 1.5 + k * 2.5 : k * 1.2;
+      E2(x, 19 + jt, 29 + ey, 2.6, 3, '#050303'); E2(x, 29 + jt, 29 + ey, 2.6, 3, '#050303');
+      if (j) { E2(x, 19 + jt, 29 + ey, .8, .8, '#e8e0d0'); E2(x, 29 + jt, 29 + ey, .8, .8, '#e8e0d0'); }
+      x.fillStyle = '#6a0b0b'; x.fillRect(18, 31 + ey, 1.5, 10 + k * 18); x.fillRect(28.5, 31 + ey, 1.5, 7 + k * 22);
     }
-    x.setTransform(1, 0, 0, 1, 0, 0);
-    const d = x.getImageData(0, 0, 80, 112).data, n = 80 * 112;
-    const sp = { w: 80, h: 112, r: new Uint8Array(n), g: new Uint8Array(n), b: new Uint8Array(n), a: new Uint8Array(n), e: new Uint8Array(n) };
-    const A = k * 7;
-    for (let yy = 0; yy < 112; yy++) for (let xx = 0; xx < 80; xx++) {
-      let sx = xx, sy = yy;
-      if (A > 0 && xx > 6 && xx < 74 && yy > 6 && yy < 106) { sx = clamp(Math.round(xx + Math.sin(yy * .11 + t * 6) * A), 6, 73); sy = clamp(Math.round(yy + Math.cos(xx * .09 + t * 4.3) * A * .6), 6, 105); }
-      const si = (sy * 80 + sx) * 4, o = yy * 80 + xx;
-      sp.r[o] = d[si]; sp.g[o] = d[si + 1]; sp.b[o] = d[si + 2]; sp.a[o] = 1;
-    }
-    return sp;
-  }
-  const PORT = e.addPic([[7, 1]], 'z+', { spr: portrait(0, 0), yb: .3, yt: 1.15 });
+    x.restore();
+  }, null, 2);
+  const PORT = e.addPic([[7, 1]], 'z+', { spr: portrait(0, 0), yb: .1, yt: 1.3 });
   // 거울
   const mirSpr = (front, fade) => canvasSprite(64, 72, x => {
     E2(x, 32, 36, 30, 35, '#6a5418'); E2(x, 32, 36, 27, 32, '#a08a3a'); E2(x, 32, 36, 25.5, 30.5, '#5a4818');
@@ -1693,7 +1677,7 @@ function HCh3() {
   const cam = { x: 5.0, z: 8.4, yaw: -1.15, bob: 0 };
   const blot = Array.from({ length: 30 }, () => { const edge = Math.random() < .5; return { x: Math.random() * W, y: edge ? Math.random() * 60 : H - 70 + Math.random() * 70, r: 5 + Math.random() * 18, th: Math.random() }; });
   let phase = 'search', time = TT, bob = 0, stepAcc = 0, idle = 0, moved = false, selN = 0, found = 0, scareT = 0, scareDone = false, winLook = 0, buzzT = 0;
-  let leadT = 0, tw = 0, route = null, ri = 0, portT = 0, clkT = 0, dark = 0, lumpH = 1;
+  let leadT = 0, tw = 0, twitT = 0, route = null, ri = 0, portT = 0, clkT = 0, dark = 0, lumpH = 1;
   const inView = (x, z, lim = .55) => { const dx = x - cam.x, dz = z - cam.z, d = Math.hypot(dx, dz); return Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)) < lim && e.los(cam.x, cam.z, x - dx / d * .12, z - dz / d * .12); };
   function bfs(tx, tz) { // 방 안 최단 경로 (칸 중심)
     const prev = new Int16Array(N * N).fill(-1), s0 = (cam.z | 0) * N + (cam.x | 0), goal = (tz | 0) * N + (tx | 0), q = [s0]; prev[s0] = s0;
@@ -1766,7 +1750,7 @@ function HCh3() {
         leadT += dt; api.hint(null);
         if (leadT > .2 && leadT - dt <= .2) setTimeout(() => say('내 몸이 어딘가로 이끈다…', 3.2), 1200);
         if (leadT > 1.6) {
-          if (!route) { route = bfs(7.5, 3.3); ri = 0; }
+          if (!route) { route = bfs(7.5, 3.7); ri = 0; }
           const wp = route[ri];
           if (wp) {
             const dx = wp.x - cam.x, dz = wp.z - cam.z, d = Math.hypot(dx, dz), want = Math.atan2(dz, dx);
@@ -1782,12 +1766,13 @@ function HCh3() {
       } else if (phase === 'twist') {
         tw += dt;
         const k = clamp((tw - .6) / 6.2, 0, 1);
-        portT -= dt; if (portT <= 0) { portT = .06; PORT.spr = portrait(k, now()); }
+        twitT = Math.max(0, twitT - dt); if (twitT <= 0 && Math.random() < dt * (1.2 + k * 7)) { twitT = .12 + Math.random() * (.15 + k * .35); if (!ch0) sfx.whisper(.6, (Math.random() - .5) * .8); fx.glitch = Math.max(fx.glitch || 0, .3 + k * .5); }
+        portT -= dt; if (portT <= 0) { portT = .05; PORT.spr = portrait(k, twitT); }
         PORT.glow = .35 + Math.random() * .1 * k; e.dyn = [{ x: 7.5, z: 2.4, r: 2, i: .5, c: [.75, .85, .8] }];
-        const zk = clamp(tw / 8.2, 0, 1); cam.z = lerp(3.3, 2.42, zk * zk * (3 - 2 * zk)); cam.bob = 0;
+        const zk = clamp(tw / 8.2, 0, 1); cam.z = lerp(3.7, 3.0, zk * zk * (3 - 2 * zk)); cam.bob = 0;
         if (!ch0 && Math.random() < dt * (2 + k * 8)) nz(.2, { type: 'bandpass', f: 300 + Math.random() * 500, q: 3, vol: .06 + k * .1, pan: (Math.random() - .5) * .6 });
         if (Math.random() < dt * (1 + k * 3)) sfx.whisper(1, (Math.random() - .5) * 1.6);
-        fx.wobble = .5 + k * 1.4; fx.noise = .12 + k * .15; if (k > .5) fx.shake = Math.max(fx.shake || 0, (k - .5) * 3);
+        fx.wobble = .5 + k * .8; fx.noise = .12 + k * .1;
         if (tw > 4.6 && tw - dt <= 4.6) say('「 나는 아직… 아름다워? 」', 3);
         if (tw > 8.4 && tw - dt <= 8.4) { bigScare(); dark = 1; }
         if (tw > 10.2) go(Card(T.e3, () => api.startChapter(4), { drone: .03 }));
