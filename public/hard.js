@@ -736,7 +736,7 @@ function HCh2() {
     const d = Math.hypot(tx - m.x, tz - m.z) || 1, mv = Math.min(d, sp);
     m.x += (tx - m.x) / d * mv; m.z += (tz - m.z) / d * mv; m.moved += mv;
   }
-  const inView = m => { const dx = m.x - cam.x, dz = m.z - cam.z, d = Math.hypot(dx, dz); if (d > 13) return false; const rel = Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)); return rel < .66 && e.los(cam.x, cam.z, m.x, m.z); };
+  const inView = m => { const dx = m.x - cam.x, dz = m.z - cam.z, d = Math.hypot(dx, dz); if (d > 31) return false; const rel = Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)); return rel < .66 && e.los(cam.x, cam.z, m.x, m.z); };
   const NOTES = [392, 466.16, 523.25, 622.25, 698.46], LENS = [5, 6, 7];
   const seq = []; for (let i = 0; i < 7; i++) { let n; do { n = Math.random() * 5 | 0; } while (i > 0 && n === seq[i - 1]); seq.push(n); }
   const KW = 60, KG = 10, KX = (W - (5 * KW + 4 * KG)) / 2, KY = TOUCH ? 206 : 222, KH = TOUCH ? 52 : 34;
