@@ -2,7 +2,7 @@
 // 방 하나 = Durable Object 하나. 그 방의 모든 플레이어가 같은 객체에 연결되므로
 // 위치·잡힘·감옥·흔적·문을 전부 서버 한 곳에서 판정한다 (권위 서버).
 
-import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint, skinValid, dskinValid } from '../public/multi/shared.js';
+import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint, skinValid, dskinValid, solid, PROTO } from '../public/multi/shared.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
@@ -43,7 +43,7 @@ export class Room {
     this.inited = false; this.code = '';
     this.players = new Map(); this.order = [];
     this.host = null;
-    this.settings = { dreams: 1, max: 8, map: 'random', skins: false };
+    this.settings = { dreams: 1, max: 8, map: 'random', skins: false, fate: false };
     this.phase = 'lobby';
     this.g = null; this.loop = null; this.backTimer = null;
   }
@@ -79,7 +79,7 @@ export class Room {
     ws.addEventListener('message', e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } try { this.onMsg(p, m); } catch (ex) { console.log('msg error', ex && ex.stack); } });
     ws.addEventListener('close', () => this.onClose(p, ws));
     ws.addEventListener('error', () => this.onClose(p, ws));
-    this.send(p, { type: 'hello', id, code: this.code, fp: mapFingerprint() });
+    this.send(p, { type: 'hello', id, code: this.code, fp: mapFingerprint(), pv: PROTO });
     if (this.phase === 'game' && p.role) this.send(p, this.startMsg(p));
     this.pushLobby();
     return done();
@@ -147,6 +147,7 @@ export class Room {
         this.settings.dreams = clamp(m.dreams | 0 || this.settings.dreams, 1, Math.min(CFG.MAX_DREAMS, this.settings.max - 1));
         if (m.map === 'random' || MAPS.includes(m.map)) this.settings.map = m.map;
         if (typeof m.skins === 'boolean') this.settings.skins = m.skins;
+        if (typeof m.fate === 'boolean') this.settings.fate = m.fate;
         this.pushLobby();
         break;
       case 'start':
@@ -179,7 +180,7 @@ export class Room {
   startMsg(p) {
     const g = this.g;
     return {
-      type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time,
+      type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time, fate: g.fate ? 1 : 0,
       players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: this.settings.skins ? (x.role === 'dream' ? x.dskin : x.skin) || null : null })),
       me: { x: p.x, z: p.z, yaw: p.yaw, seq: p.seq }
     };
@@ -202,14 +203,17 @@ export class Room {
       Object.assign(p, {
         x: s.x, z: s.z, yaw: p.role === 'dream' ? Math.PI / 2 : Math.atan2(40 - s.z, 40 - s.x),
         st: 0, dc: 0, dt: 0, sn: 0, pc: 0, warp: null, sgQ: 0, m: 0, carry: null, carrier: null, q: [], seq: 0,
-        aPrev: 0, aHeld: 0, im: 0, sg: 0, cell: -1, jt: 0, hist: []
+        aPrev: 0, aHeld: 0, im: 0, sg: 0, cell: -1, jt: 0, hist: [],
+        dPrev: 0, chm: 0, fim: 0, tw: 0, dcd: this.settings.fate ? 5 : CFG.DASH_CD, fates: [], escT: 0,
+        pts: { col: 0, assist: 0, res: 0, bear: 0, stun: 0, esc: 0, caught: 0 }
       });
     }
     this.g = {
       seed, map, w, sig: worldSig(w), time: CFG.GAME_TIME, intro: CFG.INTRO, t: 0,
       tp: TRACE_INFO.map(() => 0), tr: TRACE_INFO.map(() => 0), tby: TRACE_INFO.map(() => null),
       rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0,
-      cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null
+      cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null,
+      fate: !!this.settings.fate, twins: null, doorT: 0, nextRv: 0, twfT: 0
     };
     this.phase = 'game';
     for (const p of this.players.values()) this.send(p, this.startMsg(p));
@@ -219,6 +223,100 @@ export class Room {
   }
 
   ev(k, o) { this.g.ev.push({ k, ...o }); }
+
+  /* ---------- 운명계승 ---------- */
+  hasFate(p, k) { return p.fates && p.fates.some(f => f.k === k); }
+  loseFate(p, k, quiet) {
+    const i = p.fates.findIndex(f => f.k === k); if (i < 0) return;
+    const f = p.fates[i]; p.fates.splice(i, 1);
+    if (k === 'T') { p.tw = 0; const q = this.players.get(f.pt); if (q && this.hasFate(q, 'T')) { q.fates = q.fates.filter(x => x.k !== 'T'); q.tw = 0; } this.g.twins = null; }
+    if (!quiet) this.ev('flose', { a: p.id, k });
+  }
+  addFate(p, f) {
+    const g = this.g;
+    if (f.k === 'S' && this.hasFate(p, 'C')) this.loseFate(p, 'C');
+    if (f.k === 'C' && this.hasFate(p, 'S')) this.loseFate(p, 'S');
+    while (p.fates.length >= 2) this.loseFate(p, p.fates[0].k);
+    p.fates.push({ t: g.t, ...f });
+    this.ev('fate', { a: p.id, k: f.k });
+  }
+  grantFate(p, i) {
+    const g = this.g;
+    if (i === 0) this.addFate(p, { k: 'S' });
+    else if (i === 1) this.addFate(p, { k: 'M' });
+    else if (i === 2) this.addFate(p, { k: 'C', u: 2 });
+    else {
+      const a = this.players.get(g.tby[3]), b = this.players.get(g.tby[4]);
+      if (!a || !b || a === b || !g.tr[3] || !g.tr[4]) return;
+      const ok = x => x.role === 'alice' && x.on && (x.st === 0 || x.st === 1);
+      if (!ok(a) || !ok(b)) return;
+      this.addFate(a, { k: 'T', pt: b.id }); this.addFate(b, { k: 'T', pt: a.id });
+      g.twins = [a.id, b.id];
+    }
+  }
+  useFate(a) {
+    const g = this.g, w = g.w;
+    if (!g.fate || a.st !== 0 || g.intro > 0) return;
+    const dreams = [...this.players.values()].filter(d => d.role === 'dream' && d.st === 0 && d.sn <= 0 && d.fim <= 0);
+    const sees = d => { const dx = d.x - a.x, dz = d.z - a.z, n = Math.ceil(Math.hypot(dx, dz) * 4); for (let k = 1; k < n; k++) if (solid(w, a.x + dx * k / n, a.z + dz * k / n)) return false; return true; };
+    const near = r => { let best = null, bd = r; for (const d of dreams) { const dd = Math.hypot(d.x - a.x, d.z - a.z); if (dd <= bd && sees(d)) { bd = dd; best = d; } } return best; };
+    if (this.hasFate(a, 'S')) {
+      const d = near(2.2); if (!d) return;
+      d.sn = 3; d.dt = 0; d.fim = 3 + 5; if (d.carry) this.drop(d);
+      this.loseFate(a, 'S', true); a.pts.stun += 2;
+      this.ev('fu', { k: 'S', a: a.id, d: d.id, x: r2(a.x), z: r2(a.z) });
+    } else if (this.hasFate(a, 'C')) {
+      const d = near(6); if (!d) return;
+      d.chm = 3; d.fim = 3 + 5;
+      const f = a.fates.find(x => x.k === 'C'); f.u--;
+      this.ev('fu', { k: 'C', a: a.id, d: d.id, x: r2(a.x), z: r2(a.z), u: f.u });
+      if (f.u <= 0) this.loseFate(a, 'C', true);
+    }
+  }
+  fateTick(ps, dt) {
+    const g = this.g;
+    for (const d of ps) if (d.role === 'dream' && d.fim > 0) d.fim = Math.max(0, d.fim - dt);
+    for (const a of ps) {
+      if (a.role !== 'alice' || !a.fates.length) continue;
+      if (a.st === 2) { // 감옥에 갇히면 운명은 사라진다 — 쌍둥이 짝은 10초간 드러난다
+        const tf = a.fates.find(f => f.k === 'T');
+        if (tf) { const q = this.players.get(tf.pt); if (q && q.st === 0) this.ev('rv1', { a: q.id, dur: 10 }); }
+        for (const f of a.fates.slice()) this.loseFate(a, f.k, true);
+        this.ev('fclear', { a: a.id }); continue;
+      }
+      if (a.st === 3 || a.st === 4 || !a.on) { for (const f of a.fates.slice()) this.loseFate(a, f.k, true); continue; }
+      for (const f of a.fates.slice()) if ((f.k === 'S' || f.k === 'M' || f.k === 'T') && g.t - f.t > 90) this.loseFate(a, f.k);
+      if (a.st === 0 && a.fates.length) a.pts.bear += dt;
+    }
+    // 쌍둥이
+    if (g.twins) {
+      const [a, b] = g.twins.map(id => this.players.get(id));
+      if (a && b && a.st === 0 && b.st === 0) {
+        const dd = Math.hypot(a.x - b.x, a.z - b.z);
+        a.tw = b.tw = dd < 6 ? 1 : 0;
+        if (dd > 15) { g.twfT -= dt; if (g.twfT <= 0) { g.twfT = 5; this.ev('rv', { pts: [[r2(a.x), r2(a.z)], [r2(b.x), r2(b.z)]], dur: 3, tw: 1 }); } }
+        else g.twfT = 0;
+      } else if (a && b) { a.tw = b.tw = 0; }
+    }
+    // 흔적이 다 모이면: 문이 열리고 10초 뒤부터 6초마다 앨리스 위치가 꿈에게
+    if (g.door) {
+      if (!g.doorT) g.doorT = g.t;
+      if (g.t - g.doorT >= 10 && g.t >= g.nextRv) {
+        g.nextRv = g.t + 6;
+        const pts = ps.filter(a => a.role === 'alice' && (a.st === 0 || a.st === 1)).map(a => [r2(a.x), r2(a.z)]);
+        if (pts.length) this.ev('rv', { pts, dur: 6 });
+      }
+    }
+  }
+  scores(alices, win) {
+    const fate = this.g.fate;
+    const list = alices.map(p => {
+      const s = p.pts || { col: 0, assist: 0, res: 0, bear: 0, stun: 0, esc: 0, caught: 0 }, bear = fate ? Math.floor(s.bear / 10) : 0;
+      const t = Math.max(0, s.col + s.assist + s.res + bear + s.stun + s.esc - s.caught);
+      return { n: p.name, id: p.id, t, d: { col: s.col, assist: s.assist, res: s.res, bear, stun: s.stun, esc: s.esc, caught: s.caught }, e: p.st === 4 ? p.escT : 1e9, c: s.caught };
+    }).sort((x, y) => y.t - x.t || x.e - y.e || x.c - y.c);
+    return { scores: list.map(({ e, c, ...r }) => r), mvp: win === 'alice' && list.length ? list[0].id : null, fate: fate ? 1 : 0 };
+  }
 
   drop(d) {
     const a = this.players.get(d.carry); d.carry = null;
@@ -259,7 +357,7 @@ export class Room {
     }
     if (best) {
       for (const o of this.players.values()) if (o.carrier === d.id) o.carrier = null;
-      best.st = 1; best.carrier = d.id; best.sg = 0; d.carry = best.id;
+      best.st = 1; best.carrier = d.id; best.sg = 0; d.carry = best.id; best.pts.caught++;
       this.ev('catch', { a: best.id, d: d.id });
     } else {
       // 방송국: 가까운 CCTV 끄기
@@ -287,6 +385,7 @@ export class Room {
           stepPlayer(w, p, { f: clamp(+inp.f || 0, -1, 1), s: clamp(+inp.s || 0, -1, 1), y: +inp.y || 0, d: inp.d ? 1 : 0 }, CFG.INPUT_DT);
           if (p.warp != null) { this.ev('warp', { a: p.id, x: bx, z: bz, fx: p.x, fz: p.z, ey: p.warp }); p.warp = null; }
           if (press && p.role === 'dream') this.dreamAct(p);
+          const dp = inp.d ? 1 : 0; if (dp && !p.dPrev && p.role === 'alice') this.useFate(p); p.dPrev = dp;
         } else if (p.st === 1 && press && inp.q - (p.sgQ || 0) >= CFG.STRUGGLE_GAP) { p.sg += CFG.STRUGGLE_ADD; p.sgQ = inp.q; }
       }
       if (!p.on) { p.aHeld = 0; p.m = 0; }
@@ -328,8 +427,11 @@ export class Room {
     }
     w.cells.forEach((c, i) => {
       if (cellT[i]) {
-        g.rp[i] += dt;
+        const rs = this.players.get(cellT[i]), mus = g.fate && rs && this.hasFate(rs, 'M');
+        g.rp[i] += dt * (mus ? 2 : 1);
         if (g.rp[i] >= CFG.RESCUE_TIME) {
+          if (rs) rs.pts.res += 3;
+          if (mus) { this.loseFate(rs, 'M'); this.ev('fu', { k: 'M', a: rs.id, x: r2(rs.x), z: r2(rs.z) }); }
           g.rp[i] = 0; const ids = [];
           for (const o of ps) if (o.st === 2 && o.cell === i) {
             Object.assign(o, { st: 0, cell: -1, jt: 0, im: CFG.IMMUNE, x: c.door.x + (Math.random() - .5) * 1.2, z: c.door.z + .4 + Math.random() * .5 });
@@ -344,7 +446,12 @@ export class Room {
       if (trT[i]) {
         g.tp[i] += dt;
         if (t.kind === 'musicbox') { g.mbT -= dt; if (g.mbT <= 0) { g.mbT = .42; this.ev('mb', { i }); } }
-        if (g.tp[i] >= t.dur) { g.tr[i] = 1; g.tp[i] = t.dur; g.tby[i] = trT[i]; this.ev('trace', { i, by: trT[i] }); }
+        if (g.tp[i] >= t.dur) {
+          g.tr[i] = 1; g.tp[i] = t.dur; g.tby[i] = trT[i]; this.ev('trace', { i, by: trT[i] });
+          const col = this.players.get(trT[i]); if (col) col.pts.col += 3;
+          for (const o of ps) if (o !== col && o.role === 'alice' && o.st === 0 && o.aHeld && Math.hypot(o.x - t.x, o.z - t.z) < CFG.CHANNEL_RANGE) o.pts.assist += 1;
+          if (g.fate && col) this.grantFate(col, i);
+        }
       } else g.tp[i] = Math.max(0, g.tp[i] - dt * .5);
     });
 
@@ -393,9 +500,10 @@ export class Room {
       } else d.burnT = Math.max(0, (d.burnT || 0) - dt * 1.5);
     }
     if (g.door) for (const a of ps) {
-      if (a.role === 'alice' && a.st === 0 && Math.hypot(a.x - g.door.x, a.z - g.door.z) < CFG.ESCAPE_R) { a.st = 4; this.ev('esc', { a: a.id }); }
+      if (a.role === 'alice' && a.st === 0 && Math.hypot(a.x - g.door.x, a.z - g.door.z) < CFG.ESCAPE_R) { a.st = 4; a.pts.esc += 2; a.escT = g.t; this.ev('esc', { a: a.id }); }
     }
 
+    if (g.fate) this.fateTick(ps, dt);
     for (const p of ps) { p.hist.push([g.t, p.x, p.z]); if (p.hist.length > 24) p.hist.shift(); }
     this.snap();
 
@@ -408,9 +516,10 @@ export class Room {
     const g = this.g;
     const p = [...this.players.values()].map(p => ({
       i: p.id, x: r2(p.x), z: r2(p.z), y: r2(p.yaw), s: p.st, m: p.m | 0, dc: r1(p.dc), dt: r2(p.dt), sn: r1(p.sn),
-      c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell
+      c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell,
+      ...(g.fate ? { f: p.fates.map(f => f.k + (f.k === 'C' ? f.u : '')).join(''), ch: r1(p.chm || 0), w: p.tw ? 1 : 0, fi: p.fim > 0 ? 1 : 0 } : {})
     }));
-    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p });
+    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}) });
     g.ev = [];
     for (const pl of this.players.values()) if (pl.ws) try { pl.ws.send('{"ack":' + (pl.seq | 0) + ',' + body.slice(1)); } catch (e) {}
   }
@@ -424,7 +533,8 @@ export class Room {
       type: 'end', win, reason: win === 'alice' ? 'escape' : (g.time <= 0 ? 'time' : 'caught'),
       esc: esc.map(p => p.name), rot: alices.filter(p => p.st === 3).map(p => p.name),
       jail: alices.filter(p => p.st === 1 || p.st === 2 || (p.st === 0 && win === 'dream')).map(p => p.name),
-      dreams: ps.filter(p => p.role === 'dream').map(p => p.name), traces: g.tr.reduce((a, b) => a + b, 0)
+      dreams: ps.filter(p => p.role === 'dream').map(p => p.name), traces: g.tr.reduce((a, b) => a + b, 0),
+      ...this.scores(alices, win)
     });
     this.phase = 'end';
     this.pushLobby();

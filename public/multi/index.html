@@ -76,6 +76,13 @@ input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;p
 .chatlog .r-dream b{color:#e08a8a}
 .chatform{display:flex;gap:8px}
 .skin{grid-column:1/-1}
+#fateInfo{font-size:12px;color:var(--dim);border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:#0a0809}
+#fateInfo summary{cursor:pointer;color:#cfc6b6}
+#fateList{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+#fateList .fate{display:flex;flex-direction:column;gap:2px}
+#fateList i{color:#8d8478;font-style:normal}
+#fateList span{color:#cfc6b6}
+#fateList .curse{color:#d08a8a}
 .skin h3 span{color:#cfc6b6;letter-spacing:.05em;margin-left:6px}
 .skinBody{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
 #skinCv{width:168px;height:322px;image-rendering:pixelated;border:1px solid var(--line);touch-action:none;cursor:crosshair;flex:none}
@@ -167,7 +174,13 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <span>시점 감도</span><select id="selSens" aria-label="시점 감도 (이 기기)"></select>
         <span>테이프 잡음</span><select id="selHiss" aria-label="지지직 잡음 (이 기기)"><option value="1">켜기 (지지직)</option><option value="0">끄기</option></select>
         <span>꾸미기</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label>
+        <span>추가 모드</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkFate"> 운명계승 (방장)</label>
       </div>
+      <details id="fateInfo" hidden><summary>운명계승이란? (추가 모드 켜짐)</summary>
+        <p class="hint" style="text-align:left">흔적을 모은 앨리스는 그 흔적의 원래 주인 — 이전 앨리스들의 운명을 이어받는다. 힘(축복)과 함께 저주(대가)도. 앨리스는 <b>F</b> / 모바일 「운명」 버튼으로 쓴다.</p>
+        <div id="fateList"></div>
+        <p class="hint" style="text-align:left">· 운명은 한 사람이 2개까지 (검과 왕관은 함께 가질 수 없다) · 감옥에 갇히면 사라진다 · 검·오르골·초대장은 90초가 지나면 사라진다<br>· 꿈: 앨리스가 운명을 쓰면 3초간 위치가 드러난다 · 한 번 당하면 5초간 면역 · 대시 5초마다<br>· 흔적이 다 모여 문이 열리면 10초 뒤부터 6초마다 앨리스 위치가 꿈에게 드러난다</p>
+      </details>
       <div class="row">
         <button type="button" id="btnWant">꿈 하고 싶어요</button>
         <button type="button" id="btnReady">준비</button>

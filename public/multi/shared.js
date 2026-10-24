@@ -1,6 +1,9 @@
 // 人柱愛麗絲 : 망가진 꿈 — 서버와 클라이언트가 함께 쓰는 규칙
 // 같은 시드(seed)로 같은 맵을 만들고, 같은 이동 함수로 움직여서 기기 간 차이를 없앤다.
 
+// 서버·클라이언트 규칙 버전: 바뀌면 옛 화면은 자동으로 새로고침된다
+export const PROTO = 2;
+
 export const CFG = {
   N: 80,                 // 맵 한 변 (칸)
   INPUT_DT: 1 / 30,      // 입력 한 번이 차지하는 시간
@@ -636,13 +639,16 @@ export function stepPlayer(w, p, inp, dt) {
   if (p.role === 'dream') {
     if (p.dc > 0) p.dc = Math.max(0, p.dc - dt);
     if (p.sn > 0) { p.sn = Math.max(0, p.sn - dt); p.m = 0; return; }
-    if (inp.d && p.dc <= 0 && !p.carry) { p.dt = CFG.DASH_TIME; p.dc = CFG.DASH_CD; }
+    if (inp.d && p.dc <= 0 && !p.carry) { p.dt = CFG.DASH_TIME; p.dc = p.dcd || CFG.DASH_CD; }
   }
   let f = +inp.f || 0, s = +inp.s || 0;
   const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
   let sp = p.role === 'dream' ? CFG.DREAM_SPEED * (p.carry ? CFG.CARRY_MUL : 1) : CFG.ALICE_SPEED;
   if (p.role === 'dream' && p.door && Math.hypot(p.x - p.door.x, p.z - p.door.z) < CFG.BURN_R) sp *= CFG.BURN_SLOW;
+  const charmed = p.role === 'dream' && p.chm > 0; if (charmed) p.chm = Math.max(0, p.chm - dt); // 초록 여왕에게 홀림
+  if (p.role === 'alice' && p.tw) sp *= 1.08; // 쌍둥이
   if (p.dt > 0) { p.dt = Math.max(0, p.dt - dt); sp = CFG.DASH_SPEED; if (l < .1) { f = 1; s = 0; } }
+  if (charmed) sp *= .5;
   const co = Math.cos(p.yaw), si = Math.sin(p.yaw);
   const vx = (f * co - s * si) * sp, vz = (f * si + s * co) * sp;
   p.m = (Math.abs(vx) + Math.abs(vz)) > .1 ? 1 : 0;
