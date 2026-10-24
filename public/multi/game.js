@@ -13,6 +13,7 @@ const makeId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().to
 let myId = sess.get('id', null); if (!myId) { myId = makeId(); sess.set('id', myId); }
 let device = store.get('device', null);
 let chicken = store.get('chicken', false);
+let hiss = store.get('hiss', true); // 테이프 잡음 (지지직)
 let myName = store.get('name', '');
 let bright = (() => { try { const v = JSON.parse(localStorage.getItem('injoo_bright')); return v == null ? 2 : v; } catch (e) { return 2; } })();
 const BRIGHT = [[.72, -4], [.86, -2], [1, 0], [1.2, 7], [1.45, 16]];
@@ -145,6 +146,7 @@ $('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.se
 { const ss = $('selSens'); for (let i = 1; i <= 9; i++) { const o = document.createElement('option'); o.value = i; o.textContent = `${i}${i === 5 ? ' (기본)' : ''}`; ss.append(o); } ss.value = sens; ss.addEventListener('change', e => setSens(+e.target.value)); }
 $('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins }));
 $('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked }));
+{ const sh = $('selHiss'); sh.value = hiss ? '1' : '0'; sh.addEventListener('change', e => { hiss = e.target.value === '1'; store.set('hiss', hiss); if (A.hiss && A.ctx) A.hiss.gain.setTargetAtTime(hiss ? .014 : 0, A.ctx.currentTime, .05); }); }
 $('lbChatForm').addEventListener('submit', e => { e.preventDefault(); const v = $('lbChatIn').value.trim(); if (v) send({ type: 'chat', text: v }); $('lbChatIn').value = ''; });
 
 function renderLobby() {
@@ -215,7 +217,7 @@ function initAudio() {
   A.noise = b;
   const hs = C.createBufferSource(); hs.buffer = b; hs.loop = true;
   const hp = C.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3500;
-  const hg = C.createGain(); hg.gain.value = .014; hs.connect(hp); hp.connect(hg); hg.connect(A.master); hs.start();
+  const hg = C.createGain(); hg.gain.value = hiss ? .014 : 0; A.hiss = hg; hs.connect(hp); hp.connect(hg); hg.connect(A.master); hs.start();
   const dg = C.createGain(); dg.gain.value = 0;
   const lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.Q.value = 5;
   const base = [55, 55.7, 41.2];
@@ -1221,10 +1223,10 @@ function buildMap(w) {
   // 한 칸 = 4픽셀로 그려서, 작게 줄여도 얇은 벽이 사라지지 않게
   const MS = 4, c = document.createElement('canvas'); c.width = w.N * MS; c.height = w.N * MS;
   const x = c.getContext('2d'), id = x.createImageData(w.N * MS, w.N * MS), NW = w.N * MS;
-  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [88, 74, 38], [40, 38, 50], [40, 80, 56], [80, 88, 96], [44, 44, 52]];
+  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [88, 74, 38], [40, 38, 50], [24, 46, 34], [80, 88, 96], [44, 44, 52]];
   for (let i = 0; i < w.N * w.N; i++) {
     let col = cols[w.ground[i]];
-    if (w.wall[i]) col = w.wall[i] === WL.BARS ? [160, 160, 160] : w.wall[i] === WL.CURTAIN ? [70, 70, 160] : w.wall[i] === WL.YPAPER ? [230, 214, 140] : w.wall[i] === WL.VELVET ? [160, 40, 60] : w.wall[i] === WL.MIRROR ? [170, 235, 205] : w.wall[i] === WL.PORTAL ? PORTAL_COLS[(w.portals[w.portalAt[i]] || { pair: 0 }).pair % 4] : w.wall[i] === WL.MARBLE ? [90, 150, 110] : w.wall[i] === WL.TVWALL ? [120, 200, 150] : w.wall[i] === WL.SHELF ? [130, 100, 70] : w.wall[i] === WL.ACOUSTIC ? [110, 110, 120] : [190, 190, 180];
+    if (w.wall[i]) col = w.wall[i] === WL.BARS ? [160, 160, 160] : w.wall[i] === WL.CURTAIN ? [70, 70, 160] : w.wall[i] === WL.YPAPER ? [230, 214, 140] : w.wall[i] === WL.VELVET ? [160, 40, 60] : w.wall[i] === WL.MIRROR ? [150, 225, 255] : w.wall[i] === WL.PORTAL ? PORTAL_COLS[(w.portals[w.portalAt[i]] || { pair: 0 }).pair % 4] : w.wall[i] === WL.MARBLE ? [228, 240, 232] : w.wall[i] === WL.TVWALL ? [120, 200, 150] : w.wall[i] === WL.SHELF ? [130, 100, 70] : w.wall[i] === WL.ACOUSTIC ? [110, 110, 120] : [190, 190, 180];
     if (w.wall[i] === WL.YPAPER) col = [255, 240, 170];
     const cx0 = (i % w.N) * MS, cz0 = ((i / w.N) | 0) * MS;
     for (let dz = 0; dz < MS; dz++) for (let dx = 0; dx < MS; dx++) { const o = ((cz0 + dz) * NW + cx0 + dx) * 4; id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = 255; }
