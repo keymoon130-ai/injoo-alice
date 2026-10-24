@@ -189,7 +189,8 @@ export class Room {
     this.g = {
       seed, map, w, time: CFG.GAME_TIME, intro: CFG.INTRO, t: 0,
       tp: TRACE_INFO.map(() => 0), tr: TRACE_INFO.map(() => 0), tby: TRACE_INFO.map(() => null),
-      rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0
+      rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0,
+      cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null
     };
     this.phase = 'game';
     for (const p of this.players.values()) this.send(p, this.startMsg(p));
@@ -241,7 +242,11 @@ export class Room {
       for (const o of this.players.values()) if (o.carrier === d.id) o.carrier = null;
       best.st = 1; best.carrier = d.id; best.sg = 0; d.carry = best.id;
       this.ev('catch', { a: best.id, d: d.id });
-    } else this.ev('swing', { d: d.id });
+    } else {
+      // 방송국: 가까운 CCTV 끄기
+      if (g.cams) { let ci = -1, cd = 1.8; w.cams.forEach((c, i) => { const dd = Math.hypot(d.x - c.x, d.z - c.z); if (g.cams[i] && dd < cd) { cd = dd; ci = i; } }); if (ci >= 0) { g.cams[ci] = 0; g.cp[ci] = 0; this.ev('cam', { i: ci, on: 0, by: d.id }); return; } }
+      this.ev('swing', { d: d.id });
+    }
   }
 
   tick() {
@@ -287,7 +292,7 @@ export class Room {
     for (const p of ps) if (p.im > 0) p.im = Math.max(0, p.im - dt);
 
     // 구출·흔적 줍기 (꾹 누르기)
-    const cellT = w.cells.map(() => null), trT = w.traces.map(() => null);
+    const cellT = w.cells.map(() => null), trT = w.traces.map(() => null), camT = g.cams ? g.cams.map(() => null) : null;
     for (const a of ps) {
       if (a.role !== 'alice' || a.st !== 0 || !a.aHeld) continue;
       let used = false;
@@ -300,6 +305,7 @@ export class Room {
         if (used || g.tr[i]) return;
         if (Math.hypot(a.x - t.x, a.z - t.z) < CFG.CHANNEL_RANGE) { trT[i] = a.id; used = true; }
       });
+      if (!used && camT) w.cams.forEach((c, i) => { if (used || g.cams[i]) return; if (Math.hypot(a.x - c.x, a.z - c.z) < 1.8) { camT[i] = a.id; used = true; } });
     }
     w.cells.forEach((c, i) => {
       if (cellT[i]) {
@@ -321,6 +327,12 @@ export class Room {
         if (t.kind === 'musicbox') { g.mbT -= dt; if (g.mbT <= 0) { g.mbT = .42; this.ev('mb', { i }); } }
         if (g.tp[i] >= t.dur) { g.tr[i] = 1; g.tp[i] = t.dur; g.tby[i] = trT[i]; this.ev('trace', { i, by: trT[i] }); }
       } else g.tp[i] = Math.max(0, g.tp[i] - dt * .5);
+    });
+
+    if (camT) g.cams.forEach((on, i) => {
+      if (on) return;
+      if (camT[i]) { g.cp[i] += dt; if (g.cp[i] >= 2.5) { g.cams[i] = 1; g.cp[i] = 0; this.ev('cam', { i, on: 1, by: camT[i] }); } }
+      else g.cp[i] = Math.max(0, g.cp[i] - dt);
     });
 
     // 감옥에서 썩어가는 앨리스
@@ -363,7 +375,7 @@ export class Room {
       i: p.id, x: r2(p.x), z: r2(p.z), y: r2(p.yaw), s: p.st, m: p.m | 0, dc: r1(p.dc), dt: r2(p.dt), sn: r1(p.sn),
       c: p.carry ? 1 : 0, pc: r2(p.pc || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell
     }));
-    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, ev: g.ev, p });
+    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p });
     g.ev = [];
     for (const pl of this.players.values()) if (pl.ws) try { pl.ws.send('{"ack":' + (pl.seq | 0) + ',' + body.slice(1)); } catch (e) {}
   }

@@ -31,11 +31,11 @@ export const CFG = {
   REVEAL_SHOW: 6        // 드러난 위치가 지도에 남아 있는 시간 (초)
 };
 
-export const GR = { FOREST: 0, RED: 1, STONE: 2, BOARD: 3, GRASS: 4, RUG: 5, CARPET: 6, YCARPET: 7, DARK: 8, MARBLE: 9 };
-export const WL = { NONE: 0, WALL: 1, TOWER: 2, CELL: 3, BARS: 4, CURTAIN: 5, VELVET: 6, YPAPER: 7, PILLAR: 8, MARBLE: 9, MIRROR: 10, PORTAL: 11 };
-export const WALL_H = [0, 1.7, 2.6, 1.4, 0, 2.2, 2.4, 1.6, 1.6, 2.1, 2.1, 2.1];
-export const MAPS = ['forest', 'theater', 'tea', 'mirror'];
-export const MAP_NAMES = { random: '랜덤', forest: '숲', theater: '푸른 앨리스의 극장', tea: '노란 앨리스의 다과회 실', mirror: '초록 여왕의 거울 미궁' };
+export const GR = { FOREST: 0, RED: 1, STONE: 2, BOARD: 3, GRASS: 4, RUG: 5, CARPET: 6, YCARPET: 7, DARK: 8, MARBLE: 9, LINO: 10, STUDIO: 11 };
+export const WL = { NONE: 0, WALL: 1, TOWER: 2, CELL: 3, BARS: 4, CURTAIN: 5, VELVET: 6, YPAPER: 7, PILLAR: 8, MARBLE: 9, MIRROR: 10, PORTAL: 11, OFFICE: 12, ACOUSTIC: 13, TVWALL: 14, SHELF: 15 };
+export const WALL_H = [0, 1.7, 2.6, 1.4, 0, 2.2, 2.4, 1.6, 1.6, 2.1, 2.1, 2.1, 1.5, 1.8, 1.5, 1.3];
+export const MAPS = ['forest', 'theater', 'tea', 'mirror', 'studio'];
+export const MAP_NAMES = { random: '랜덤', forest: '숲', theater: '푸른 앨리스의 극장', tea: '노란 앨리스의 다과회 실', mirror: '초록 여왕의 거울 미궁', studio: '감시 테이프 방송국' };
 export const PORTAL_COLS = [[120, 255, 170], [150, 190, 255], [255, 210, 120], [235, 140, 255]];
 
 export const TRACE_INFO = [
@@ -70,6 +70,7 @@ export function genWorld(seed, map) {
   if (map === 'theater') return genTheater(seed);
   if (map === 'tea') return genTea(seed);
   if (map === 'mirror') return genMirror(seed);
+  if (map === 'studio') return genStudio(seed);
   return genForest(seed);
 }
 
@@ -284,6 +285,112 @@ function genMirror(seed) {
     portals, portalAt, labels: [{ t: '거울 감옥', x: 39, z: 32.5 }] };
 }
 function hash2(a, b, s) { let h = (a * 374761393 + b * 668265263 + (s | 0) * 1442695041) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return (h ^ (h >>> 16)) & 255; }
+
+/* ---------------- 감시 테이프 방송국 ---------------- */
+// 복도가 # 모양으로 지나가고, 칸마다 방이 둘. 가운데는 큰 스튜디오와 녹음 부스(감옥).
+function genStudio(seed) {
+  const N = CFG.N, r = mulberry32((seed >>> 0) ^ 0x2545f491);
+  const ground = new Uint8Array(N * N).fill(GR.LINO), wall = new Uint8Array(N * N).fill(WL.OFFICE);
+  const I = (x, z) => z * N + x;
+  const setW = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) wall[I(x, z)] = t; };
+  const setG = (x, z, t) => { if (x >= 0 && z >= 0 && x < N && z < N) ground[I(x, z)] = t; };
+  const carve = (x0, z0, x1, z1, g) => { for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { setW(x, z, 0); if (g != null) setG(x, z, g); } };
+  // 복도
+  for (const c of [18, 60]) { carve(2, c, 77, c + 1, GR.LINO); carve(c, 2, c + 1, 77, GR.LINO); }
+  // 블록 경계
+  const B = [[1, 16], [21, 58], [63, 78]];
+  const rooms = [];
+  const door = (x0, z0, x1, z1) => { // 벽 한 줄에 2칸 문
+    if (x0 === x1) { const z = z0 + 2 + ((r() * Math.max(1, z1 - z0 - 5)) | 0); setW(x0, z, 0); setW(x0, z + 1, 0); }
+    else { const x = x0 + 2 + ((r() * Math.max(1, x1 - x0 - 5)) | 0); setW(x, z0, 0); setW(x + 1, z0, 0); }
+  };
+  for (let bz = 0; bz < 3; bz++) for (let bx = 0; bx < 3; bx++) {
+    if (bx === 1 && bz === 1) continue;
+    const [x0, x1] = B[bx], [z0, z1] = B[bz];
+    const horiz = (x1 - x0) > (z1 - z0) ? true : (x1 - x0) < (z1 - z0) ? false : r() < .5;
+    if (horiz) { const xm = (x0 + x1) >> 1; rooms.push({ x0, z0, x1: xm - 1, z1 }, { x0: xm + 1, z0, x1, z1 }); }
+    else { const zm = (z0 + z1) >> 1; rooms.push({ x0, z0, x1, z1: zm - 1 }, { x0, z0: zm + 1, x1, z1 }); }
+  }
+  // 방 종류: 모니터실 3, 스튜디오, 테이프 보관실, 사무실, 로비
+  const kinds = ['monitor', 'monitor', 'monitor', 'studio', 'studio', 'archive', 'archive', 'office', 'office', 'office', 'office', 'office', 'office', 'office', 'office', 'office'];
+  shuffleR(kinds, r);
+  rooms.forEach((rm, i) => { rm.kind = kinds[i % kinds.length]; rm.cx = (rm.x0 + rm.x1) / 2 + .5; rm.cz = (rm.z0 + rm.z1) / 2 + .5; });
+  // 로비는 맨 아래 가운데 방 (출구가 있다)
+  const lobby = rooms.reduce((b, rm) => (Math.abs(rm.cx - 40) + (80 - rm.cz) < Math.abs(b.cx - 40) + (80 - b.cz) ? rm : b), rooms[0]);
+  lobby.kind = 'lobby';
+  for (const rm of rooms) {
+    const g = rm.kind === 'studio' ? GR.STUDIO : rm.kind === 'lobby' ? GR.CARPET : rm.kind === 'monitor' ? GR.DARK : GR.LINO;
+    carve(rm.x0, rm.z0, rm.x1, rm.z1, g);
+    // 복도 쪽 문 (닿아 있는 복도마다 하나)
+    if (rm.x0 - 1 === 20 || rm.x0 - 1 === 62) door(rm.x0 - 1, rm.z0, rm.x0 - 1, rm.z1);
+    if (rm.x1 + 1 === 17 || rm.x1 + 1 === 59) door(rm.x1 + 1, rm.z0, rm.x1 + 1, rm.z1);
+    if (rm.z0 - 1 === 20 || rm.z0 - 1 === 62) door(rm.x0, rm.z0 - 1, rm.x1, rm.z0 - 1);
+    if (rm.z1 + 1 === 17 || rm.z1 + 1 === 59) door(rm.x0, rm.z1 + 1, rm.x1, rm.z1 + 1);
+    rm.walls = rm.kind === 'studio' ? WL.ACOUSTIC : rm.kind === 'monitor' ? WL.TVWALL : WL.OFFICE;
+  }
+  // 같은 블록의 두 방 사이에도 문
+  for (let i = 0; i < rooms.length; i += 2) { const a = rooms[i], b = rooms[i + 1]; if (a.x1 + 2 === b.x0) door(a.x1 + 1, Math.max(a.z0, b.z0), a.x1 + 1, Math.min(a.z1, b.z1)); else door(Math.max(a.x0, b.x0), a.z1 + 1, Math.min(a.x1, b.x1), a.z1 + 1); }
+  // 방 벽에 종류별 벽지 (안쪽 테두리만)
+  for (const rm of rooms) {
+    if (rm.walls === WL.OFFICE) continue;
+    for (let x = rm.x0 - 1; x <= rm.x1 + 1; x++) for (const z of [rm.z0 - 1, rm.z1 + 1]) if (wall[I(x, z)] === WL.OFFICE) setW(x, z, rm.walls);
+    for (let z = rm.z0 - 1; z <= rm.z1 + 1; z++) for (const x of [rm.x0 - 1, rm.x1 + 1]) if (wall[I(x, z)] === WL.OFFICE) setW(x, z, rm.walls);
+  }
+  // 가운데: 메인 스튜디오 + 녹음 부스(감옥)
+  carve(21, 21, 58, 58, GR.STUDIO);
+  for (let x = 20; x <= 59; x++) for (const z of [20, 59]) setW(x, z, WL.ACOUSTIC);
+  for (let z = 20; z <= 59; z++) for (const x of [20, 59]) setW(x, z, WL.ACOUSTIC);
+  for (const [x, z] of [[20, 30], [20, 31], [20, 48], [20, 49], [59, 30], [59, 31], [59, 48], [59, 49], [30, 20], [31, 20], [48, 20], [49, 20], [38, 59], [39, 59], [40, 59], [41, 59]]) setW(x, z, 0);
+  for (let i = 29; i <= 51; i++) { setW(i, 29, WL.ACOUSTIC); setW(29, i, WL.ACOUSTIC); setW(51, i, WL.ACOUSTIC); }
+  for (let z = 30; z <= 34; z++) for (let x = 30; x <= 50; x++) { setW(x, z, 0); setG(x, z, GR.DARK); }
+  for (let z = 35; z <= 51; z++) for (let x = 30; x <= 50; x++) { setW(x, z, 0); }
+  for (const x of [29, 51]) for (let z = 35; z <= 51; z++) setW(x, z, 0);
+  for (let z = 29; z <= 34; z++) { setW(29, z, WL.ACOUSTIC); setW(51, z, WL.ACOUSTIC); }
+  const cells = buildCells(N, wall, setW, 35, [[33, 35], [37, 39], [41, 43]], WL.ACOUSTIC);
+  for (let x = 30; x <= 50; x++) if (wall[I(x, 35)] === 0 && (x < 32 || x > 44)) setW(x, 35, WL.ACOUSTIC);
+  // 세트장 기둥과 조명 기둥
+  for (const [x, z] of [[25, 25], [54, 25], [25, 54], [54, 54], [33, 46], [46, 46]]) setW(x, z, WL.PILLAR);
+  // 소품
+  const props = [], monitors = [];
+  for (const rm of rooms) {
+    if (rm.kind === 'monitor') { // 모니터 책상: 방 가운데 모니터 벽 쪽
+      const m = { x: rm.cx, z: rm.cz, room: rm };
+      monitors.push(m); props.push({ kind: 'desk', x: m.x, z: m.z });
+      for (let k = -1; k <= 1; k++) props.push({ kind: 'chair', x: m.x + k * .9, z: m.z + .9 });
+    } else if (rm.kind === 'archive') {
+      for (let z = rm.z0 + 2; z <= rm.z1 - 2; z += 3) for (let x = rm.x0 + 2; x <= rm.x1 - 2; x++) if ((x - rm.x0) % 6 !== 0) setW(x, z, WL.SHELF);
+    } else if (rm.kind === 'office') {
+      for (let k = 0; k < 3; k++) props.push({ kind: 'table', x: rm.x0 + 2 + r() * (rm.x1 - rm.x0 - 3), z: rm.z0 + 2 + r() * (rm.z1 - rm.z0 - 3) });
+    } else if (rm.kind === 'studio') {
+      props.push({ kind: 'tvcam', x: rm.cx - 1.5, z: rm.cz }); props.push({ kind: 'tvcam', x: rm.cx + 1.5, z: rm.cz + .5 });
+    }
+  }
+  for (const [x, z] of [[36, 54], [44, 54], [40, 56]]) props.push({ kind: 'tvcam', x, z });
+  // CCTV 카메라 9대: 복도 교차로와 스튜디오
+  const cams = [];
+  const addCam = (x, z, yaw) => cams.push({ x, z, yaw });
+  addCam(18.5, 3, Math.PI / 2); addCam(60.5, 3, Math.PI / 2); addCam(3, 18.5, 0); addCam(76, 60.5, Math.PI);
+  addCam(18.5, 76, -Math.PI / 2); addCam(60.5, 76, -Math.PI / 2);
+  addCam(22, 57, -Math.PI / 4); addCam(57, 22, Math.PI * .75); addCam(40, 52, -Math.PI / 2);
+  for (const c of cams) props.push({ kind: 'cctv', x: c.x, z: c.z });
+  // 흔적: 서로 멀리 떨어진 방 (모니터실 제외)
+  const cands = shuffleR(rooms.filter(rm => rm.kind !== 'monitor'), r);
+  const picks = []; for (const rm of cands) { if (picks.every(p => Math.hypot(p.cx - rm.cx, p.cz - rm.cz) > 24)) picks.push(rm); if (picks.length >= 5) break; }
+  for (const rm of cands) { if (picks.length >= 5) break; if (!picks.includes(rm)) picks.push(rm); }
+  const freeNear = (x, z) => { for (let d = 0; d < 6; d++) for (let dz = -d; dz <= d; dz++) for (let dx = -d; dx <= d; dx++) { const k = I((x | 0) + dx, (z | 0) + dz); if (!wall[k]) return { x: (x | 0) + dx + .5, z: (z | 0) + dz + .5 }; } return { x, z }; };
+  const traces = picks.map((rm, i) => { const p = freeNear(rm.cx + (r() - .5) * 3, rm.cz + (r() - .5) * 3); return { id: i, ...TRACE_INFO[i], x: p.x, z: p.z }; });
+  const spawnRooms = shuffleR(rooms.filter(rm => !picks.includes(rm)), r);
+  const spawnA = []; for (let i = 0; i < 8; i++) { const rm = spawnRooms[i % spawnRooms.length]; spawnA.push(freeNear(rm.cx + (i >= spawnRooms.length ? 1.5 : 0), rm.cz + 1)); }
+  const spawnD = [{ x: 40, z: 47 }, { x: 37, z: 48 }, { x: 43, z: 48 }, { x: 35, z: 44 }, { x: 45, z: 44 }, { x: 40, z: 50 }, { x: 38, z: 41 }];
+  for (let i = 0; i < N; i++) { setW(i, 0, WL.OFFICE); setW(i, N - 1, WL.OFFICE); setW(0, i, WL.OFFICE); setW(N - 1, i, WL.OFFICE); }
+  const doorCands = [freeNear(lobby.cx, lobby.z1 - 1), freeNear(4, 4), freeNear(75, 4), freeNear(4, 75)];
+  const displays = []; for (const dx of [-6, 6, -8, 8, -4, 4, -2, 2]) displays.push({ x: 40 + dx, z: 50.4 });
+  for (const d of displays) props.push({ kind: 'pole', x: d.x, z: d.z });
+  for (let x = 33; x <= 43; x++) if (wall[I(x, 35)] === WL.BARS) props.push({ kind: 'glass', x: x + .5, z: 35.5 });
+  const labels = [{ t: '녹음 부스 (감옥)', x: 39, z: 32.5 }, { t: '메인 스튜디오', x: 40, z: 44 }];
+  for (const rm of rooms) labels.push({ t: { monitor: '모니터실', studio: '스튜디오', archive: '테이프 보관실', office: '사무실', lobby: '로비' }[rm.kind], x: rm.cx, z: rm.cz - 1.5 });
+  return { seed, N, map: 'studio', indoor: true, ground, wall, trees: [], treeCells: new Array(N * N), cells, displays, traces, props, spawnA, spawnD, doorCands, path: [], cams, monitors, labels };
+}
 
 function genForest(seed) {
   const N = CFG.N, r = mulberry32(seed >>> 0);

@@ -349,6 +349,11 @@ const SPR = {
     { s: [150, 150, 150], w: [62, 44, 30] }),
   glass: mk(['gggggggggggg', 'g.w........g', 'g..w.......g', 'g...w......g', 'g..........g', 'g.......w..g', 'g........w.g', 'g..........g', 'g..........g', 'g.w........g', 'g..w.......g', 'g..........g', 'g......w...g', 'g.......w..g', 'g..........g', 'gggggggggggg'],
     { g: [60, 110, 80], w: [190, 240, 210, 1] }),
+  cctvOn: mk(['..kkkkkk', '.kggggggk', 'kgggggggR', 'kggggggkk', '.kkkkkk..', '....kk...', '....kk...'], { k: [30, 30, 32], g: [150, 150, 140], R: [255, 40, 40, 1] }),
+  cctvOff: mk(['..kkkkkk', '.kggggggk', 'kgggggggk', 'kggggggkk', '.kkkkkk..', '....kk...', '....kk...'], { k: [30, 30, 32], g: [90, 90, 86] }),
+  desk: mk(['.mmmm.mmmm.mmmm.', '.mSSm.mSSm.mSSm.', '.mSSm.mSSm.mSSm.', '.mmmm.mmmm.mmmm.', '...k....k....k..', 'dddddddddddddddd', 'dddddddddddddddd', '.l............l.', '.l............l.', '.l............l.'],
+    { m: [40, 42, 44], S: [150, 210, 170, 1], k: [30, 30, 30], d: [70, 60, 50], l: [40, 34, 28] }),
+  tvcam: mk(['.kkkkk...', 'kkkkkkkkk', 'kkkkkkkkL', 'kkkkkkkkk', '.kkkkk...', '...kk....', '...kk....', '...kk....', '..k..k...', '.k....k..', 'k......k.'], { k: [36, 36, 40], L: [220, 220, 255, 1] }),
   seat: mk(['.rrrrrrrr.', 'rRRRRRRRRr', 'rRRRRRRRRr', 'rRRRRRRRRr', 'rRRRRRRRRr', 'rrrrrrrrrr', 'gggggggggg', 'rRRRRRRRRr', 'rrrrrrrrrr', '.k......k.', '.k......k.'],
     { r: [70, 10, 20], R: [110, 18, 32], g: [160, 130, 50], k: [30, 20, 18] }),
   mann: mk(['....hhhh....', '...hffffh...', '...feffef...', '...ffffff...', '....ffff....', '.....ff.....', '..ffffffff..', '.ff.ffff.ff.', '.f..ffff..f.', '.f..ffff..f.', '....ffff....', '..ffffffff..', '..ff....ff..', '..ff....ff..', '..ff....ff..'],
@@ -372,14 +377,14 @@ const fx = { noise: .09, ca: 1, wobble: .5, flicker: .04, glitch: 0, tr: 1, tg: 
 let band = { y: -99, h: 0, s: 0, life: 0 };
 let now = 0, frameDt = 0;
 const STARS = Array.from({ length: 70 }, (_, i) => ({ a: Math.random() * Math.PI * 2, h: .15 + Math.random() * .85, b: 80 + Math.random() * 120 }));
-const GCOL = [[22, 25, 18], [96, 14, 14], [48, 50, 46], [56, 38, 24], [30, 37, 24], [72, 22, 36], [58, 16, 26], [96, 84, 44], [22, 20, 26], [44, 92, 64]];
-const WCOL = [[0, 0, 0], [76, 82, 72], [62, 68, 60], [58, 56, 54], [0, 0, 0], [36, 34, 100], [92, 18, 30], [170, 150, 78], [120, 108, 60], [60, 120, 84], [60, 120, 84], [0, 0, 0]];
+const GCOL = [[22, 25, 18], [96, 14, 14], [48, 50, 46], [56, 38, 24], [30, 37, 24], [72, 22, 36], [58, 16, 26], [96, 84, 44], [22, 20, 26], [44, 92, 64], [70, 78, 86], [34, 34, 40]];
+const WCOL = [[0, 0, 0], [76, 82, 72], [62, 68, 60], [58, 56, 54], [0, 0, 0], [36, 34, 100], [92, 18, 30], [170, 150, 78], [120, 108, 60], [60, 120, 84], [60, 120, 84], [0, 0, 0], [150, 144, 128], [50, 52, 58], [40, 44, 46], [92, 70, 50]];
 // 맵별 하늘·안개
-const STYLE = { forest: { fogC: [7, 7, 10], fogD: 10.5 }, theater: { fogC: [6, 6, 16], fogD: 11, ceil: [14, 12, 26] }, tea: { fogC: [46, 40, 18], fogD: 9.5, ceil: [120, 110, 70] }, mirror: { fogC: [4, 12, 8], fogD: 12, ceil: [16, 36, 26] } };
+const STYLE = { forest: { fogC: [7, 7, 10], fogD: 10.5 }, theater: { fogC: [6, 6, 16], fogD: 11, ceil: [14, 12, 26] }, tea: { fogC: [46, 40, 18], fogD: 9.5, ceil: [120, 110, 70] }, mirror: { fogC: [4, 12, 8], fogD: 12, ceil: [16, 36, 26] }, studio: { fogC: [8, 9, 12], fogD: 11.5, ceil: [40, 42, 46] } };
 const pack = (r, g, b) => (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
 const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return (h ^ (h >>> 16)) & 255; };
 
-function renderWorld(g, cam) {
+function renderWorld(g, cam, feed) {
   const w = g.world, N = w.N, dream = g.role === 'dream', ST = STYLE[w.map] || STYLE.forest;
   const fogD = dream ? ST.fogD + 2.5 : ST.fogD, fogS = 1.2;
   const fogC = dream ? [Math.min(255, ST.fogC[0] + 12), ST.fogC[1] * .5 | 0, ST.fogC[2] * .5 | 0] : ST.fogC;
@@ -390,6 +395,8 @@ function renderWorld(g, cam) {
   const chick = chicken;
 
   // 하늘 (실내 맵은 천장)
+  // CCTV 카메라: 벽 높은 곳, 켜져 있으면 빨간 불
+  if (w.cams) { /* 아래 스프라이트 목록에서 처리 */ }
   if (w.indoor) {
     const cc = ST.ceil, c0x = dirX - plX, c0z = dirZ - plZ, c1x = dirX + plX, c1z = dirZ + plZ;
     for (let y = 0; y <= hor && y < H; y++) {
@@ -512,6 +519,8 @@ function renderWorld(g, cam) {
       if (t === GR.BOARD && (qx * 3 % 1) < .08) m *= .55;
       if (t === GR.YCARPET && (((qx * 2) | 0) + ((qz * 2) | 0)) % 7 === 0) m *= .8;
       if (t === GR.CARPET && ((qx * 4 % 1) < .1)) m *= .75;
+      if (t === GR.LINO && (((qx * 2) | 0) + ((qz * 2) | 0)) % 2) m *= .9;
+      if (t === GR.STUDIO && ((qx % 4) < .04 || (qz % 4) < .04)) m *= .6;
       if (t === GR.MARBLE) { if ((((qx * 1.5) | 0) + ((qz * 1.5) | 0)) & 1) m *= .62; if ((hash((qx * 9) | 0, (qz * 3) | 0) & 31) < 2) m *= 1.3; }
       pix[row + x] = pack((r * m * kf + fogC[0] * ft) | 0, (gg * m * kf + fogC[1] * ft) | 0, (b * m * kf + fogC[2] * ft) | 0);
     }
@@ -553,6 +562,10 @@ function renderWorld(g, cam) {
       if (hit === WL.CURTAIN || hit === WL.VELVET) m *= .65 + .35 * Math.sin(wx * (hit === WL.VELVET ? 14 : 22));
       else if (hit === WL.YPAPER) { m *= tube * (((wx * 6) | 0) % 2 ? .9 : 1) * (vh < .15 ? .7 : 1) * (patch < 40 && vh < .6 ? .78 : 1); if ((hash((wx * 8) | 0, (vh * 8) | 0) & 63) < 3) m *= .6; }
       else if (hit === WL.PILLAR) m *= tube * (.8 + .2 * Math.sin(wx * 6.28));
+      else if (hit === WL.OFFICE) { if ((wx * 2 % 1) < .04) m *= .7; if (vh < .1) m *= .55; if (Math.abs(vh - .9) < .02) m *= .7; if (patch < 30 && vh < .9 && vh > .5 && Math.abs(wx - .5) < .3) m *= .82; }
+      else if (hit === WL.ACOUSTIC) { const u = (wx * 4) % 1, v = (vh * 4) % 1; m *= (u < .5) !== (v < .5) ? .78 : 1; m *= .9 + .1 * Math.sin(u * 12.6) * Math.sin(v * 12.6); }
+      else if (hit === WL.TVWALL) { const u = (wx * 3) % 1, v = (vh * 3) % 1; if (u < .1 || v < .12 || vh < .15) m *= .3; else { const st = hash((x + (now * 30 | 0)) & 255, y) / 255; const on = hash(mx * 7 + ((wx * 3) | 0), mz * 5 + ((vh * 3) | 0) + (now * .5 | 0)) & 1; pix[y * W + x] = pack((on ? 90 + st * 120 : 40 + st * 40) * kf + fogC[0] * ft | 0, (on ? 110 + st * 120 : 46 + st * 40) * kf + fogC[1] * ft | 0, (on ? 100 + st * 110 : 44 + st * 40) * kf + fogC[2] * ft | 0); continue; } }
+      else if (hit === WL.SHELF) { const v = (vh * 4) % 1; if (v < .15) m *= .45; else { const bk = hash(((wx * 10) | 0) + mx * 13, ((vh * 4) | 0) + mz * 7); m *= .6 + (bk & 63) / 160; } }
       else if (hit === WL.MARBLE || hit === WL.MIRROR) { const v = Math.sin(wx * 9 + vh * 4 + Math.sin(vh * 13 + mx) * 1.3); m *= .78 + .16 * v; if (vh < .08) m *= .6; if (Math.abs(vh - wh * .5) < .03) m *= .7; }
       else {
         const row = Math.floor(vh * 4), off = (row & 1) * .5;
@@ -617,6 +630,7 @@ function renderWorld(g, cam) {
   const list = [];
   const raw = [];
   const push = (spr, x, z, ww, wh, z0, mode, extra) => { if (MIR) raw.push({ spr, x, z, ww, wh, z0, mode, extra }); const [tx, ty] = proj(x, z); if (ty > .12 && (ty < fogD + 2 || mode === 3)) list.push({ spr, tx, ty, ww, wh, z0, mode, extra }); };
+  if (w.cams) w.cams.forEach((cm, i) => push(g.cams && g.cams[i] ? SPR.cctvOn : SPR.cctvOff, cm.x, cm.z, .45, .32, 1.15, 0));
   for (const p of w.props) {
     if (p.kind === 'table') push(SPR.table, p.x, p.z, 1.0, .55, 0, 0);
     else if (p.kind === 'chair') push(SPR.chair, p.x, p.z, .45, .8, 0, 0);
@@ -624,6 +638,8 @@ function renderWorld(g, cam) {
     else if (p.kind === 'bars') push(SPR.bars, p.x, p.z, 1.0, 1.4, 0, 0);
     else if (p.kind === 'seat') push(SPR.seat, p.x, p.z, .8, .8, 0, 0);
     else if (p.kind === 'glass') push(SPR.glass, p.x, p.z, 1.0, 1.6, 0, 0);
+    else if (p.kind === 'desk') push(SPR.desk, p.x, p.z, 1.6, .9, 0, 0);
+    else if (p.kind === 'tvcam') push(SPR.tvcam, p.x, p.z, .6, 1.25, 0, 0);
     else if (p.kind === 'mann') push(chick ? SPR.ghost : SPR.mann, p.x, p.z - .05, chick ? .6 : .55, chick ? .6 : 1.0, chick ? .35 : 0, 0);
   }
   w.traces.forEach((t, i) => {
@@ -633,7 +649,7 @@ function renderWorld(g, cam) {
     push(s, t.x, t.z, dims[0], dims[1], dims[2], 2);
   });
   for (const pl of g.players.values()) {
-    if (pl.id === myId && !g.spectating) continue;
+    if (pl.id === myId && !g.spectating && !feed) continue;
     const ip = interp(pl); if (!ip || !pl.cur) continue;
     const st = pl.cur.s;
     if (st === 4) continue;
@@ -777,7 +793,10 @@ window.addEventListener('keydown', e => {
   if (keys[k]) return;
   keys[k] = true;
   initAudio();
-  if (k === 'e' || k === ' ') { ctl.actLatch = true; if (game.spectate) cycleSpectate(); }
+  if (k === 'e' || k === ' ') { if (cctvKey()) return; ctl.actLatch = true; if (game.spectate) cycleSpectate(); }
+  if (game.cctv && (k === 'arrowleft' || k === 'a')) { game.cctv.page = (game.cctv.page + 2) % 3; return; }
+  if (game.cctv && (k === 'arrowright' || k === 'd')) { game.cctv.page = (game.cctv.page + 1) % 3; return; }
+  if (game.cctv && k === 'escape') { game.cctv = null; return; }
   if (k === 'shift') ctl.dashQ = true;
   if (k === 'm') game.mapOn = !game.mapOn;
   if (k === 'tab' || k === 'h' || k === '?') game.briefOn = !game.briefOn;
@@ -821,6 +840,7 @@ function moveJoy(e) {
 cv.addEventListener('pointerdown', e => {
   if (!game || device !== 'phone' || e.pointerType === 'mouse') return;
   initAudio();
+  if (game.cctv) { const r = cv.getBoundingClientRect(), v = ROT() ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width; game.cctv.page = (game.cctv.page + (v < .5 ? 2 : 1)) % 3; return; }
   if (game.spectate) { cycleSpectate(); return; }
   lookId = e.pointerId; lookX = ROT() ? e.clientY : e.clientX; try { cv.setPointerCapture(e.pointerId); } catch (_) {}
 });
@@ -836,7 +856,7 @@ const hold = (el, on, off) => {
   el.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); on(); });
   for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, () => off && off());
 };
-hold($('tAct'), () => { ctl.touchAct = true; ctl.actLatch = true; if (game && game.spectate) cycleSpectate(); }, () => { ctl.touchAct = false; });
+hold($('tAct'), () => { if (cctvKey()) return; ctl.touchAct = true; ctl.actLatch = true; if (game && game.spectate) cycleSpectate(); }, () => { ctl.touchAct = false; });
 hold($('tDash'), () => { ctl.dashQ = true; });
 hold($('tMap'), () => { if (game) game.mapOn = !game.mapOn; });
 hold($('tChat'), () => openChat());
@@ -878,8 +898,17 @@ $('gChatForm').addEventListener('submit', e => { e.preventDefault(); const v = $
 $('gChatIn').addEventListener('blur', () => { if (chatOpen) setTimeout(() => { if (document.activeElement !== $('gChatIn')) closeChat(); }, 100); });
 $('btnBack').addEventListener('click', () => { stopGame(); show('scLobby'); renderLobby(); });
 
+// 모니터실: 책상 앞에서 행동 → CCTV 보기 (보는 동안은 움직일 수 없다)
+function nearMonitor(g) { const w = g.world; if (!w.monitors || g.role !== 'alice' || !g.meS || g.meS.s !== 0) return null; for (const m of w.monitors) if (Math.hypot(g.pred.x - m.x, g.pred.z - m.z) < 1.9) return m; return null; }
+function cctvKey() {
+  const g = game; if (!g || g.ended) return false;
+  if (g.cctv) { g.cctv = null; sfx.tick(); return true; }
+  if (nearMonitor(g)) { g.cctv = { page: 0, rr: 0 }; for (const k in keys) keys[k] = false; ctl.joyX = ctl.joyY = 0; sfx.tick(); nz(.3, { type: 'bandpass', f: 3000, q: .5, vol: .2 }); return true; }
+  return false;
+}
 function readControls() {
   let f = 0, s = 0;
+  if (game && game.cctv) { if (Math.hypot(ctl.joyX, ctl.joyY) > .6) game.cctv = null; else { ctl.actLatch = false; ctl.dashQ = false; return { f: 0, s: 0, act: false, dash: false }; } }
   if (!chatOpen) {
     f = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
     s = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
@@ -952,7 +981,7 @@ const nameOf = id => { const p = game && game.players.get(id); return p ? p.name
 function onSnap(m) {
   const g = game, t = performance.now();
   g.lastSnap = t;
-  g.T = m.T; g.intro = m.in; g.tr = m.tr; g.tp = m.tp; g.rp = m.rp; g.door = m.door;
+  g.T = m.T; g.intro = m.in; g.tr = m.tr; g.tp = m.tp; g.rp = m.rp; g.door = m.door; g.cams = m.cams; g.cp = m.cp;
   for (const s of m.p) {
     const pl = g.players.get(s.i); if (!pl) continue;
     pl.cur = s; pl.snaps.push({ t, x: s.x, z: s.z, y: s.y }); if (pl.snaps.length > 30) pl.snaps.shift();
@@ -1038,6 +1067,13 @@ function handleEv(e) {
       sfx.chime();
       say(e.a === myId ? '꿈에서 빠져나왔다.' : `${josa(nameOf(e.a), '이', '가')} 꿈에서 빠져나갔다`, '#ffffff', 5);
       break;
+    case 'cam': {
+      const c = w.cams[e.i]; at(c.x, c.z, 30, e.on ? sfx.chime : sfx.clang);
+      if (e.on) say(e.by === myId ? `CAM ${String(e.i + 1).padStart(2, '0')} 을(를) 다시 켰다` : `CAM ${String(e.i + 1).padStart(2, '0')} 이(가) 다시 켜졌다`, '#9fe0ff', 3);
+      else say(g.role === 'dream' ? `CAM ${String(e.i + 1).padStart(2, '0')} 을(를) 껐다` : `CAM ${String(e.i + 1).padStart(2, '0')} 신호가 끊겼다`, '#e07070', 3);
+      if (g.cctv) fx.glitch = .6;
+      break;
+    }
     case 'warp': {
       if (e.a !== myId) { at(e.x, e.z, 25, sfx.warp); at(e.fx, e.fz, 25, sfx.warp); }
       else if (e.ey != null && Math.hypot(g.pred.x - e.fx, g.pred.z - e.fz) > 1.5) { g.yaw = e.ey; g.smooth.x = g.smooth.z = 0; sfx.warp(); fx.glitch = 1.2; } // 서버에서만 넘어간 경우에도 시점을 맞춘다
@@ -1061,10 +1097,10 @@ function onEnd(m) {
 function buildMap(w) {
   const c = document.createElement('canvas'); c.width = w.N; c.height = w.N;
   const x = c.getContext('2d'), id = x.createImageData(w.N, w.N);
-  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [150, 132, 70], [40, 38, 50], [40, 80, 56]];
+  const cols = [[44, 52, 36], [150, 30, 30], [110, 110, 104], [110, 80, 50], [70, 84, 52], [120, 50, 70], [110, 30, 46], [150, 132, 70], [40, 38, 50], [40, 80, 56], [80, 88, 96], [44, 44, 52]];
   for (let i = 0; i < w.N * w.N; i++) {
     let col = cols[w.ground[i]];
-    if (w.wall[i]) col = w.wall[i] === WL.BARS ? [160, 160, 160] : w.wall[i] === WL.CURTAIN ? [70, 70, 160] : w.wall[i] === WL.YPAPER ? [230, 214, 140] : w.wall[i] === WL.VELVET ? [160, 40, 60] : w.wall[i] === WL.MIRROR ? [170, 235, 205] : w.wall[i] === WL.PORTAL ? PORTAL_COLS[(w.portals[w.portalAt[i]] || { pair: 0 }).pair % 4] : w.wall[i] === WL.MARBLE ? [90, 150, 110] : [190, 190, 180];
+    if (w.wall[i]) col = w.wall[i] === WL.BARS ? [160, 160, 160] : w.wall[i] === WL.CURTAIN ? [70, 70, 160] : w.wall[i] === WL.YPAPER ? [230, 214, 140] : w.wall[i] === WL.VELVET ? [160, 40, 60] : w.wall[i] === WL.MIRROR ? [170, 235, 205] : w.wall[i] === WL.PORTAL ? PORTAL_COLS[(w.portals[w.portalAt[i]] || { pair: 0 }).pair % 4] : w.wall[i] === WL.MARBLE ? [90, 150, 110] : w.wall[i] === WL.TVWALL ? [120, 200, 150] : w.wall[i] === WL.SHELF ? [130, 100, 70] : w.wall[i] === WL.ACOUSTIC ? [110, 110, 120] : [190, 190, 180];
     id.data[i * 4] = col[0]; id.data[i * 4 + 1] = col[1]; id.data[i * 4 + 2] = col[2]; id.data[i * 4 + 3] = 255;
   }
   for (const t of w.trees) { const i = ((t.z | 0) * w.N + (t.x | 0)) * 4; if (t.seat) { id.data[i] = 80; id.data[i + 1] = 20; id.data[i + 2] = 30; } else { id.data[i] = 20; id.data[i + 1] = 30; id.data[i + 2] = 18; } }
@@ -1072,7 +1108,7 @@ function buildMap(w) {
   return c;
 }
 const ENTRANCES = [{ x: 40, z: 49.2 }, { x: 30.8, z: 43 }, { x: 49.2, z: 37.5 }];
-const prisonName = () => { const m = game && game.world.map; return m === 'theater' ? '무대 아래 감옥' : m === 'tea' ? '긴 식탁 방' : m === 'mirror' ? '거울 감옥' : '성 감옥'; };
+const prisonName = () => { const m = game && game.world.map; return m === 'theater' ? '무대 아래 감옥' : m === 'tea' ? '긴 식탁 방' : m === 'mirror' ? '거울 감옥' : m === 'studio' ? '녹음 부스' : '성 감옥'; };
 // 감옥 문까지의 걸음 수 (벽을 돌아가는 길 찾기용)
 function cellField(w) {
   const N = w.N, d = new Int16Array(N * N).fill(-1), q = [];
@@ -1099,6 +1135,8 @@ function mapMarkers(g, ox, oy, k, big) {
   const c = ctx, tnow = performance.now();
   c.fillStyle = 'rgba(255,90,90,.95)';
   for (const cl of g.world.cells) c.fillRect(ox + cl.x * k - (big ? 3 : 1.5), oy + cl.z * k - (big ? 2 : 1), big ? 6 : 3, big ? 4 : 2);
+  if (g.world.cams) g.world.cams.forEach((cm, i) => { const on = g.cams && g.cams[i], px = ox + cm.x * k, py = oy + cm.z * k, r = big ? 4 : 2; c.save(); c.translate(px, py); c.rotate(cm.yaw); c.fillStyle = on ? '#ff4040' : '#777'; c.beginPath(); c.moveTo(r * 1.6, 0); c.lineTo(-r, -r); c.lineTo(-r, r); c.closePath(); c.fill(); c.restore(); if (big) { c.font = `9px 'VT323', monospace`; c.textAlign = 'center'; c.fillStyle = on ? '#ff9090' : '#999'; c.fillText(String(i + 1), px, py - 6); } });
+  if (g.world.monitors && big) for (const m of g.world.monitors) { c.fillStyle = '#9fe0ff'; c.fillRect(ox + m.x * k - 3, oy + m.z * k - 2, 6, 4); }
   if (g.role === 'alice') {
     c.font = `10px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
     for (const p of g.players.values()) {
@@ -1356,8 +1394,10 @@ function drawBrief(c, g, alpha, count) {
   sh('─  목 표  ─', W / 2, 68, '#8d8478', KRS);
   const goals = dream
     ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '13분을 버티거나 앨리스를 모두 잡으면 승리.']
-    : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 하늘에 빛기둥 문이 열립니다 → 그리로 탈출!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
-  goals.forEach((l, i) => sh(l, W / 2, 86 + i * 16, '#d8cfbf', KR));
+    : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 하늘에 빛기둥 문이 열립니다 → 그리로 탈출!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
+  if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다.' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
+  if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
+  goals.forEach((l, i) => sh(l, W / 2, 84 + i * 15, i === 3 ? '#9fe0c0' : '#d8cfbf', KR));
   sh('─  조 작  ─', W / 2, 146, '#8d8478', KRS);
   const rows = phone
     ? (dream
@@ -1376,6 +1416,42 @@ function drawBrief(c, g, alpha, count) {
   sh(phone ? '왼쪽 위 [?] 버튼으로 언제든 다시 볼 수 있어요' : 'Tab 키로 언제든 다시 볼 수 있어요', W / 2, H - 26, '#7a7268', KRS);
   if (count > 0) sh(`${Math.ceil(count)}`, W - 34, 46, '#ffffff', `28px 'VT323', monospace`);
   c.restore();
+}
+const feeds = [], feedTmp = document.createElement('canvas'); feedTmp.width = W; feedTmp.height = H;
+function renderFeed(g) {
+  const w = g.world; if (!w.cams) return;
+  const ids = [0, 1, 2, 3].map(k => g.cctv.page * 4 + k).filter(i => i < w.cams.length);
+  if (!ids.length) return;
+  const i = ids[g.cctv.rr++ % ids.length], c = w.cams[i];
+  if (!feeds[i]) { const cv2 = document.createElement('canvas'); cv2.width = 200; cv2.height = 150; feeds[i] = cv2; }
+  if (!g.cams || !g.cams[i]) return;
+  const sway = Math.sin(now * .4 + i) * .35;
+  renderWorld(g, { x: c.x + Math.cos(c.yaw) * .2, z: c.z + Math.sin(c.yaw) * .2, yaw: c.yaw + sway, bob: -18 }, true);
+  feedTmp.getContext('2d').putImageData(wimg, 0, 0);
+  const fc = feeds[i].getContext('2d'); fc.imageSmoothingEnabled = true; fc.drawImage(feedTmp, 0, 0, 200, 150);
+  const id = fc.getImageData(0, 0, 200, 150), d = id.data; // 흑백 CCTV
+  for (let k = 0; k < d.length; k += 4) { const v = (d[k] * .3 + d[k + 1] * .55 + d[k + 2] * .15) * 1.35 + (Math.random() - .5) * 26; d[k] = v * .9; d[k + 1] = v; d[k + 2] = v * .92; }
+  fc.putImageData(id, 0, 0);
+}
+function drawCCTV(g) {
+  const c = ctx, w = g.world, cams = w.cams || [];
+  c.fillStyle = '#050605'; c.fillRect(0, 0, W, H);
+  const pw = 186, ph = 120, gx = (W - pw * 2 - 8) / 2, gy = 34;
+  for (let k = 0; k < 4; k++) {
+    const i = g.cctv.page * 4 + k, x = gx + (k % 2) * (pw + 8), y = gy + (k >> 1) * (ph + 8);
+    c.fillStyle = '#0c0f0c'; c.fillRect(x - 2, y - 2, pw + 4, ph + 4);
+    if (i >= cams.length) continue;
+    if (g.cams && g.cams[i] && feeds[i]) c.drawImage(feeds[i], x, y, pw, ph);
+    else { for (let n = 0; n < 260; n++) { const v = Math.random() * 160 | 0; c.fillStyle = `rgb(${v},${v},${v})`; c.fillRect(x + Math.random() * pw, y + Math.random() * ph, 3, 2); } c.font = `18px 'VT323', monospace`; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText('NO SIGNAL', x + pw / 2, y + ph / 2 + 5); }
+    c.font = `14px 'VT323', monospace`; c.textAlign = 'left'; c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x, y, 56, 14);
+    c.fillStyle = '#e8f0e8'; c.fillText(`CAM ${String(i + 1).padStart(2, '0')}`, x + 3, y + 11);
+    if (g.cams && g.cams[i] && Math.floor(now * 2) % 2) { c.fillStyle = '#e02020'; c.beginPath(); c.arc(x + pw - 8, y + 8, 3, 0, 7); c.fill(); }
+  }
+  c.font = `12px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.fillStyle = '#cfd8cf';
+  c.fillText(`모니터실 ─ ${g.cctv.page + 1} / 3`, W / 2, 22);
+  c.fillStyle = '#8a948a';
+  c.fillText(device === 'phone' ? '화면 왼쪽·오른쪽 탭: 다른 카메라 · 행동: 닫기' : '← → : 다른 카메라 · E: 닫기', W / 2, H - 12);
+  c.fillStyle = 'rgba(200,40,40,.9)'; if (Math.floor(now * 3) % 2) c.fillText('보는 동안 움직일 수 없다', W / 2, H - 26);
 }
 function drawHud(g, tags) {
   const c = ctx, ms = g.meS, dream = g.role === 'dream', tnow = performance.now();
@@ -1444,6 +1520,8 @@ function drawHud(g, tags) {
     let best = null;
     w.cells.forEach((cl, i) => { if (!best && Math.hypot(P.x - cl.door.x, P.z - cl.door.z) < CFG.CHANNEL_RANGE && [...g.players.values()].some(p => p.cur && p.cur.s === 2 && p.cur.cl === i)) best = { t: `${actKey} 꾹 — 감옥 문 열기`, v: g.rp[i] / CFG.RESCUE_TIME }; });
     if (!best) w.traces.forEach((t, i) => { if (!best && !g.tr[i] && Math.hypot(P.x - t.x, P.z - t.z) < CFG.CHANNEL_RANGE) best = { t: `${actKey} 꾹 — ${t.suit} ${t.name}`, v: g.tp[i] / t.dur }; });
+    if (!best && w.cams && g.cams) w.cams.forEach((c, i) => { if (!best && !g.cams[i] && Math.hypot(P.x - c.x, P.z - c.z) < 1.8) best = { t: `${actKey} 꾹 — CAM ${String(i + 1).padStart(2, '0')} 다시 켜기`, v: (g.cp[i] || 0) / 2.5 }; });
+    if (!best && nearMonitor(g)) best = { t: `${actKey} — CCTV 보기`, v: -1 };
     if (best) { prompt = best.t; pv = best.v; }
     else if (g.door) prompt = '하늘의 빛기둥으로 가면 탈출!';
     if (g.door) { // 문 방향 표시
@@ -1470,7 +1548,8 @@ function drawHud(g, tags) {
     } else {
       let canCatch = false;
       for (const p of g.players.values()) { if (p.role !== 'alice' || !p.cur || p.cur.s !== 0 || p.cur.im) continue; const ip = interp(p); if (ip && Math.hypot(ip.x - P.x, ip.z - P.z) < CFG.CATCH_RANGE) canCatch = true; }
-      prompt = canCatch ? `${actKey} — 잡아라!` : `${actKey}: 잡기 · ${device === 'phone' ? '대시' : 'Shift'}: 대시`;
+      let camNear = -1; if (!canCatch && w.cams && g.cams) w.cams.forEach((c, i) => { if (camNear < 0 && g.cams[i] && Math.hypot(P.x - c.x, P.z - c.z) < 1.8) camNear = i; });
+      prompt = canCatch ? `${actKey} — 잡아라!` : camNear >= 0 ? `${actKey} — CAM ${String(camNear + 1).padStart(2, '0')} 끄기` : `${actKey}: 잡기 · ${device === 'phone' ? '대시' : 'Shift'}: 대시`;
       pcol = canCatch ? '#ff6060' : '#a89e90';
     }
     // 대시 쿨타임
@@ -1493,6 +1572,7 @@ function drawHud(g, tags) {
   $('touch').classList.toggle('brief', briefing);
   if (g.intro > 0) drawBrief(c, g, clamp(g.intro / 1.2, 0, 1), g.intro);
   else if (g.briefOn && !g.ended) drawBrief(c, g, 1, 0);
+  if (g.cctv) drawCCTV(g);
   if (g.mapOn) drawMap(g, g.cam);
   if (g.ended) {
     const e = g.ended, iWin = (e.win === 'alice') === (g.role === 'alice');
@@ -1518,6 +1598,7 @@ function frame(ts) {
   if (game) {
     try {
       update(dt);
+      if (game.cctv) renderFeed(game);
       const tags = renderWorld(game, game.cam);
       post(dt);
       drawHud(game, tags);
