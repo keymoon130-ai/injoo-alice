@@ -62,8 +62,10 @@ export const SKIN_MASK = []; // 칠할 수 있는 칸 (y*W+x)
 export let SKIN_DEFAULT = '';
 for (let y = 0; y < SKIN_H; y++) for (let x = 0; x < SKIN_W; x++) { const c = ALICE_ROWS[y][x]; if (c && c !== '.') { SKIN_MASK.push(y * SKIN_W + x); SKIN_DEFAULT += SKIN_DEF_IDX[c].toString(16); } }
 export const SKIN_DARK_MAX = 16; // 너무 어두운 색(2, 7)은 최대 16칸까지
+export const SKIN_CLEAR_MAX = 10; // 투명 칸은 최대 10칸 ('x')
+const clearN = s => { let n = 0; for (const ch of s) if (ch === 'x') n++; return n; };
 export function skinValid(s) {
-  if (typeof s !== 'string' || s.length !== SKIN_MASK.length || !/^[0-9a-f]+$/.test(s)) return false;
+  if (typeof s !== 'string' || s.length !== SKIN_MASK.length || !/^[0-9a-fx]+$/.test(s) || clearN(s) > SKIN_CLEAR_MAX) return false;
   let dark = 0; for (const ch of s) if (ch === '2' || ch === '7') dark++;
   return dark <= SKIN_DARK_MAX;
 }
@@ -88,15 +90,17 @@ export let DSKIN_DEFAULT = '';
 for (let y = 0; y < DSKIN_H; y++) for (let x = 0; x < DSKIN_W; x++) { const c = DREAM_ROWS[y][x]; if (c && c !== '.') { DSKIN_MASK.push(y * DSKIN_W + x); DSKIN_DEFAULT += DSKIN_DEF_IDX[c].toString(16); } }
 export const DSKIN_BRIGHT_MIN = 4, DSKIN_BRIGHT_MAX = 24;
 export function dskinValid(s) {
-  if (typeof s !== 'string' || s.length !== DSKIN_MASK.length || !/^[0-9a-f]+$/.test(s)) return false;
-  let n = 0; for (const ch of s) if (parseInt(ch, 16) >= DSKIN_BRIGHT) n++;
+  if (typeof s !== 'string' || s.length !== DSKIN_MASK.length || !/^[0-9a-fx]+$/.test(s) || clearN(s) > SKIN_CLEAR_MAX) return false;
+  let n = 0; for (const ch of s) if (ch !== 'x' && parseInt(ch, 16) >= DSKIN_BRIGHT) n++;
   return n >= DSKIN_BRIGHT_MIN && n <= DSKIN_BRIGHT_MAX;
 }
 
 // 자유 색상 (추가 모드): '#' + 칸마다 RRGGBB. 실루엣은 그대로, 칸 수 제한 없음
 export function freeSkinValid(s, kind) {
   const n = kind === 'dream' ? DSKIN_MASK.length : SKIN_MASK.length;
-  return typeof s === 'string' && s.length === 1 + n * 6 && /^#[0-9a-f]+$/.test(s);
+  if (typeof s !== 'string' || s.length !== 1 + n * 6 || !/^#[0-9a-fx]+$/.test(s)) return false;
+  let c = 0; for (let i = 0; i < n; i++) { const q = s.substr(1 + i * 6, 6); if (q === 'xxxxxx') c++; else if (q.includes('x')) return false; }
+  return c <= SKIN_CLEAR_MAX;
 }
 
 export const TRACE_INFO = [

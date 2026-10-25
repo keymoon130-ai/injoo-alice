@@ -1,5 +1,5 @@
 // 人柱愛麗絲 : 망가진 꿈 — 클라이언트
-import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint, SKIN_PAL, SKIN_MASK, SKIN_DEFAULT, SKIN_W, SKIN_H, SKIN_DARK_MAX, skinValid, DSKIN_PAL, DSKIN_MASK, DSKIN_DEFAULT, DSKIN_W, DSKIN_H, DSKIN_BRIGHT, DSKIN_BRIGHT_MIN, DSKIN_BRIGHT_MAX, dskinValid, freeSkinValid, PROTO } from './shared.js';
+import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint, SKIN_PAL, SKIN_MASK, SKIN_DEFAULT, SKIN_W, SKIN_H, SKIN_DARK_MAX, skinValid, DSKIN_PAL, DSKIN_MASK, DSKIN_DEFAULT, DSKIN_W, DSKIN_H, DSKIN_BRIGHT, DSKIN_BRIGHT_MIN, DSKIN_BRIGHT_MAX, dskinValid, freeSkinValid, SKIN_CLEAR_MAX, PROTO } from './shared.js';
 
 const $ = id => document.getElementById(id);
 const W = 400, H = 300;
@@ -1003,8 +1003,8 @@ function skinSprite(str, kind = 'alice') {
   const D = SK[kind], n = D.W * D.H, R = new Uint8Array(n), G = new Uint8Array(n), B = new Uint8Array(n), A_ = new Uint8Array(n), E = new Uint8Array(n), free = str[0] === '#';
   D.MASK.forEach((k, i) => {
     let c, em;
-    if (free) { c = hexRgb(str.substr(1 + i * 6, 6)); em = kind === 'dream' && glowing(c); }
-    else { const ci = parseInt(str[i], 16); c = D.PAL[ci] || D.PAL[0]; em = ci >= D.bright; }
+    if (free) { const q = str.substr(1 + i * 6, 6); if (q === 'xxxxxx') return; c = hexRgb(q); em = kind === 'dream' && glowing(c); }
+    else { if (str[i] === 'x') return; const ci = parseInt(str[i], 16); c = D.PAL[ci] || D.PAL[0]; em = ci >= D.bright; }
     R[k] = c[0]; G[k] = c[1]; B[k] = c[2]; A_[k] = 1; if (em) E[k] = 1;
   });
   return { w: D.W, h: D.H, r: R, g: G, b: B, a: A_, e: E, dreamLike: kind === 'dream' };
@@ -1027,14 +1027,17 @@ const skinEd = (() => {
   const hex = c => `rgb(${c[0]},${c[1]},${c[2]})`;
   const pal = $('skinPal');
   // 지금 칸들의 색 (자유 모드: 칸마다 RRGGBB)
-  const freeOf = k => { const D_ = SK[k], f = mine[k + 'F']; if (f) return f; return '#' + D_.MASK.map((_, i) => rgbHex(D_.PAL[parseInt(mine[k][i], 16)] || D_.PAL[0])).join(''); };
-  const cellRGB = i => free ? hexRgb(freeOf(kind).substr(1 + i * 6, 6)) : D.PAL[parseInt(mine[kind][i], 16)];
+  const palHex = (D_, ch) => ch === 'x' ? 'xxxxxx' : rgbHex(D_.PAL[parseInt(ch, 16)] || D_.PAL[0]);
+  const freeOf = k => { const D_ = SK[k], f = mine[k + 'F']; if (f) return f; return '#' + D_.MASK.map((_, i) => palHex(D_, mine[k][i])).join(''); };
+  const cellRGB = i => { if (free) { const q = freeOf(kind).substr(1 + i * 6, 6); return q === 'xxxxxx' ? null : hexRgb(q); } const ch = mine[kind][i]; return ch === 'x' ? null : D.PAL[parseInt(ch, 16)]; };
+  let clear = false; // 투명 칠하기
+  const clearCount = () => { let n = 0; if (free) { const f = freeOf(kind); for (let i = 0; i < D.MASK.length; i++) if (f.substr(1 + i * 6, 6) === 'xxxxxx') n++; } else for (const ch of mine[kind]) if (ch === 'x') n++; return n; };
   function setKind(k) {
     kind = k; D = SK[k];
     cv_.width = D.W * CS; cv_.height = D.H * CS; cv_.style.height = (D.H * CS) + 'px'; pv.width = D.W; pv.height = D.H; pv.style.height = (D.H * 3) + 'px';
     idxOf = new Int16Array(D.W * D.H).fill(-1); D.MASK.forEach((kk, i) => idxOf[kk] = i);
     pal.textContent = '';
-    D.PAL.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = hex(c); b.setAttribute('aria-label', `색 ${i + 1}`); if (i >= D.bright) b.classList.add('glow'); b.addEventListener('click', () => { col[kind] = i; mark(); }); pal.append(b); });
+    D.PAL.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = hex(c); b.setAttribute('aria-label', `색 ${i + 1}`); if (i >= D.bright) b.classList.add('glow'); b.addEventListener('click', () => { col[kind] = i; clear = false; mark(); }); pal.append(b); });
     $('skinTabA').classList.toggle('on', k === 'alice'); $('skinTabD').classList.toggle('on', k === 'dream');
     rule(); picker.set(fcol[kind]); mark(); draw(); if (typeof presetsUI === 'function') presetsUI();
   }
@@ -1044,27 +1047,30 @@ const skinEd = (() => {
       : kind === 'alice' ? '모양은 고정이고 색만 바꿀 수 있어요. 앨리스가 됐을 때 이 모습으로 나와요.' : `꿈은 어두운 색 위주예요. 빛나는 색(아래 줄)을 ${DSKIN_BRIGHT_MIN}칸 이상 칠해야 적용돼요 (최대 ${DSKIN_BRIGHT_MAX}칸). 꿈이 됐을 때 이 모습으로 나와요.`;
     pal.hidden = free; $('skinPick').hidden = !free;
   }
-  const mark = () => { [...pal.children].forEach((b, i) => b.classList.toggle('on', i === col[kind])); $('skinSym').classList.toggle('on', sym); $('skinFill').classList.toggle('on', tool === 'fill'); $('skinDrop').classList.toggle('on', tool === 'drop'); $('skinDrop').hidden = !free; };
+  const mark = () => { [...pal.children].forEach((b, i) => b.classList.toggle('on', i === col[kind])); $('skinSym').classList.toggle('on', sym); $('skinFill').classList.toggle('on', tool === 'fill'); $('skinDrop').classList.toggle('on', tool === 'drop'); $('skinDrop').hidden = !free; $('skinClear').classList.toggle('on', clear); };
   const darkN = s => { let n = 0; for (const ch of s) if (ch === '2' || ch === '7') n++; return n; };
-  const brightN = s => { let n = 0; for (const ch of s) if (parseInt(ch, 16) >= DSKIN_BRIGHT) n++; return n; };
+  const brightN = s => { let n = 0; for (const ch of s) if (ch !== 'x' && parseInt(ch, 16) >= DSKIN_BRIGHT) n++; return n; };
+  const xN = s => { let n = 0; for (const ch of s) if (ch === 'x') n++; return n; };
   const say_ = t => { $('skinMsg').textContent = t; clearTimeout(msgT); msgT = setTimeout(() => { $('skinMsg').textContent = ''; }, 2200); };
   const queue = () => { clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 250); };
   function commit(next) {
     const cur = mine[kind]; if (next === cur) return;
     if (kind === 'alice' && darkN(next) > SKIN_DARK_MAX && darkN(next) > darkN(cur)) { say_(`아주 어두운 색은 ${SKIN_DARK_MAX}칸까지만 칠할 수 있어요.`); return; }
     if (kind === 'dream' && brightN(next) > DSKIN_BRIGHT_MAX && brightN(next) > brightN(cur)) { say_(`빛나는 색은 ${DSKIN_BRIGHT_MAX}칸까지만 칠할 수 있어요.`); return; }
+    if (xN(next) > SKIN_CLEAR_MAX && xN(next) > xN(cur)) { say_(`투명은 ${SKIN_CLEAR_MAX}칸까지만 쓸 수 있어요.`); return; }
     mine[kind] = next; store.set(D.key, next === D.DEF ? null : next); draw(); queue();
   }
   function setCells(list) {
     if (free) {
-      const s = freeOf(kind).split(''), h = fcol[kind];
+      const s = freeOf(kind).split(''), h = clear ? 'xxxxxx' : fcol[kind];
       for (const i of list) for (let j = 0; j < 6; j++) s[1 + i * 6 + j] = h[j];
       const next = s.join(''); if (next === mine[kind + 'F']) return;
+      if (clear) { let n = 0; for (let i = 0; i < D.MASK.length; i++) if (next.substr(1 + i * 6, 6) === 'xxxxxx') n++; if (n > SKIN_CLEAR_MAX) { say_(`투명은 ${SKIN_CLEAR_MAX}칸까지만 쓸 수 있어요.`); return; } }
       mine[kind + 'F'] = next; store.set(D.fkey, next); draw(); queue();
-      if (!recent.includes(h)) { recent.unshift(h); recent = recent.slice(0, 12); try { store.set('recentCols', recent); } catch (_) {} picker.recents(); }
+      if (!clear && !recent.includes(h)) { recent.unshift(h); recent = recent.slice(0, 12); try { store.set('recentCols', recent); } catch (_) {} picker.recents(); }
       return;
     }
-    const a = mine[kind].split(''); const h = col[kind].toString(16); for (const i of list) a[i] = h; commit(a.join(''));
+    const a = mine[kind].split(''); const h = clear ? 'x' : col[kind].toString(16); for (const i of list) a[i] = h; commit(a.join(''));
   }
   const valAt = i => free ? freeOf(kind).substr(1 + i * 6, 6) : mine[kind][i];
   function cellsAt(x, y) { const out = []; const add = xx => { const i = idxOf[y * D.W + xx]; if (i >= 0 && !out.includes(i)) out.push(i); }; add(x); if (sym) add(D.W - 1 - x); return out; }
@@ -1078,7 +1084,7 @@ const skinEd = (() => {
   function at(e) { const r = cv_.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * D.W), Math.floor((e.clientY - r.top) / r.height * D.H)]; }
   cv_.addEventListener('pointerdown', e => {
     e.preventDefault(); const [x, y] = at(e);
-    if (tool === 'drop') { const i = idxOf[y * D.W + x]; if (i >= 0 && free) { fcol[kind] = valAt(i); picker.set(fcol[kind]); tool = 'pen'; mark(); } return; }
+    if (tool === 'drop') { const i = idxOf[y * D.W + x]; if (i >= 0 && free) { const v = valAt(i); if (v === 'xxxxxx') clear = true; else { fcol[kind] = v; picker.set(v); clear = false; } tool = 'pen'; mark(); } return; }
     if (tool === 'fill') { setCells(flood(x, y)); return; }
     painting = true; try { cv_.setPointerCapture(e.pointerId); } catch (_) {} setCells(cellsAt(x, y));
   });
@@ -1088,6 +1094,7 @@ const skinEd = (() => {
   $('skinSym').addEventListener('click', () => { sym = !sym; mark(); });
   $('skinFill').addEventListener('click', () => { tool = tool === 'fill' ? 'pen' : 'fill'; mark(); });
   $('skinDrop').addEventListener('click', () => { tool = tool === 'drop' ? 'pen' : 'drop'; mark(); });
+  $('skinClear').addEventListener('click', () => { clear = !clear; if (tool === 'drop') tool = 'pen'; mark(); if (clear) say_(`투명으로 칠해요 (최대 ${SKIN_CLEAR_MAX}칸). 지금 ${clearCount()}칸.`); });
   $('skinReset').addEventListener('click', () => { // 팔레트 그림과 자유 색상 그림 둘 다 지워서 진짜 기본으로
     mine[kind + 'F'] = null; store.set(D.fkey, null);
     mine[kind] = D.DEF; store.set(D.key, null);
@@ -1103,7 +1110,7 @@ const skinEd = (() => {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'pre' + (v ? '' : ' empty') + (saving ? ' saving' : '');
       b.setAttribute('aria-label', `프리셋 ${i + 1}`);
       if (v) { const c = document.createElement('canvas'); c.width = D.W; c.height = D.H; const x = c.getContext('2d'), im = x.createImageData(D.W, D.H), f = v[0] === '#';
-        D.MASK.forEach((k, j) => { const col = f ? hexRgb(v.substr(1 + j * 6, 6)) : D.PAL[parseInt(v[j], 16)] || D.PAL[0]; im.data.set([col[0], col[1], col[2], 255], k * 4); }); x.putImageData(im, 0, 0); b.append(c); }
+        D.MASK.forEach((k, j) => { const q = f ? v.substr(1 + j * 6, 6) : v[j]; if (q === 'x' || q === 'xxxxxx') return; const col = f ? hexRgb(q) : D.PAL[parseInt(q, 16)] || D.PAL[0]; im.data.set([col[0], col[1], col[2], 255], k * 4); }); x.putImageData(im, 0, 0); b.append(c); }
       else b.textContent = saving ? '+' : String(i + 1);
       b.addEventListener('click', () => {
         if (saving) {
@@ -1113,7 +1120,7 @@ const skinEd = (() => {
         if (v[0] === '#') {
           if (!free) { say_('자유 색상으로 만든 프리셋은 자유 색상 모드에서만 불러올 수 있어요.'); return; }
           mine[kind + 'F'] = v; store.set(D.fkey, v);
-        } else if (free) { mine[kind + 'F'] = '#' + D.MASK.map((_, j) => rgbHex(D.PAL[parseInt(v[j], 16)] || D.PAL[0])).join(''); store.set(D.fkey, mine[kind + 'F']); }
+        } else if (free) { mine[kind + 'F'] = '#' + D.MASK.map((_, j) => palHex(D, v[j])).join(''); store.set(D.fkey, mine[kind + 'F']); }
         else { mine[kind] = v; store.set(D.key, v === D.DEF ? null : v); }
         draw(); queue(); say_(`${i + 1}번 프리셋을 불러왔어요.`);
       });
@@ -1126,7 +1133,7 @@ const skinEd = (() => {
   // 색 고르기 (채도·명도 판 + 색상 막대 + 코드)
   const picker = (() => {
     const sv = $('pickSV'), hu = $('pickHue'), sx = sv.getContext('2d'), hx = hu.getContext('2d'), inp = $('pickHex'), sw = $('pickSw'), rc = $('pickRecent');
-    let H = 0, S = 1, V = 1;
+    let H = 0, S = 1, V = 1, pickTouched = false;
     const hsv2rgb = (h, s, v) => { const f = n => { const k = (n + h / 60) % 6; return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1)))); }; return [f(5), f(3), f(1)]; };
     const rgb2hsv = ([r, g, b]) => { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0; if (d) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, mx ? d / mx : 0, mx]; };
     function paint() {
@@ -1137,14 +1144,14 @@ const skinEd = (() => {
       sx.strokeStyle = V > .5 ? '#000' : '#fff'; sx.lineWidth = 1.5; sx.beginPath(); sx.arc(S * w, (1 - V) * h, 6, 0, 7); sx.stroke();
       const gh = hx.createLinearGradient(0, 0, 0, hu.height); for (let i = 0; i <= 6; i++) gh.addColorStop(i / 6, `hsl(${i * 60},100%,50%)`); hx.fillStyle = gh; hx.fillRect(0, 0, hu.width, hu.height);
       hx.fillStyle = '#fff'; hx.fillRect(0, H / 360 * hu.height - 1.5, hu.width, 3); hx.strokeStyle = '#000'; hx.strokeRect(.5, H / 360 * hu.height - 2, hu.width - 1, 4);
-      const c = hsv2rgb(H, S, V), hh = rgbHex(c); sw.style.background = '#' + hh; if (document.activeElement !== inp) inp.value = hh; fcol[kind] = hh;
+      const c = hsv2rgb(H, S, V), hh = rgbHex(c); sw.style.background = '#' + hh; if (document.activeElement !== inp) inp.value = hh; fcol[kind] = hh; if (clear && pickTouched) { clear = false; mark(); } pickTouched = false;
     }
     const drag = (el, fn) => { let on = false; const go = e => { const r = el.getBoundingClientRect(); fn(clamp((e.clientX - r.left) / r.width, 0, 1), clamp((e.clientY - r.top) / r.height, 0, 1)); paint(); };
-      el.addEventListener('pointerdown', e => { e.preventDefault(); on = true; try { el.setPointerCapture(e.pointerId); } catch (_) {} go(e); });
+      el.addEventListener('pointerdown', e => { e.preventDefault(); on = true; pickTouched = true; try { el.setPointerCapture(e.pointerId); } catch (_) {} go(e); });
       el.addEventListener('pointermove', e => { if (on) go(e); }); el.addEventListener('pointerup', () => { on = false; }); el.addEventListener('pointercancel', () => { on = false; }); };
     drag(sv, (u, v) => { S = u; V = 1 - v; }); drag(hu, (_, v) => { H = v * 359.9; });
-    inp.addEventListener('input', () => { const v = inp.value.trim().replace(/^#/, '').toLowerCase(); if (/^[0-9a-f]{6}$/.test(v)) { [H, S, V] = rgb2hsv(hexRgb(v)); paint(); } });
-    function recents() { rc.textContent = ''; for (const h of recent) { const b = document.createElement('button'); b.type = 'button'; b.style.background = '#' + h; b.setAttribute('aria-label', '#' + h); b.addEventListener('click', () => set(h)); rc.append(b); } }
+    inp.addEventListener('input', () => { pickTouched = true; const v = inp.value.trim().replace(/^#/, '').toLowerCase(); if (/^[0-9a-f]{6}$/.test(v)) { [H, S, V] = rgb2hsv(hexRgb(v)); paint(); } });
+    function recents() { rc.textContent = ''; for (const h of recent) { const b = document.createElement('button'); b.type = 'button'; b.style.background = '#' + h; b.setAttribute('aria-label', '#' + h); b.addEventListener('click', () => { pickTouched = true; set(h); }); rc.append(b); } }
     function set(h) { [H, S, V] = rgb2hsv(hexRgb(h)); inp.value = h; paint(); }
     recents(); paint();
     return { set, recents };
@@ -1155,17 +1162,20 @@ const skinEd = (() => {
     for (let y = 0; y < D.H; y++) for (let x = 0; x < D.W; x++) {
       const i = idxOf[y * D.W + x];
       if (i < 0) { cx.fillStyle = (x + y) & 1 ? '#121012' : '#0d0b0c'; cx.fillRect(x * CS, y * CS, CS, CS); continue; }
-      cx.fillStyle = hex(cellRGB(i)); cx.fillRect(x * CS, y * CS, CS, CS);
+      const cc = cellRGB(i);
+      if (!cc) { for (let q = 0; q < 4; q++) { cx.fillStyle = (q === 0 || q === 3) ? '#6a6460' : '#3a3632'; cx.fillRect(x * CS + (q & 1) * CS / 2, y * CS + (q >> 1) * CS / 2, CS / 2, CS / 2); } continue; }
+      cx.fillStyle = hex(cc); cx.fillRect(x * CS, y * CS, CS, CS);
       cx.strokeStyle = kind === 'dream' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.25)'; cx.strokeRect(x * CS + .5, y * CS + .5, CS - 1, CS - 1);
     }
     const im = px.createImageData(D.W, D.H);
-    D.MASK.forEach((k, i) => { const c = cellRGB(i); im.data.set([c[0], c[1], c[2], 255], k * 4); });
+    D.MASK.forEach((k, i) => { const c = cellRGB(i); if (c) im.data.set([c[0], c[1], c[2], 255], k * 4); });
     px.clearRect(0, 0, D.W, D.H); px.putImageData(im, 0, 0);
     let st;
     if (free) st = mine[kind + 'F'] ? `꾸민 ${D.name} (자유 색상)` : `기본 ${D.name}`;
     else if (kind === 'alice') st = mine.alice === D.DEF ? '기본 앨리스' : '꾸민 앨리스';
     else if (mine.dream === D.DEF) st = '기본 꿈';
     else { const n = brightN(mine.dream); st = n < DSKIN_BRIGHT_MIN ? `빛나는 색 ${n}/${DSKIN_BRIGHT_MIN} — 아직 기본 꿈으로 나와요` : '꾸민 꿈'; }
+    { const n = clearCount(); if (n) st += ` · 투명 ${n}/${SKIN_CLEAR_MAX}`; }
     $('skinState').textContent = st;
   }
   setKind('alice');
