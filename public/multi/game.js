@@ -815,7 +815,7 @@ function renderWorld(g, cam, feed) {
 
 function post(dt) {
   const sd = wimg.data, d = out.data, BR = BRIGHT[bright] || BRIGHT[2], bo = BR[1];
-  const ns = (fx.noise + fx.glitch * .5) * 255, ca = Math.round(fx.ca + fx.glitch * 5), fl = 1 - Math.random() * fx.flicker;
+  const ns = (fx.noise + fx.glitch * .5) * 255, ca = Math.min(2, Math.round(fx.ca + fx.glitch * 5)), fl = 1 - Math.random() * fx.flicker; // 색 번짐은 최대 2칸 (꾸민 색이 틀어지지 않게)
   const roll = (now * 22) % (H + 80) - 40;
   if (band.life <= 0 && Math.random() < .004 + fx.glitch * .25) band = { y: Math.random() * H, h: 3 + Math.random() * 22, s: (Math.random() - .5) * 34, life: .08 + Math.random() * .3 };
   band.life -= dt; band.y += dt * 50;
