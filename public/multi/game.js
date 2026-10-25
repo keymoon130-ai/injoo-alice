@@ -133,7 +133,7 @@ function onMsg(m) {
 const FATES = {
   S: { suit: '♠', who: '붉은 앨리스', name: '붉은 검', col: '#ff7a7a', lose: '붉은 검이 녹슬어 사라졌다', story: '숲에서 수많은 것을 베고, 붉은 길을 남긴 앨리스', bless: '꿈이 바로 앞(2칸)에 오면 베어 3초 기절 · 1회', curse: '쓰기 전까지 지나간 길이 붉게 남아 꿈의 지도에 보인다' },
   M: { suit: '♦', who: '푸른 앨리스', name: '오르골', col: '#9fb0ff', lose: '오르골의 태엽이 다 풀렸다', story: '노래로 모두에게 사랑받다 총에 맞은 앨리스', bless: '다음 구출 1번이 2배 빠르다 (저절로 발동)', curse: '쓰기 전까지 노랫소리가 흘러 꿈이 방향을 안다' },
-  C: { suit: '♥', who: '초록 앨리스', name: '왕관', col: '#8fd29a', lose: '왕관이 바스러졌다', story: '모두를 홀린 아름다운 여왕, 그러나 몸은 썩어 갔다', bless: '꿈이 6칸 안에 보이면 홀려 3초간 50% 느리게 · 2회', curse: '왕관을 가진 동안 시야가 점점 썩어 간다' },
+  C: { suit: '♥', who: '초록 앨리스', name: '왕관', col: '#8fd29a', lose: '왕관이 바스러졌다', story: '모두를 홀린 아름다운 여왕, 그러나 몸은 썩어 갔다', bless: '꿈이 6칸 안에 보이면 홀려 3초간 50% 느리게 · 2회 (재사용 대기 10초)', curse: '왕관을 가진 동안 시야가 점점 썩어 간다' },
   T: { suit: '♣', who: '쌍둥이', name: '초대장', col: '#e0c860', lose: '쌍둥이의 초대장이 흩어졌다', story: '초대장을 받고 숲을 건넌, 끝내 깨어나지 못한 쌍둥이', bless: '초대장 두 장을 모은 두 사람이 6칸 안에 붙어 있으면 둘 다 8% 빠르다', curse: '15칸 넘게 떨어지면 위치가 깜빡이고, 한 명이 갇히면 짝이 10초간 드러난다' }
 };
 const TRACE_FATE = ['S', 'M', 'C', 'T', 'T'];
@@ -1140,7 +1140,7 @@ function onSnap(m) {
   }
   if (g.fate) {
     g.twins = m.tw || null;
-    const me0 = m.p.find(p => p.i === myId); if (me0) { if ((me0.f || '').includes('C') && !g.myF.includes('C')) g.cT = t; g.myF = me0.f || ''; }
+    const me0 = m.p.find(p => p.i === myId); if (me0) { if ((me0.f || '').includes('C') && !g.myF.includes('C')) g.cT = t; g.myF = me0.f || ''; g.myFc = me0.fc || 0; }
     // 붉은 검의 길 (꿈에게만 보인다)
     if (g.role === 'dream') for (const s0 of m.p) {
       const pl = g.players.get(s0.i); if (!pl || pl.role !== 'alice') continue;
@@ -1546,7 +1546,7 @@ function fateUpdate(g, dt) {
   if (g.role === 'alice' && device === 'phone') {
     const f = g.myF, ms = g.meS, lbl = ms && ms.s === 0 ? (f.includes('S') ? '♠ 베기' : f.includes('C') ? `♥ 홀리기 ${f.match(/C(\d)/) ? f.match(/C(\d)/)[1] : ''}` : '') : '';
     if (lbl !== g.fBtn) { g.fBtn = lbl; $('tDash').hidden = !lbl; $('tDash').textContent = lbl; }
-    if (lbl) { const op = fateTarget(g, g.pred, f.includes('S') ? 2.2 : 6).ok ? '1' : '.45'; if ($('tDash').style.opacity !== op) $('tDash').style.opacity = op; }
+    if (lbl) { const op = fateTarget(g, g.pred, f.includes('S') ? 2.2 : 6).ok && !(f.includes('C') && g.myFc > 0) ? '1' : '.45'; if ($('tDash').style.opacity !== op) $('tDash').style.opacity = op; }
   }
   // 지난 표시 정리
   const tn = performance.now();
@@ -1788,9 +1788,11 @@ function drawHud(g, tags) {
     if (best) { prompt = best.t; pv = best.v; }
     else if (g.door) prompt = '하늘의 빛기둥으로 가면 탈출!';
     if (g.fate && ms && ms.s === 0 && (g.myF.includes('S') || g.myF.includes('C'))) {
-      const sw = g.myF.includes('S'), fk = device === 'phone' ? '운명' : 'F', st = fateTarget(g, P, sw ? 2.2 : 6);
-      if (st.ok) { prompt = `${fk} — ${sw ? '♠ 붉은 검으로 베기!' : '♥ 왕관으로 홀리기!'}`; pv = -1; pcol = sw ? '#ff7a7a' : '#8fd29a'; }
+      const sw = g.myF.includes('S'), fk = device === 'phone' ? '운명 버튼' : 'F', st = fateTarget(g, P, sw ? 2.2 : 6);
+      if (!sw && g.myFc > 0) { if (st.ok || st.why || !prompt) { prompt = `♥ 왕관 재사용 대기 — ${Math.ceil(g.myFc)}초`; pv = -1; pcol = '#a89e90'; } }
+      else if (st.ok) { prompt = `${fk} — ${sw ? '♠ 붉은 검으로 베기!' : '♥ 왕관으로 홀리기!'}`; pv = -1; pcol = sw ? '#ff7a7a' : '#8fd29a'; }
       else if (st.why) { prompt = `${sw ? '♠' : '♥'} ${st.why}`; pv = -1; pcol = '#a89e90'; }
+      else if (!prompt) { prompt = `${fk}: ${sw ? '♠ 베기 — 꿈이 2칸 안에 오면' : '♥ 홀리기 — 꿈이 6칸 안에 보이면'}`; pv = -1; pcol = '#8d8478'; }
     }
     if (g.door) { // 문 방향 표시
       let rel = Math.atan2(g.door.z - g.cam.z, g.door.x - g.cam.x) - g.cam.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
@@ -1909,8 +1911,9 @@ function drawFateHud(g, c, sh, tnow) {
     const f = g.myF;
     for (const k of ['S', 'M', 'C', 'T']) {
       if (!f.includes(k)) continue;
-      const F = FATES[k], extra = k === 'C' ? ` ×${(f.match(/C(\d)/) || [0, ''])[1]}` : k === 'T' && P.tw ? ' 함께' : '';
-      sh(`${F.suit} ${F.name}${extra}`, 10, y, F.col, `11px 'Nanum Gothic Coding', monospace`); y += 13;
+      const F = FATES[k], extra = k === 'C' ? ` ×${(f.match(/C(\d)/) || [0, ''])[1]}${g.myFc > 0 ? ` (${Math.ceil(g.myFc)}초)` : ''}` : k === 'T' && P.tw ? ' 함께' : '';
+      const key = (k === 'S' || k === 'C') ? (device === 'phone' ? ' [운명]' : ' [F]') : '';
+      sh(`${F.suit} ${F.name}${extra}${key}`, 10, y, F.col, `11px 'Nanum Gothic Coding', monospace`); y += 13;
     }
   }
   if (g.fflash) { const age = (tnow - g.fflash.t) / 1000; if (age > 1.8) g.fflash = null; else { c.save(); c.globalAlpha = clamp(Math.min(age * 6, (1.8 - age) * 2), 0, 1); sh(g.fflash.text, W / 2, H / 2 - 40, g.fflash.col, `800 16px 'Nanum Myeongjo', serif`, 'center'); c.restore(); } }
