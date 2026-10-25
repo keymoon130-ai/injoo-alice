@@ -917,6 +917,7 @@ const hold = (el, on, off) => {
 };
 hold($('tAct'), () => { if (cctvKey()) return; ctl.touchAct = true; ctl.actLatch = true; if (game && game.spectate) cycleSpectate(); }, () => { ctl.touchAct = false; });
 hold($('tDash'), () => { ctl.dashQ = true; });
+hold($('tFate'), () => { ctl.dashQ = true; });
 hold($('tMap'), () => { if (game) game.mapOn = !game.mapOn; });
 hold($('tChat'), () => openChat());
 hold($('tHelp'), () => { if (game) game.briefOn = !game.briefOn; });
@@ -1100,7 +1101,7 @@ function startGame(m) {
   $('endBox').hidden = true;
   const phone = device === 'phone';
   $('touch').hidden = !phone;
-  $('tDash').hidden = game.role !== 'dream'; $('tDash').textContent = '대시'; $('tDash').style.opacity = '';
+  $('tDash').hidden = game.role !== 'dream'; $('tDash').textContent = '대시'; $('tFate').hidden = true; game.fBtn = null;
   $('tAct').textContent = game.role === 'dream' ? '잡기' : '행동';
   $('lockHint').hidden = phone || document.pointerLockElement === cv;
   initAudio(); drone(game.role === 'dream' ? .07 : .05, game.role === 'dream' ? .8 : 1, 2);
@@ -1544,9 +1545,17 @@ function fateUpdate(g, dt) {
   if (g.mbT <= 0) { g.mbT = .55; for (const p of g.players.values()) { if (!p.cur || p.cur.s !== 0 || !(p.cur.f || '').includes('M')) continue; const ip = p.id === myId ? g.cam : interp(p); if (ip) at(ip.x, ip.z, 30, () => sfx.music((now * 2.3 | 0) % 5)); } }
   // 앨리스 모바일 버튼: 쓸 수 있는 운명이 있을 때만
   if (g.role === 'alice' && device === 'phone') {
-    const f = g.myF, ms = g.meS, lbl = ms && ms.s === 0 ? (f.includes('S') ? '♠ 베기' : f.includes('C') ? `♥ 홀리기 ${f.match(/C(\d)/) ? f.match(/C(\d)/)[1] : ''}` : '') : '';
-    if (lbl !== g.fBtn) { g.fBtn = lbl; $('tDash').hidden = !lbl; $('tDash').textContent = lbl; }
-    if (lbl) { const op = fateTarget(g, g.pred, f.includes('S') ? 2.2 : 6).ok && !(f.includes('C') && g.myFc > 0) ? '1' : '.45'; if ($('tDash').style.opacity !== op) $('tDash').style.opacity = op; }
+    const f = g.myF, ms = g.meS, sw = f.includes('S'), cr = f.includes('C');
+    let key = '';
+    if (ms && ms.s === 0 && (sw || cr)) {
+      const st = fateTarget(g, g.pred, sw ? 2.2 : 6), cd = cr && !sw && g.myFc > 0;
+      const title = sw ? '♠ 베기' : `♥ 홀리기 ${(f.match(/C(\d)/) || [0, ''])[1]}`;
+      const sub = cd ? `${Math.ceil(g.myFc)}초` : st.ok ? '지금!' : st.why ? (st.why.includes('면역') ? '면역' : '멈춤') : '범위 밖';
+      key = `${title}|${sub}|${cd || !st.ok ? 1 : 0}`;
+      if (key !== g.fBtn) { const b = $('tFate'); b.hidden = false; $('tFateT').textContent = title; $('tFateS').textContent = sub; b.classList.toggle('off', cd || !st.ok); b.style.setProperty('--fc', FATES[sw ? 'S' : 'C'].col); }
+    }
+    if (!key && g.fBtn) $('tFate').hidden = true;
+    g.fBtn = key;
   }
   // 지난 표시 정리
   const tn = performance.now();
@@ -1837,7 +1846,7 @@ function drawHud(g, tags) {
     }
     c.globalAlpha = 1;
   }
-  if (prompt) { sh(prompt, W / 2, H - 44, pcol, KR, 'center'); if (pv >= 0) bar(W / 2, H - 38, 120, pv, pcol); }
+  if (prompt) { const py = device === 'phone' ? 140 : H - 44; sh(prompt, W / 2, py, pcol, KR, 'center'); if (pv >= 0) bar(W / 2, py + 6, 120, pv, pcol); }
   // 시작 안내 (역할 브리핑)
   const briefing = g.intro > 0 || (g.briefOn && !g.ended);
   $('touch').classList.toggle('brief', briefing);
@@ -1912,7 +1921,7 @@ function drawFateHud(g, c, sh, tnow) {
     for (const k of ['S', 'M', 'C', 'T']) {
       if (!f.includes(k)) continue;
       const F = FATES[k], extra = k === 'C' ? ` ×${(f.match(/C(\d)/) || [0, ''])[1]}${g.myFc > 0 ? ` (${Math.ceil(g.myFc)}초)` : ''}` : k === 'T' && P.tw ? ' 함께' : '';
-      const key = (k === 'S' || k === 'C') ? (device === 'phone' ? ' [운명]' : ' [F]') : '';
+      const key = (k === 'S' || k === 'C') ? (device === 'phone' ? ' [운명]' : ' [F]') : ' (자동)';
       sh(`${F.suit} ${F.name}${extra}${key}`, 10, y, F.col, `11px 'Nanum Gothic Coding', monospace`); y += 13;
     }
   }
