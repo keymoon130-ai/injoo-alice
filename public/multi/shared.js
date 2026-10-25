@@ -2,7 +2,7 @@
 // 같은 시드(seed)로 같은 맵을 만들고, 같은 이동 함수로 움직여서 기기 간 차이를 없앤다.
 
 // 서버·클라이언트 규칙 버전: 바뀌면 옛 화면은 자동으로 새로고침된다
-export const PROTO = 2;
+export const PROTO = 3;
 
 export const CFG = {
   N: 80,                 // 맵 한 변 (칸)
@@ -643,7 +643,7 @@ export function stepPlayer(w, p, inp, dt) {
   }
   let f = +inp.f || 0, s = +inp.s || 0;
   const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
-  let sp = p.role === 'dream' ? CFG.DREAM_SPEED * (p.carry ? CFG.CARRY_MUL : 1) : CFG.ALICE_SPEED;
+  let sp = p.role === 'dream' ? CFG.DREAM_SPEED * (p.carry ? CFG.CARRY_MUL : 1) * (p.sb || 1) : CFG.ALICE_SPEED;
   if (p.role === 'dream' && p.door && Math.hypot(p.x - p.door.x, p.z - p.door.z) < CFG.BURN_R) sp *= CFG.BURN_SLOW;
   const charmed = p.role === 'dream' && p.chm > 0; if (charmed) p.chm = Math.max(0, p.chm - dt); // 초록 여왕에게 홀림
   if (p.role === 'alice' && p.tw) sp *= 1.08; // 쌍둥이

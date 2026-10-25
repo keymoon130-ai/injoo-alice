@@ -150,13 +150,14 @@ $('btnCopy').addEventListener('click', async () => {
 $('btnReady').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'ready', v: !(me && me.ready) }); });
 $('btnWant').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'want', v: !(me && me.want) }); });
 $('btnStart').addEventListener('click', () => send({ type: 'start' }));
-$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate }));
-$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate }));
+$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost }));
+$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost }));
 { const sb = $('selBright'); for (let i = 0; i < 5; i++) { const o = document.createElement('option'); o.value = i; o.textContent = '■'.repeat(i + 1) + '□'.repeat(4 - i); sb.append(o); } sb.value = bright; sb.addEventListener('change', e => setBright(+e.target.value)); }
 { const ss = $('selSens'); for (let i = 1; i <= 9; i++) { const o = document.createElement('option'); o.value = i; o.textContent = `${i}${i === 5 ? ' (기본)' : ''}`; ss.append(o); } ss.value = sens; ss.addEventListener('change', e => setSens(+e.target.value)); }
-$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate }));
-$('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked, fate: !!lobby.settings.fate }));
-$('chkFate').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: e.target.checked }));
+$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost }));
+$('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost }));
+$('chkFate').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: e.target.checked, boost: !!lobby.settings.boost }));
+$('chkBoost').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: e.target.checked }));
 { const sh = $('selHiss'); sh.value = hiss ? '1' : '0'; sh.addEventListener('change', e => { hiss = e.target.value === '1'; store.set('hiss', hiss); if (A.hiss && A.ctx) A.hiss.gain.setTargetAtTime(hiss ? .014 : 0, A.ctx.currentTime, .05); }); }
 $('lbChatForm').addEventListener('submit', e => { e.preventDefault(); const v = $('lbChatIn').value.trim(); if (v) send({ type: 'chat', text: v }); $('lbChatIn').value = ''; });
 
@@ -206,6 +207,7 @@ function renderLobby() {
   $('chkSkins').checked = !!L.settings.skins; $('chkSkins').disabled = !isHost;
   $('skinPanel').hidden = !L.settings.skins;
   $('chkFate').checked = !!L.settings.fate; $('chkFate').disabled = !isHost; $('fateInfo').hidden = !L.settings.fate;
+  $('chkBoost').checked = !!L.settings.boost; $('chkBoost').disabled = !isHost; $('boostInfo').hidden = !L.settings.boost;
   if (L.settings.skins) skinEd.draw();
   $('btnReady').textContent = me && me.ready ? '준비 취소' : '준비';
   $('btnReady').classList.toggle('on', !!(me && me.ready));
@@ -1091,7 +1093,7 @@ function startGame(m) {
     revealN: Math.floor((CFG.GAME_TIME - m.time) / CFG.REVEAL_EVERY), reveal: null
   };
   game.skins = new Map(); for (const p of m.players) { if (!p.skin) continue; if (p.role === 'dream') { if (dskinValid(p.skin)) game.skins.set(p.id, skinSprite(p.skin, 'dream')); } else if (skinValid(p.skin)) game.skins.set(p.id, skinSprite(p.skin)); }
-  game.fate = !!m.fate; game.pred.dcd = game.fate ? 5 : CFG.DASH_CD;
+  game.fate = !!m.fate; game.pred.dcd = game.fate ? 5 : CFG.DASH_CD; game.boost = !!m.boost; game.sb = 1;
   Object.assign(game, { trail: new Map(), pings: [], track: [], myF: '', fcard: null, cT: 0, twins: null, mbT: 0 });
   game.mapImg = buildMap(world);
   game.pdist = cellField(world);
@@ -1134,6 +1136,7 @@ const nameOf = id => { const p = game && game.players.get(id); return p ? p.name
 function onSnap(m) {
   const g = game, t = performance.now();
   g.lastSnap = t;
+  if (m.sb) { g.sb = m.sb; g.pred.sb = m.sb; }
   g.T = m.T; g.intro = m.in; g.tr = m.tr; g.tp = m.tp; g.rp = m.rp; g.door = m.door; g.cams = m.cams; g.cp = m.cp;
   for (const s of m.p) {
     const pl = g.players.get(s.i); if (!pl) continue;
@@ -1639,10 +1642,11 @@ function drawBrief(c, g, alpha, count) {
   sh(dream ? '당신은  작은 꿈' : '당신은  다섯 번째 앨리스', W / 2, 44, dream ? '#ff7070' : '#f0e8d8', `800 20px 'Nanum Myeongjo', serif`);
   sh('─  목 표  ─', W / 2, 68, '#8d8478', KRS);
   const goals = dream
-    ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '13분 버티거나 모두 잡으면 승리 · 빛기둥 곁엔 오래 못 머문다.']
-    : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 하늘에 빛기둥 문이 열립니다 → 그리로 탈출!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
+    ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '앨리스 절반 이상의 탈출을 막으면 승리 · 빛기둥 곁엔 오래 못 머문다.']
+    : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다 → 절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
   if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다.' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
   if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
+  if (g.boost) goals.push(dream ? '★ 인원 보정: 앨리스가 많을수록 빠르다 (가둘수록 원래대로)' : '★ 인원 보정: 꿈이 더 빠르다 (동료가 갇힐수록 원래대로)');
   if (g.fate) goals.push(dream ? '★ 운명계승: 앨리스가 힘을 쓰면 위치가 드러난다' : `★ 운명계승: 흔적 주인의 힘과 저주를 잇는다 (${phone ? '운명' : 'F'})`);
   goals.forEach((l, i) => sh(l, W / 2, 84 + i * 15, i >= 3 ? '#9fe0c0' : '#d8cfbf', KR));
   const hy = Math.max(146, 84 + goals.length * 15 + 4);
@@ -1837,6 +1841,7 @@ function drawHud(g, tags) {
     c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 4; c.beginPath(); c.arc(W - 30, H - 52, 10, 0, 7); c.stroke();
     c.strokeStyle = cd > 0 ? '#7a5050' : '#ff5050'; c.lineWidth = 2.5; c.beginPath(); c.arc(W - 30, H - 52, 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cd)); c.stroke();
     sh('대시', W - 30, H - 34, cd > 0 ? '#7a6a60' : '#ffb0b0', `10px 'Nanum Gothic Coding', monospace`, 'center');
+    if (g.boost && g.sb > 1.001) sh(`속도 +${Math.round((g.sb - 1) * 100)}%`, W - 30, H - 70, '#ff9090', `10px 'Nanum Gothic Coding', monospace`, 'center');
     // 경보 (흔적·감옥을 건드리는 앨리스)
     for (const a of g.alerts) {
       const age = (tnow - a.t) / 1000; if (age > 1.5) continue;
@@ -1860,7 +1865,7 @@ function drawHud(g, tags) {
     sh(e.win === 'alice' ? '앨리스들이 꿈에서 빠져나갔다' : '꿈이 앨리스들을 삼켰다', W / 2, 92, e.win === 'alice' ? '#f0f0ff' : '#ff5050', `800 20px 'Nanum Myeongjo', serif`, 'center');
     sh(iWin ? '승리' : '패배', W / 2, 124, iWin ? '#cfe8d2' : '#e08080', `28px 'VT323', monospace`, 'center');
     const rows = [];
-    if (e.esc.length) rows.push(`탈출: ${e.esc.join(', ')}`);
+    if (e.esc.length) rows.push(`탈출: ${e.esc.join(', ')}${e.need ? ` (${e.esc.length}/${e.total}${e.win === 'dream' ? ` — ${e.need}명이 필요했다` : ''})` : ''}`);
     if (e.rot.length) rows.push(`성 위에 걸림: ${e.rot.join(', ')}`);
     if (e.jail.length && e.win === 'dream') rows.push(`붙잡힘: ${e.jail.join(', ')}`);
     rows.push(`꿈: ${e.dreams.join(', ')}`);

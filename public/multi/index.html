@@ -178,7 +178,9 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <span>테이프 잡음</span><select id="selHiss" aria-label="지지직 잡음 (이 기기)"><option value="1">켜기 (지지직)</option><option value="0">끄기</option></select>
         <span>꾸미기</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label>
         <span>추가 모드</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkFate"> 운명계승 (방장)</label>
+        <span></span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkBoost"> 인원 보정 (방장)</label>
       </div>
+      <p class="hint" id="boostInfo" hidden style="text-align:left;border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:#0a0809">인원 보정 켜짐 — 갇히지 않은 앨리스가 꿈보다 3명 많으면 꿈이 4% 빨라지고, 한 명 더 많을 때마다 4%씩 더 빨라져요 (최대 +20%). 앨리스가 갇히거나 탈출해 수가 줄면 원래 속도로 돌아가요.</p>
       <details id="fateInfo" hidden><summary>운명계승이란? (추가 모드 켜짐)</summary>
         <p class="hint" style="text-align:left">흔적을 모은 앨리스는 그 흔적의 원래 주인 — 이전 앨리스들의 운명을 이어받는다. 힘(축복)과 함께 저주(대가)도. 앨리스는 <b>F</b> / 모바일 「운명」 버튼으로 쓴다.</p>
         <div id="fateList"></div>
