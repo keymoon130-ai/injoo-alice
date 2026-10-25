@@ -101,6 +101,12 @@ input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;p
 #pickHex{width:84px;padding:6px 8px;font-size:13px;text-transform:lowercase}
 #pickRecent{display:flex;flex-wrap:wrap;gap:6px;max-width:240px}
 #pickRecent button{width:22px;height:22px;padding:0;border-radius:3px;border:2px solid #3a3236}
+.preRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#skinPre{display:flex;gap:6px}
+#skinPre .pre{width:30px;height:52px;padding:2px;border-radius:3px;border:2px solid #3a3236;background:#0a0809;font-size:11px;color:var(--dim);display:flex;align-items:center;justify-content:center}
+#skinPre .pre canvas{width:100%;height:100%;image-rendering:pixelated}
+#skinPre .pre.saving{border-color:#cfe8d2;border-style:dashed}
+#skinSave{padding:6px 10px;font-size:12px}
 #skinPal button.on{border-color:#f1dcd6;box-shadow:0 0 0 2px #6d1a1d}
 .skinPrev{display:flex;gap:12px;align-items:flex-end}
 #skinPv{width:36px;height:69px;image-rendering:pixelated;background:radial-gradient(ellipse at 50% 70%,#2a221c,#08070a);padding:8px 14px;box-sizing:content-box;border:1px solid var(--line);border-radius:3px}
@@ -228,6 +234,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
             <button type="button" id="skinReset">기본으로</button>
           </div>
           <div class="skinPrev"><canvas id="skinPv"></canvas><span class="hint">게임 속 모습</span></div>
+          <div class="preRow"><span class="hint">프리셋</span><div id="skinPre"></div><button type="button" id="skinSave">저장</button></div>
           <p class="hint" id="skinMsg" style="text-align:left;min-height:1.2em"></p>
         </div>
       </div>

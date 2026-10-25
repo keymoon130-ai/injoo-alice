@@ -1034,7 +1034,7 @@ const skinEd = (() => {
     pal.textContent = '';
     D.PAL.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = hex(c); b.setAttribute('aria-label', `색 ${i + 1}`); if (i >= D.bright) b.classList.add('glow'); b.addEventListener('click', () => { col[kind] = i; mark(); }); pal.append(b); });
     $('skinTabA').classList.toggle('on', k === 'alice'); $('skinTabD').classList.toggle('on', k === 'dream');
-    rule(); picker.set(fcol[kind]); mark(); draw();
+    rule(); picker.set(fcol[kind]); mark(); draw(); if (typeof presetsUI === 'function') presetsUI();
   }
   function rule() {
     $('skinRule').textContent = free
@@ -1086,11 +1086,39 @@ const skinEd = (() => {
   $('skinSym').addEventListener('click', () => { sym = !sym; mark(); });
   $('skinFill').addEventListener('click', () => { tool = tool === 'fill' ? 'pen' : 'fill'; mark(); });
   $('skinDrop').addEventListener('click', () => { tool = tool === 'drop' ? 'pen' : 'drop'; mark(); });
-  $('skinReset').addEventListener('click', () => {
-    if (free) { mine[kind + 'F'] = null; store.set(D.fkey, null); }
-    else { mine[kind] = D.DEF; store.set(D.key, null); }
+  $('skinReset').addEventListener('click', () => { // 팔레트 그림과 자유 색상 그림 둘 다 지워서 진짜 기본으로
+    mine[kind + 'F'] = null; store.set(D.fkey, null);
+    mine[kind] = D.DEF; store.set(D.key, null);
     draw(); clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 100); say_(`기본 ${D.name}(으)로 돌아왔어요.`);
   });
+  // 프리셋: 탭마다 5칸. 칸을 누르면 불러오고, 「저장」을 켠 뒤 칸을 누르면 지금 모습을 저장
+  let presets = (() => { const v = store.get('presets', null); return v && Array.isArray(v.alice) && Array.isArray(v.dream) ? v : { alice: [null, null, null, null, null], dream: [null, null, null, null, null] }; })();
+  let saving = false;
+  const preBox = $('skinPre');
+  function presetsUI() {
+    preBox.textContent = '';
+    presets[kind].forEach((v, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'pre' + (v ? '' : ' empty') + (saving ? ' saving' : '');
+      b.setAttribute('aria-label', `프리셋 ${i + 1}`);
+      if (v) { const c = document.createElement('canvas'); c.width = D.W; c.height = D.H; const x = c.getContext('2d'), im = x.createImageData(D.W, D.H), f = v[0] === '#';
+        D.MASK.forEach((k, j) => { const col = f ? hexRgb(v.substr(1 + j * 6, 6)) : D.PAL[parseInt(v[j], 16)] || D.PAL[0]; im.data.set([col[0], col[1], col[2], 255], k * 4); }); x.putImageData(im, 0, 0); b.append(c); }
+      else b.textContent = saving ? '+' : String(i + 1);
+      b.addEventListener('click', () => {
+        if (saving) {
+          presets[kind][i] = free ? freeOf(kind) : mine[kind]; store.set('presets', presets); saving = false; $('skinSave').classList.remove('on'); presetsUI(); say_(`${i + 1}번 프리셋에 저장했어요.`); return;
+        }
+        if (!v) { say_('빈 칸이에요. 「저장」을 누른 뒤 칸을 고르면 저장돼요.'); return; }
+        if (v[0] === '#') {
+          if (!free) { say_('자유 색상으로 만든 프리셋은 자유 색상 모드에서만 불러올 수 있어요.'); return; }
+          mine[kind + 'F'] = v; store.set(D.fkey, v);
+        } else if (free) { mine[kind + 'F'] = '#' + D.MASK.map((_, j) => rgbHex(D.PAL[parseInt(v[j], 16)] || D.PAL[0])).join(''); store.set(D.fkey, mine[kind + 'F']); }
+        else { mine[kind] = v; store.set(D.key, v === D.DEF ? null : v); }
+        draw(); queue(); say_(`${i + 1}번 프리셋을 불러왔어요.`);
+      });
+      preBox.append(b);
+    });
+  }
+  $('skinSave').addEventListener('click', () => { saving = !saving; $('skinSave').classList.toggle('on', saving); presetsUI(); if (saving) say_('저장할 칸을 고르세요.'); });
   $('skinTabA').addEventListener('click', () => setKind('alice'));
   $('skinTabD').addEventListener('click', () => setKind('dream'));
   // 색 고르기 (채도·명도 판 + 색상 막대 + 코드)
