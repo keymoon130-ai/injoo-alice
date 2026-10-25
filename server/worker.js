@@ -517,7 +517,7 @@ export class Room {
     const p = [...this.players.values()].map(p => ({
       i: p.id, x: r2(p.x), z: r2(p.z), y: r2(p.yaw), s: p.st, m: p.m | 0, dc: r1(p.dc), dt: r2(p.dt), sn: r1(p.sn),
       c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell,
-      ...(g.fate ? { f: p.fates.map(f => f.k + (f.k === 'C' ? f.u : '')).join(''), ch: r1(p.chm || 0), w: p.tw ? 1 : 0, fi: p.fim > 0 ? 1 : 0 } : {})
+      ...(g.fate ? { f: p.fates.map(f => f.k + (f.k === 'C' ? f.u : '')).join(''), ch: r1(p.chm || 0), w: p.tw ? 1 : 0, fi: r1(p.fim || 0) } : {})
     }));
     const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}) });
     g.ev = [];

@@ -1100,7 +1100,7 @@ function startGame(m) {
   $('endBox').hidden = true;
   const phone = device === 'phone';
   $('touch').hidden = !phone;
-  $('tDash').hidden = game.role !== 'dream'; $('tDash').textContent = '대시';
+  $('tDash').hidden = game.role !== 'dream'; $('tDash').textContent = '대시'; $('tDash').style.opacity = '';
   $('tAct').textContent = game.role === 'dream' ? '잡기' : '행동';
   $('lockHint').hidden = phone || document.pointerLockElement === cv;
   initAudio(); drone(game.role === 'dream' ? .07 : .05, game.role === 'dream' ? .8 : 1, 2);
@@ -1261,6 +1261,7 @@ function handleEv(e) {
     case 'fu': {
       const F = FATES[e.k]; if (!F) break;
       if (g.role === 'dream') g.pings.push({ x: e.x, z: e.z, t: performance.now(), dur: 3, col: F.col });
+      if (e.a === myId) { g.fflash = { text: e.k === 'S' ? '♠ 베었다! 꿈 3초 기절' : e.k === 'C' ? `♥ 홀렸다! 꿈 3초간 느려짐${e.u > 0 ? ` (남은 ${e.u}회)` : ' — 왕관이 바스러졌다'}` : '♦ 노래로 감옥 문을 빨리 열었다', col: F.col, t: performance.now() }; sfx.choir(); fx.glitch = .6; vib(80); }
       if (e.k === 'S') { at(e.x, e.z, 30, sfx.swing); at(e.x, e.z, 30, sfx.clang); if (e.d === myId) { fx.glitch = 1.6; g.burnFlash = .5; vib([120, 40, 200]); say(chicken ? '뿅망치에 맞았다! (3초 기절)' : '붉은 검에 베였다! (3초 기절)', '#ff7070', 3); } else say(`♠ ${josa(nameOf(e.a), '이', '가')} 붉은 검으로 꿈을 베었다!`, '#ff8a8a', 3); }
       else if (e.k === 'C') { at(e.x, e.z, 30, sfx.choir); if (e.d === myId) { fx.glitch = 1; say('여왕의 아름다움에 홀렸다… (3초간 느려짐)', '#8fd29a', 3); } else say(`♥ ${josa(nameOf(e.a), '이', '가')} 꿈을 홀렸다${e.u > 0 ? '' : ' — 왕관이 바스러졌다'}`, '#8fd29a', 3); }
       else if (e.k === 'M') say(`♦ 노랫소리에 감옥 문이 빨리 열렸다`, '#9fb0ff', 3);
@@ -1545,6 +1546,7 @@ function fateUpdate(g, dt) {
   if (g.role === 'alice' && device === 'phone') {
     const f = g.myF, ms = g.meS, lbl = ms && ms.s === 0 ? (f.includes('S') ? '♠ 베기' : f.includes('C') ? `♥ 홀리기 ${f.match(/C(\d)/) ? f.match(/C(\d)/)[1] : ''}` : '') : '';
     if (lbl !== g.fBtn) { g.fBtn = lbl; $('tDash').hidden = !lbl; $('tDash').textContent = lbl; }
+    if (lbl) { const op = fateTarget(g, g.pred, f.includes('S') ? 2.2 : 6).ok ? '1' : '.45'; if ($('tDash').style.opacity !== op) $('tDash').style.opacity = op; }
   }
   // 지난 표시 정리
   const tn = performance.now();
@@ -1786,8 +1788,9 @@ function drawHud(g, tags) {
     if (best) { prompt = best.t; pv = best.v; }
     else if (g.door) prompt = '하늘의 빛기둥으로 가면 탈출!';
     if (g.fate && ms && ms.s === 0 && (g.myF.includes('S') || g.myF.includes('C'))) {
-      const sw = g.myF.includes('S'), d = nearDreamTo(g, P.x, P.z, sw ? 2.2 : 6), fk = device === 'phone' ? '운명' : 'F';
-      if (d) { prompt = d.cur.fi || d.cur.sn > 0 ? `${sw ? '♠' : '♥'} 꿈이 아직 운명에 면역이다` : `${fk} — ${sw ? '♠ 붉은 검으로 베기!' : '♥ 왕관으로 홀리기!'}`; pv = -1; pcol = d.cur.fi ? '#a89e90' : sw ? '#ff7a7a' : '#8fd29a'; }
+      const sw = g.myF.includes('S'), fk = device === 'phone' ? '운명' : 'F', st = fateTarget(g, P, sw ? 2.2 : 6);
+      if (st.ok) { prompt = `${fk} — ${sw ? '♠ 붉은 검으로 베기!' : '♥ 왕관으로 홀리기!'}`; pv = -1; pcol = sw ? '#ff7a7a' : '#8fd29a'; }
+      else if (st.why) { prompt = `${sw ? '♠' : '♥'} ${st.why}`; pv = -1; pcol = '#a89e90'; }
     }
     if (g.door) { // 문 방향 표시
       let rel = Math.atan2(g.door.z - g.cam.z, g.door.x - g.cam.x) - g.cam.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
@@ -1867,6 +1870,20 @@ function drawHud(g, tags) {
   drawScare(c, g);
 }
 
+function fateTarget(g, P, r) { // 운명을 쓸 수 있는 꿈이 있나 (서버와 같은 기준: 거리 · 시야 · 기절/홀림/면역)
+  const w = g.world, N = w.N, sees = (x, z) => { const dx = x - P.x, dz = z - P.z, n = Math.ceil(Math.hypot(dx, dz) * 4); for (let k = 1; k < n; k++) { const cx = (P.x + dx * k / n) | 0, cz = (P.z + dz * k / n) | 0; if (cx < 0 || cz < 0 || cx >= N || cz >= N || w.wall[cz * N + cx]) return false; } return true; };
+  let why = '', best = 1e9;
+  for (const p of g.players.values()) {
+    if (p.role !== 'dream' || !p.cur || p.cur.s !== 0) continue;
+    const ip = interp(p) || p.cur, d = Math.hypot(ip.x - P.x, ip.z - P.z); if (d > r || !sees(ip.x, ip.z)) continue;
+    const c = p.cur;
+    if (c.sn > 0) { if (d < best) { best = d; why = '꿈이 이미 멈춰 있다'; } continue; }
+    if (c.ch > 0) { if (d < best) { best = d; why = '꿈이 이미 홀려 있다'; } continue; }
+    if (c.fi > 0) { if (d < best) { best = d; why = `꿈 면역 — ${Math.ceil(c.fi)}초`; } continue; }
+    return { ok: true };
+  }
+  return { ok: false, why };
+}
 function fateWarn(g, i) {
   if (!g.fate || g.role !== 'alice') return '';
   const k = TRACE_FATE[i], f = g.myF.replace(/\d/g, '');
@@ -1896,6 +1913,7 @@ function drawFateHud(g, c, sh, tnow) {
       sh(`${F.suit} ${F.name}${extra}`, 10, y, F.col, `11px 'Nanum Gothic Coding', monospace`); y += 13;
     }
   }
+  if (g.fflash) { const age = (tnow - g.fflash.t) / 1000; if (age > 1.8) g.fflash = null; else { c.save(); c.globalAlpha = clamp(Math.min(age * 6, (1.8 - age) * 2), 0, 1); sh(g.fflash.text, W / 2, H / 2 - 40, g.fflash.col, `800 16px 'Nanum Myeongjo', serif`, 'center'); c.restore(); } }
   if (g.role === 'dream' && P.chm > 0) { c.fillStyle = chicken ? 'rgba(255,170,210,.18)' : 'rgba(60,140,80,.18)'; c.fillRect(0, 0, W, H); }
   // 운명을 이어받는 순간: 테이프 라벨 카드
   if (g.fcard) {
