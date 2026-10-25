@@ -90,6 +90,17 @@ input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;p
 #skinPal{display:grid;grid-template-columns:repeat(8,30px);gap:6px}
 #skinPal button{width:30px;height:30px;padding:0;border-radius:3px;border:2px solid #3a3236}
 #skinPal button.glow{box-shadow:0 0 6px currentColor}
+#skinPick{display:flex;flex-direction:column;gap:8px}
+.pickRow{display:flex;gap:10px;align-items:flex-start}
+#pickSV,#pickHue{touch-action:none;cursor:crosshair;border:1px solid var(--line);border-radius:2px}
+#pickSV{width:150px;height:150px}
+#pickHue{width:18px;height:150px}
+.pickSide{display:flex;flex-direction:column;gap:8px}
+#pickSw{width:48px;height:48px;border:2px solid #3a3236;border-radius:3px}
+.pickHexL{display:flex;align-items:center;gap:4px;color:var(--dim)}
+#pickHex{width:84px;padding:6px 8px;font-size:13px;text-transform:lowercase}
+#pickRecent{display:flex;flex-wrap:wrap;gap:6px;max-width:240px}
+#pickRecent button{width:22px;height:22px;padding:0;border-radius:3px;border:2px solid #3a3236}
 #skinPal button.on{border-color:#f1dcd6;box-shadow:0 0 0 2px #6d1a1d}
 .skinPrev{display:flex;gap:12px;align-items:flex-end}
 #skinPv{width:36px;height:69px;image-rendering:pixelated;background:radial-gradient(ellipse at 50% 70%,#2a221c,#08070a);padding:8px 14px;box-sizing:content-box;border:1px solid var(--line);border-radius:3px}
@@ -176,7 +187,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <span>밝기</span><select id="selBright" aria-label="화면 밝기 (이 기기)"></select>
         <span>시점 감도</span><select id="selSens" aria-label="시점 감도 (이 기기)"></select>
         <span>테이프 잡음</span><select id="selHiss" aria-label="지지직 잡음 (이 기기)"><option value="1">켜기 (지지직)</option><option value="0">끄기</option></select>
-        <span>꾸미기</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label>
+        <span>꾸미기</span><span class="row" style="justify-content:flex-start;gap:14px"><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label><label class="chk" id="freeLbl" style="font-size:13px!important"><input type="checkbox" id="chkFree"> 자유 색상</label></span>
         <span>추가 모드</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkFate"> 운명계승 (방장)</label>
         <span></span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkBoost"> 인원 보정 (방장)</label>
       </div>
@@ -205,9 +216,15 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <canvas id="skinCv" aria-label="도트 칠하기 판"></canvas>
         <div class="skinSide">
           <div id="skinPal"></div>
+          <div id="skinPick" hidden>
+            <div class="pickRow"><canvas id="pickSV" width="150" height="150" aria-label="채도와 밝기"></canvas><canvas id="pickHue" width="18" height="150" aria-label="색상"></canvas>
+              <div class="pickSide"><div id="pickSw"></div><label class="pickHexL"># <input id="pickHex" maxlength="7" spellcheck="false" aria-label="색 코드"></label></div></div>
+            <div id="pickRecent"></div>
+          </div>
           <div class="row" style="justify-content:flex-start">
             <button type="button" id="skinSym">좌우 대칭</button>
             <button type="button" id="skinFill">채우기</button>
+            <button type="button" id="skinDrop" hidden>스포이드</button>
             <button type="button" id="skinReset">기본으로</button>
           </div>
           <div class="skinPrev"><canvas id="skinPv"></canvas><span class="hint">게임 속 모습</span></div>

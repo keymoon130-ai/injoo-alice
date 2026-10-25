@@ -2,7 +2,7 @@
 // 방 하나 = Durable Object 하나. 그 방의 모든 플레이어가 같은 객체에 연결되므로
 // 위치·잡힘·감옥·흔적·문을 전부 서버 한 곳에서 판정한다 (권위 서버).
 
-import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint, skinValid, dskinValid, solid, PROTO } from '../public/multi/shared.js';
+import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint, skinValid, dskinValid, freeSkinValid, solid, PROTO } from '../public/multi/shared.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
@@ -43,7 +43,7 @@ export class Room {
     this.inited = false; this.code = '';
     this.players = new Map(); this.order = [];
     this.host = null;
-    this.settings = { dreams: 1, max: 8, map: 'random', skins: false, fate: false, boost: false };
+    this.settings = { dreams: 1, max: 8, map: 'random', skins: false, freeCol: false, fate: false, boost: false };
     this.phase = 'lobby';
     this.g = null; this.loop = null; this.backTimer = null;
   }
@@ -149,6 +149,7 @@ export class Room {
         if (typeof m.skins === 'boolean') this.settings.skins = m.skins;
         if (typeof m.fate === 'boolean') this.settings.fate = m.fate;
         if (typeof m.boost === 'boolean') this.settings.boost = m.boost;
+        if (typeof m.freeCol === 'boolean') this.settings.freeCol = m.freeCol;
         this.pushLobby();
         break;
       case 'start':
@@ -164,6 +165,8 @@ export class Room {
       case 'skin':
         if (m.v === null) p.skin = null; else if (skinValid(m.v)) p.skin = m.v;
         if (m.d === null) p.dskin = null; else if (dskinValid(m.d)) p.dskin = m.d;
+        if (m.vf === null) p.skinF = null; else if (freeSkinValid(m.vf, 'alice')) p.skinF = m.vf;
+        if (m.df === null) p.dskinF = null; else if (freeSkinValid(m.df, 'dream')) p.dskinF = m.df;
         break;
       case 'ping': this.send(p, { type: 'pong', t: m.t }); break;
       case 'rtt': p.rtt = clamp(+m.v || 100, 0, 1000); break;
@@ -182,7 +185,7 @@ export class Room {
     const g = this.g;
     return {
       type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time, fate: g.fate ? 1 : 0, boost: g.boost ? 1 : 0,
-      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: this.settings.skins ? (x.role === 'dream' ? x.dskin : x.skin) || null : null })),
+      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: !this.settings.skins ? null : (this.settings.freeCol && (x.role === 'dream' ? x.dskinF : x.skinF)) || (x.role === 'dream' ? x.dskin : x.skin) || null })),
       me: { x: p.x, z: p.z, yaw: p.yaw, seq: p.seq }
     };
   }

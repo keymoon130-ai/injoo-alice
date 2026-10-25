@@ -93,6 +93,12 @@ export function dskinValid(s) {
   return n >= DSKIN_BRIGHT_MIN && n <= DSKIN_BRIGHT_MAX;
 }
 
+// 자유 색상 (추가 모드): '#' + 칸마다 RRGGBB. 실루엣은 그대로, 칸 수 제한 없음
+export function freeSkinValid(s, kind) {
+  const n = kind === 'dream' ? DSKIN_MASK.length : SKIN_MASK.length;
+  return typeof s === 'string' && s.length === 1 + n * 6 && /^#[0-9a-f]+$/.test(s);
+}
+
 export const TRACE_INFO = [
   { kind: 'sword',    suit: '♠', color: '#b42121', name: '붉은 앨리스의 검',     dur: 3 },
   { kind: 'musicbox', suit: '♦', color: '#4a64c8', name: '푸른 앨리스의 오르골', dur: 5 },
