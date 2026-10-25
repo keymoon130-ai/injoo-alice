@@ -171,6 +171,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
     <div class="row" style="flex-wrap:nowrap"><input id="inCode" maxlength="4" placeholder="방 코드 4자리" style="flex:1;text-transform:uppercase;letter-spacing:.3em" aria-label="방 코드"><button type="submit" id="btnJoin">참가</button></div>
     <label class="chk"><input type="checkbox" id="chkChicken"> 쫄보 모드 ♡ (나한테만 귀엽게 보여요)</label>
     <p class="err" id="homeErr"></p>
+    <p class="hint" id="storeWarn"></p>
   </form>
   <p class="hint">기기: <span id="devLabel"></span> <button type="button" class="link" id="btnDev">바꾸기</button></p>
   <p class="hint"><a class="back" href="../">← 혼자 하기 (스토리 모드)</a></p>
@@ -240,6 +241,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
       </div>
       <p class="hint" style="text-align:left" id="skinRule"></p>
       <p class="hint" style="text-align:left">안 꾸미면 기본 모습 그대로예요. 역할은 시작할 때 정해지니 둘 다 꾸며 둘 수 있어요.</p>
+      <p class="hint" id="skinWarn" style="text-align:left;color:#c8a070">꾸민 모습과 프리셋은 이 기기·이 브라우저에만 저장돼요. 브라우저 기록(사이트 데이터)을 지우면 사라지고, 시크릿 모드에선 창을 닫으면 사라져요. 다른 기기·브라우저에선 보이지 않아요.</p>
     </div>
   </div>
 </section>

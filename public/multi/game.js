@@ -14,6 +14,8 @@ let myId = sess.get('id', null); if (!myId) { myId = makeId(); sess.set('id', my
 let device = store.get('device', null);
 let chicken = store.get('chicken', false);
 let hiss = store.get('hiss', true); // 테이프 잡음 (지지직)
+const INAPP = /Instagram|FBAN|FBAV|KAKAOTALK|Line\/|NAVER\(inapp|everytimeApp|DaumApps|Twitter/i.test(navigator.userAgent || '');
+if (INAPP) { const t = '⚠ 앱 안 브라우저로 열려 있어요. 이름·꾸민 모습이 초기화될 수 있으니 크롬이나 사파리로 열어 주세요.'; for (const id of ['storeWarn', 'skinWarn']) { const el = document.getElementById(id); el.textContent = t; el.style.color = '#ff8080'; } }
 let myName = store.get('name', '');
 let bright = (() => { try { const v = JSON.parse(localStorage.getItem('injoo_bright')); return v == null ? 2 : v; } catch (e) { return 2; } })();
 const BRIGHT = [[.72, -4], [.86, -2], [1, 0], [1.2, 7], [1.45, 16]];

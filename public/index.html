@@ -127,7 +127,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="hard.js?v=17"></script>
+<script src="hard.js?v=18"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -630,6 +630,8 @@ const ENDS = [
   { id:'hardTrue', name:'하드 ─ 진엔딩', sub:'다시 한 번 길을 막아선 검사', col:'#f0d890', tag:'TRUE' },
   { id:'archive', name:'기록 보관소 ─ 앨리스 0', sub:'다시 보기', col:'#9fb4ff', tag:'TAPE' }
 ];
+// 인스타·카톡 같은 앱 안에서 열린 브라우저: 저장이 쉽게 초기화된다
+const INAPP = /Instagram|FBAN|FBAV|KAKAOTALK|Line\/|NAVER\(inapp|everytimeApp|DaumApps|Twitter/i.test(navigator.userAgent || '');
 function Options(){
   let sel = 0, msg = '', msgT = 0, mode = 'menu';
   const rows = () => [
@@ -688,6 +690,7 @@ function Options(){
         txt(saveCode(), W / 2, 126, { size:22, color:'#f2ece0', font:OSDF });
         txt('다른 기기에서 이 코드를 입력하면 진행이 옮겨집니다.', W / 2, 156, { size:10, color:'#8d8478', font:MONO });
         txt('(이름은 옮겨지지 않아요)', W / 2, 172, { size:10, color:'#5f5850', font:MONO });
+        txt('브라우저 기록을 지우거나 기기를 바꾸기 전에 이 코드를 적어 두세요.', W / 2, 188, { size:10, color:'#c8a070', font:MONO });
         if (nameForm.hidden){ txt('▶ 코드 입력하기', 110, 254, { size:13, color:'#e9e0cf', font:MONO }); txt('‹ 돌아가기', 290, 254, { size:13, color:'#8d8478', font:MONO }); }
         if (msgT > 0) txt(msg, W / 2, 210, { size:12, color:msg.startsWith('진행') ? '#cfe8d2' : '#ff8080', font:MONO });
         return;
@@ -707,6 +710,7 @@ function Options(){
       });
       // 밝기 확인용 회색 띠
       for (let i = 0; i < 6; i++){ g.fillStyle = `rgb(${i * 10},${i * 10},${i * 11})`; g.fillRect(250 + i * 14, ry(4) - 9, 12, 10); }
+      txt(INAPP ? '⚠ 앱 안 브라우저 — 기록이 초기화될 수 있어요. 크롬·사파리로 열어 주세요' : '기록은 이 기기·브라우저에만 저장돼요 (사이트 데이터 삭제·시크릿 모드에선 사라져요)', W / 2, 258, { size:9, color:INAPP ? '#ff8080' : '#5f5850', font:MONO });
     }
   };
 }
