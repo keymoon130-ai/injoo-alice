@@ -529,9 +529,11 @@ export class Room {
       for (const p of ps) if (p.role === 'dream') p.awk = g.aw === 2 ? 1 : 0;
     }
     // 인원 보정: 앨리스가 꿈보다 3명 이상 많으면 꿈이 빨라지고, 갇힌 앨리스가 늘수록 원래대로
-    if (g.boost) {
-      const nd = ps.filter(p => p.role === 'dream' && p.on).length, free = ps.filter(p => p.role === 'alice' && p.on && (p.st === 0 || p.st === 1)).length;
-      g.sb = 1 + Math.min(.2, Math.max(0, free - nd - 2) * .04);
+    // 흔적이 하나 모일 때마다 꿈이 3%씩 빨라진다 (최대 +15%), 인원 보정과 곱해진다
+    {
+      let mul = 1 + .03 * g.tr.reduce((a, b) => a + b, 0);
+      if (g.boost) { const nd = ps.filter(p => p.role === 'dream' && p.on).length, free = ps.filter(p => p.role === 'alice' && p.on && (p.st === 0 || p.st === 1)).length; mul *= 1 + Math.min(.2, Math.max(0, free - nd - 2) * .04); }
+      g.sb = mul;
       for (const p of ps) if (p.role === 'dream') p.sb = g.sb;
     }
     for (const p of ps) { p.hist.push([g.t, p.x, p.z]); if (p.hist.length > 24) p.hist.shift(); }
@@ -549,7 +551,7 @@ export class Room {
       c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell,
       ...(g.fate ? { f: p.fates.map(f => f.k + (f.k === 'C' ? f.u : '')).join(''), ch: r1(p.chm || 0), w: p.tw ? 1 : 0, fi: r1(p.fim || 0), fc: (() => { const c = p.fates.find(f => f.k === 'C'); return c && c.cd > g.t ? r1(c.cd - g.t) : 0; })() } : {})
     }));
-    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.boost ? { sb: r2(g.sb) } : {}), ...(g.awake ? { aw: g.aw, awT: r1(g.awT) } : {}), ...(g.lastId ? { la: g.lastId } : {}) });
+    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.sb > 1.001 ? { sb: r2(g.sb) } : {}), ...(g.awake ? { aw: g.aw, awT: r1(g.awT) } : {}), ...(g.lastId ? { la: g.lastId } : {}) });
     g.ev = [];
     for (const pl of this.players.values()) if (pl.ws) try { pl.ws.send('{"ack":' + (pl.seq | 0) + ',' + body.slice(1)); } catch (e) {}
   }

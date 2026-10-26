@@ -1301,7 +1301,7 @@ const nameOf = id => { const p = game && game.players.get(id); return p ? p.name
 function onSnap(m) {
   const g = game, t = performance.now();
   g.lastSnap = t;
-  if (m.sb) { g.sb = m.sb; g.pred.sb = m.sb; }
+  g.sb = m.sb || 1; g.pred.sb = g.sb;
   g.lastId = m.la || null; g.pred.last = g.lastId === myId ? 1 : 0;
   if (g.awake) { const pa = g.aw; g.aw = m.aw || 0; g.awT = m.awT || 0; g.pred.awk = g.role === 'dream' && g.aw === 2 ? 1 : 0; if (pa !== g.aw) awakeTurn(g, pa, g.aw); }
   g.T = m.T; g.intro = m.in; g.tr = m.tr; g.tp = m.tp; g.rp = m.rp; g.door = m.door; g.cams = m.cams; g.cp = m.cp;
@@ -1391,6 +1391,7 @@ function handleEv(e) {
     case 'trace': {
       const tr = w.traces[e.i], n = g.tr.reduce((a, b) => a + b, 0);
       sfx.bell(); at(tr.x, tr.z, 30, sfx.whisper);
+      setTimeout(() => { if (game === g) say(g.role === 'dream' ? `흔적이 모일수록 꿈은 짙어진다 — 속도 +${n * 3}%` : '…꿈이 조금 더 빨라졌다', g.role === 'dream' ? '#ff7070' : '#c8a0a0', 3); }, 900);
       say(`${tr.suit} ${josa(nameOf(e.by), '이', '가')} ${josa(tr.name, '을', '를')} 찾았다 (${n}/5)`, tr.color === '#b49b2e' ? '#e0c860' : tr.color === '#4a64c8' ? '#9fb0ff' : tr.color === '#3e8a4c' ? '#8fd29a' : '#ff7a7a', 5);
       break;
     }
@@ -1820,6 +1821,7 @@ function drawBrief(c, g, alpha, count) {
     : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다 → 절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
   if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다.' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
   if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
+  goals.push(dream ? '★ 흔적이 하나 모일 때마다 3%씩 빨라진다' : '★ 흔적을 모을수록 꿈이 빨라진다 (하나에 3%)');
   if ([...g.players.values()].filter(p => p.role === 'alice').length >= 2) goals.push(dream ? '★ 앨리스가 혼자 남으면 10초마다 위치가 보인다' : '★ 혼자 남으면 최후의 앨리스: 빨라지고 위치 노출');
   if (g.awake) goals.push(dream ? '★ 1분 30초마다 30초간 깨어난다: 더 빠르고, 앨리스는 거의 못 본다' : '★ 1분 30초마다 꿈이 깨어난다: 30초간 어둠 속에서 붉은 눈만 보인다');
   if (g.boost) goals.push(dream ? '★ 인원 보정: 앨리스가 많을수록 빠르다 (가둘수록 원래대로)' : '★ 인원 보정: 꿈이 더 빠르다 (동료가 갇힐수록 원래대로)');
@@ -2018,7 +2020,7 @@ function drawHud(g, tags) {
     c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 4; c.beginPath(); c.arc(W - 30, H - 52, 10, 0, 7); c.stroke();
     c.strokeStyle = cd > 0 ? '#7a5050' : '#ff5050'; c.lineWidth = 2.5; c.beginPath(); c.arc(W - 30, H - 52, 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cd)); c.stroke();
     sh('대시', W - 30, H - 34, cd > 0 ? '#7a6a60' : '#ffb0b0', `10px 'Nanum Gothic Coding', monospace`, 'center');
-    if (g.boost && g.sb > 1.001) sh(`속도 +${Math.round((g.sb - 1) * 100)}%`, W - 30, H - 70, '#ff9090', `10px 'Nanum Gothic Coding', monospace`, 'center');
+    if (g.sb > 1.001) sh(`속도 +${Math.round((g.sb - 1) * 100)}%`, W - 30, H - 70, '#ff9090', `10px 'Nanum Gothic Coding', monospace`, 'center');
     // 경보 (흔적·감옥을 건드리는 앨리스)
     for (const a of g.alerts) {
       const age = (tnow - a.t) / 1000; if (age > 1.5) continue;
