@@ -219,6 +219,7 @@ export class Room {
       tp: TRACE_INFO.map(() => 0), tr: TRACE_INFO.map(() => 0), tby: TRACE_INFO.map(() => null),
       rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0,
       cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null,
+      lastId: null, lastRvT: 0,
       fate: !!this.settings.fate, boost: !!this.settings.boost, sb: 1, awake: !!this.settings.awake, aw: 0, awT: 0, twins: null, doorT: 0, nextRv: 0, twfT: 0
     };
     this.phase = 'game';
@@ -393,7 +394,7 @@ export class Room {
           if (p.warp != null) { this.ev('warp', { a: p.id, x: bx, z: bz, fx: p.x, fz: p.z, ey: p.warp }); p.warp = null; }
           if (press && p.role === 'dream') this.dreamAct(p);
           const dp = inp.d ? 1 : 0; if (dp && !p.dPrev && p.role === 'alice') this.useFate(p); p.dPrev = dp;
-        } else if (p.st === 1 && press && inp.q - (p.sgQ || 0) >= CFG.STRUGGLE_GAP) { p.sg += CFG.STRUGGLE_ADD; p.sgQ = inp.q; }
+        } else if (p.st === 1 && press && inp.q - (p.sgQ || 0) >= CFG.STRUGGLE_GAP) { p.sg += CFG.STRUGGLE_ADD * (p.last ? 1.5 : 1); p.sgQ = inp.q; }
       }
       if (!p.on) { p.aHeld = 0; p.m = 0; }
     }
@@ -435,7 +436,7 @@ export class Room {
     w.cells.forEach((c, i) => {
       if (cellT[i]) {
         const rs = this.players.get(cellT[i]), mus = g.fate && rs && this.hasFate(rs, 'M');
-        g.rp[i] += dt * (mus ? 2 : 1);
+        g.rp[i] += dt * (mus || (rs && rs.last) ? 2 : 1); // 오르골 · 최후의 앨리스: 2배
         if (g.rp[i] >= CFG.RESCUE_TIME) {
           if (rs) rs.pts.res += 3;
           if (mus) { this.loseFate(rs, 'M'); this.ev('fu', { k: 'M', a: rs.id, x: r2(rs.x), z: r2(rs.z) }); }
@@ -510,6 +511,14 @@ export class Room {
       if (a.role === 'alice' && a.st === 0 && Math.hypot(a.x - g.door.x, a.z - g.door.z) < CFG.ESCAPE_R) { a.st = 4; a.pts.esc += 2; a.escT = g.t; this.ev('esc', { a: a.id }); }
     }
 
+    // 최후의 앨리스: 앨리스 2명 이상인 판에서 안 잡힌 앨리스가 한 명만 남으면
+    {
+      const al = ps.filter(p => p.role === 'alice'), free = al.filter(p => p.on && (p.st === 0 || p.st === 1));
+      const last = al.length >= 2 && free.length === 1 ? free[0] : null, id = last ? last.id : null;
+      if (id !== g.lastId) { g.lastId = id; g.lastRvT = 10; this.ev('last', { a: id }); }
+      for (const p of al) p.last = p === last ? 1 : 0;
+      if (last && last.st === 0) { g.lastRvT -= dt; if (g.lastRvT <= 0) { g.lastRvT = 10; this.ev('rv', { pts: [[r2(last.x), r2(last.z)]], dur: 3, lst: 1 }); } }
+    }
     if (g.fate) this.fateTick(ps, dt);
     // 꿈이 깨어나는 시간: 1분 30초마다 30초씩 (3초 전 예고)
     if (g.awake) {
@@ -540,7 +549,7 @@ export class Room {
       c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell,
       ...(g.fate ? { f: p.fates.map(f => f.k + (f.k === 'C' ? f.u : '')).join(''), ch: r1(p.chm || 0), w: p.tw ? 1 : 0, fi: r1(p.fim || 0), fc: (() => { const c = p.fates.find(f => f.k === 'C'); return c && c.cd > g.t ? r1(c.cd - g.t) : 0; })() } : {})
     }));
-    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.boost ? { sb: r2(g.sb) } : {}), ...(g.awake ? { aw: g.aw, awT: r1(g.awT) } : {}) });
+    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.boost ? { sb: r2(g.sb) } : {}), ...(g.awake ? { aw: g.aw, awT: r1(g.awT) } : {}), ...(g.lastId ? { la: g.lastId } : {}) });
     g.ev = [];
     for (const pl of this.players.values()) if (pl.ws) try { pl.ws.send('{"ack":' + (pl.seq | 0) + ',' + body.slice(1)); } catch (e) {}
   }

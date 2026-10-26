@@ -1302,6 +1302,7 @@ function onSnap(m) {
   const g = game, t = performance.now();
   g.lastSnap = t;
   if (m.sb) { g.sb = m.sb; g.pred.sb = m.sb; }
+  g.lastId = m.la || null; g.pred.last = g.lastId === myId ? 1 : 0;
   if (g.awake) { const pa = g.aw; g.aw = m.aw || 0; g.awT = m.awT || 0; g.pred.awk = g.role === 'dream' && g.aw === 2 ? 1 : 0; if (pa !== g.aw) awakeTurn(g, pa, g.aw); }
   g.T = m.T; g.intro = m.in; g.tr = m.tr; g.tp = m.tp; g.rp = m.rp; g.door = m.door; g.cams = m.cams; g.cp = m.cp;
   for (const s of m.p) {
@@ -1437,7 +1438,14 @@ function handleEv(e) {
       else if (e.k === 'M') { sfx.song(); fx.glitch = .5; say('♦ 노래가 꿈 전체에 울린다… 갇힌 앨리스들이 따라 부른다', '#9fb0ff', 4.5); }
       break;
     }
-    case 'rv': if (g.role === 'dream') { for (const [x, z] of e.pts) g.pings.push({ x, z, t: performance.now(), dur: e.dur, col: e.tw ? '#e0c860' : '#ff5050' }); if (!e.tw) { sfx.whisper(1); } } break;
+    case 'rv': if (g.role === 'dream') { for (const [x, z] of e.pts) g.pings.push({ x, z, t: performance.now(), dur: e.dur, col: e.tw ? '#e0c860' : e.lst ? '#ffffff' : '#ff5050' }); if (!e.tw) { sfx.whisper(1); } } else if (e.lst && g.lastId === myId) sfx.whisper(.8); break;
+    case 'last': {
+      if (!e.a) { if (g.wasLast) say('동료가 돌아왔다 — 더는 혼자가 아니다', '#cfe8d2', 4); g.wasLast = false; break; }
+      if (e.a === myId) { g.wasLast = true; g.lastCard = performance.now(); fx.glitch = 1.6; sfx.heart(1); sfx.choir(); vib([100, 60, 100]); }
+      else if (g.role === 'dream') say(`마지막 앨리스 ─ ${nameOf(e.a)}. 10초마다 위치가 드러난다`, '#ff6060', 5);
+      else say(`${josa(nameOf(e.a), '이', '가')} 마지막 앨리스다…`, '#f0e0c0', 5);
+      break;
+    }
     case 'rv1': if (g.role === 'dream') { g.track.push({ id: e.a, until: performance.now() + e.dur * 1000 }); say('쌍둥이의 짝이 드러났다 — 지도를 봐라', '#e0c860', 3); } else if (e.a === myId) { sfx.scream(); fx.glitch = 1.4; g.fflash = { text: '「 …같이 가자 」', col: '#e0c860', t: performance.now() }; say('쌍둥이가 붙잡혔다… 꿈이 당신을 보고 있다 (10초)', '#e0c860', 4); } break;
   }
 }
@@ -1670,7 +1678,7 @@ function update(dt) {
   fx.noise = .09 + terror * .22 * (chicken ? .3 : 1);
   fx.wobble = .5 + terror * 2 * (chicken ? .3 : 1);
   if (A.ctx && !g.ended) {
-    if (g.role === 'alice') drone(.05 + terror * .22, 1 + terror * .5, .8);
+    if (g.role === 'alice') { if (g.pred.last) drone(.15 + terror * .2, 1.3 + terror * .4, .8); else drone(.05 + terror * .22, 1 + terror * .5, .8); }
     if (terror > 0 && !(g.intro > 0)) {
       g.heartT -= dt;
       if (g.heartT <= 0) { g.heartT = lerp(1.3, .34, terror); sfx.heart(.25 + terror * .6); }
@@ -1690,7 +1698,7 @@ function update(dt) {
       if (tm <= 0) {
         g.stepTimers.set(p.id, p.role === 'dream' ? .55 : .4);
         if (p.role === 'dream') at(ip.x, ip.z, g.awake && g.aw === 2 ? 26 : 15, sfx.thud);
-        else at(ip.x, ip.z, g.role === 'dream' ? 11 : 7, () => sfx.step(1.6));
+        else at(ip.x, ip.z, g.role === 'dream' ? (p.id === g.lastId ? 18 : 11) : 7, () => sfx.step(1.6));
       } else g.stepTimers.set(p.id, tm);
     }
   }
@@ -1812,6 +1820,7 @@ function drawBrief(c, g, alpha, count) {
     : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다 → 절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
   if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다.' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
   if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
+  if ([...g.players.values()].filter(p => p.role === 'alice').length >= 2) goals.push(dream ? '★ 앨리스가 혼자 남으면 10초마다 위치가 보인다' : '★ 혼자 남으면 최후의 앨리스: 빨라지고 위치 노출');
   if (g.awake) goals.push(dream ? '★ 1분 30초마다 30초간 깨어난다: 더 빠르고, 앨리스는 거의 못 본다' : '★ 1분 30초마다 꿈이 깨어난다: 30초간 어둠 속에서 붉은 눈만 보인다');
   if (g.boost) goals.push(dream ? '★ 인원 보정: 앨리스가 많을수록 빠르다 (가둘수록 원래대로)' : '★ 인원 보정: 꿈이 더 빠르다 (동료가 갇힐수록 원래대로)');
   if (g.fate) goals.push(dream ? '★ 운명계승: 앨리스가 힘을 쓰면 위치가 드러난다' : `★ 운명계승: 흔적 주인의 힘과 저주를 잇는다 (${phone ? '운명' : 'F'})`);
@@ -2092,6 +2101,13 @@ function drawEffects(g, c, tnow) {
     c.fillStyle = '#050303'; c.beginPath(); c.ellipse(fx_ - 12, fy - 4, 5, 6, 0, 0, 7); c.ellipse(fx_ + 12, fy - 4, 5, 6, 0, 0, 7); c.fill();
     c.fillStyle = '#b08e2a'; c.beginPath(); c.moveTo(fx_ - 22, fy - 40); c.lineTo(fx_ - 14, fy - 58); c.lineTo(fx_ - 6, fy - 44); c.lineTo(fx_, fy - 62); c.lineTo(fx_ + 6, fy - 44); c.lineTo(fx_ + 14, fy - 58); c.lineTo(fx_ + 22, fy - 40); c.closePath(); c.fill();
     c.restore(); fx.wobble = Math.max(fx.wobble, 2.5 * k); } }
+  // 최후의 앨리스
+  if (g.lastId === myId && g.meS && g.meS.s <= 1) {
+    const c0 = g.lastCard ? (tnow - g.lastCard) / 1000 : 9;
+    if (c0 < 3.5) { c.save(); c.globalAlpha = clamp(Math.min(c0 * 3, (3.5 - c0) * 1.5), 0, 1); c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, H / 2 - 40, W, 64); c.font = `800 18px 'Nanum Myeongjo', serif`; c.textAlign = 'center'; c.fillStyle = '#f2ece0'; c.fillText('「 당신이 마지막 앨리스다 」', W / 2, H / 2 - 10); c.font = `11px 'Nanum Gothic Coding', monospace`; c.fillStyle = '#d8b0a0'; c.fillText('더 빠르게 · 감옥 문 2배 · 대신 10초마다 꿈이 당신을 본다', W / 2, H / 2 + 12); c.restore(); }
+    const rg = c.createRadialGradient(W / 2, H / 2, H * .45, W / 2, H / 2, H * .9); rg.addColorStop(0, 'rgba(255,240,220,0)'); rg.addColorStop(1, `rgba(255,240,220,${.06 + .04 * Math.sin(now * 3)})`); c.fillStyle = rg; c.fillRect(0, 0, W, H);
+    c.font = `10px 'Nanum Gothic Coding', monospace`; c.textAlign = 'right'; c.fillStyle = '#000'; c.fillText('마지막 앨리스 +15%', W - 13, 41); c.fillStyle = '#f0e0c0'; c.fillText('마지막 앨리스 +15%', W - 14, 40);
+  }
   // 꿈이 깨어난 시간
   if (g.awake && g.aw) {
     const sh_ = (t, y, col) => { c.font = `12px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.fillStyle = '#000'; c.fillText(t, W / 2 + 1, y + 1); c.fillStyle = col; c.fillText(t, W / 2, y); };

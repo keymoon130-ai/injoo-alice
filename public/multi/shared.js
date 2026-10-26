@@ -2,7 +2,7 @@
 // 같은 시드(seed)로 같은 맵을 만들고, 같은 이동 함수로 움직여서 기기 간 차이를 없앤다.
 
 // 서버·클라이언트 규칙 버전: 바뀌면 옛 화면은 자동으로 새로고침된다
-export const PROTO = 4;
+export const PROTO = 5;
 
 export const CFG = {
   N: 80,                 // 맵 한 변 (칸)
@@ -662,6 +662,7 @@ export function stepPlayer(w, p, inp, dt) {
   if (p.role === 'dream' && p.awk) sp *= 1.1; // 꿈이 깨어난 시간
   const charmed = p.role === 'dream' && p.chm > 0; if (charmed) p.chm = Math.max(0, p.chm - dt); // 초록 여왕에게 홀림
   if (p.role === 'alice' && p.tw) sp *= 1.08; // 쌍둥이
+  if (p.role === 'alice' && p.last) sp *= 1.15; // 최후의 앨리스
   if (p.dt > 0) { p.dt = Math.max(0, p.dt - dt); sp = CFG.DASH_SPEED; if (l < .1) { f = 1; s = 0; } }
   if (charmed) sp *= .5;
   const co = Math.cos(p.yaw), si = Math.sin(p.yaw);
