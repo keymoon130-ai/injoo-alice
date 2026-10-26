@@ -219,7 +219,7 @@ export class Room {
       seed, map, w, sig: worldSig(w), time: CFG.GAME_TIME, intro: CFG.INTRO, t: 0,
       tp: TRACE_INFO.map(() => 0), tr: TRACE_INFO.map(() => 0), tby: TRACE_INFO.map(() => null),
       rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0,
-      cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null,
+      cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null, camOffT: w.cams ? w.cams.map(() => 0) : null,
       lastId: null, lastRvT: 0, stealth: !!this.settings.stealth, sthNext: 0,
       nA: ids.filter(id => !dreams.has(id)).length, nD: ids.filter(id => dreams.has(id)).length,
       fate: !!this.settings.fate, boost: !!this.settings.boost, sb: 1, awake: !!this.settings.awake, aw: 0, awT: 0, twins: null, doorT: 0, nextRv: 0, twfT: 0
@@ -382,7 +382,7 @@ export class Room {
       this.ev('catch', { a: best.id, d: d.id });
     } else {
       // 방송국: 가까운 CCTV 끄기
-      if (g.cams) { let ci = -1, cd = 1.8; w.cams.forEach((c, i) => { const dd = Math.hypot(d.x - c.x, d.z - c.z); if (g.cams[i] && dd < cd) { cd = dd; ci = i; } }); if (ci >= 0) { g.cams[ci] = 0; g.cp[ci] = 0; this.ev('cam', { i: ci, on: 0, by: d.id }); return; } }
+      if (g.cams) { let ci = -1, cd = 1.8; w.cams.forEach((c, i) => { const dd = Math.hypot(d.x - c.x, d.z - c.z); if (g.cams[i] && dd < cd) { cd = dd; ci = i; } }); if (ci >= 0) { g.cams[ci] = 0; g.cp[ci] = 0; g.camOffT[ci] = g.t; this.ev('cam', { i: ci, on: 0, by: d.id }); return; } }
       this.ev('swing', { d: d.id });
     }
   }
@@ -481,6 +481,7 @@ export class Room {
       if (on) return;
       if (camT[i]) { g.cp[i] += dt; if (g.cp[i] >= 2.5) { g.cams[i] = 1; g.cp[i] = 0; this.ev('cam', { i, on: 1, by: camT[i] }); } }
       else g.cp[i] = Math.max(0, g.cp[i] - dt);
+      if (!g.cams[i] && g.t - (g.camOffT[i] || 0) >= 60) { g.cams[i] = 1; g.cp[i] = 0; this.ev('cam', { i, on: 1, by: null }); } // 꺼진 지 1분이면 저절로 켜진다
     });
 
     // 감옥에서 썩어가는 앨리스
@@ -526,10 +527,10 @@ export class Room {
       if (a.role === 'alice' && a.st === 0 && Math.hypot(a.x - g.door.x, a.z - g.door.z) < CFG.ESCAPE_R) { a.st = 4; a.pts.esc += 2; a.escT = g.t; this.ev('esc', { a: a.id }); }
     }
 
-    // 최후의 앨리스: 앨리스 2명 이상인 판에서 안 잡힌 앨리스가 한 명만 남으면
+    // 최후의 앨리스: 앨리스 2명 이상인 판에서 나머지가 모두 잡혀 한 명만 남으면 (탈출한 동료가 있으면 없음)
     {
       const al = ps.filter(p => p.role === 'alice'), free = al.filter(p => p.on && (p.st === 0 || p.st === 1));
-      const last = al.length >= 2 && free.length === 1 ? free[0] : null, id = last ? last.id : null;
+      const last = al.length >= 2 && free.length === 1 && !al.some(p => p.st === 4) ? free[0] : null, id = last ? last.id : null;
       if (id !== g.lastId) { g.lastId = id; g.lastRvT = 10; this.ev('last', { a: id }); }
       for (const p of al) p.last = p === last ? 1 : 0;
       if (last && last.st === 0) { g.lastRvT -= dt; if (g.lastRvT <= 0) { g.lastRvT = 10; this.ev('rv', { pts: [[r2(last.x), r2(last.z)]], dur: 3, lst: 1 }); } }
