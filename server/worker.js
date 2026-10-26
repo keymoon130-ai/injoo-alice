@@ -43,7 +43,7 @@ export class Room {
     this.inited = false; this.code = '';
     this.players = new Map(); this.order = [];
     this.host = null;
-    this.settings = { dreams: 1, max: 8, map: 'random', skins: false, freeCol: false, fate: false, boost: false, awake: false };
+    this.settings = { dreams: 1, max: 8, map: 'random', skins: false, freeCol: false, fate: false, boost: false, awake: false, stealth: false };
     this.phase = 'lobby';
     this.g = null; this.loop = null; this.backTimer = null;
   }
@@ -151,6 +151,7 @@ export class Room {
         if (typeof m.boost === 'boolean') this.settings.boost = m.boost;
         if (typeof m.freeCol === 'boolean') this.settings.freeCol = m.freeCol;
         if (typeof m.awake === 'boolean') this.settings.awake = m.awake;
+        if (typeof m.stealth === 'boolean') this.settings.stealth = m.stealth;
         this.pushLobby();
         break;
       case 'start':
@@ -186,7 +187,7 @@ export class Room {
   startMsg(p) {
     const g = this.g;
     return {
-      type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time, fate: g.fate ? 1 : 0, boost: g.boost ? 1 : 0, awake: g.awake ? 1 : 0,
+      type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time, fate: g.fate ? 1 : 0, boost: g.boost ? 1 : 0, awake: g.awake ? 1 : 0, stealth: g.stealth ? 1 : 0,
       players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: !this.settings.skins ? null : (this.settings.freeCol && (x.role === 'dream' ? x.dskinF : x.skinF)) || (x.role === 'dream' ? x.dskin : x.skin) || null, eyes: x.role === 'dream' && this.settings.skins && x.deye ? x.deye : null })),
       me: { x: p.x, z: p.z, yaw: p.yaw, seq: p.seq }
     };
@@ -210,7 +211,7 @@ export class Room {
         x: s.x, z: s.z, yaw: p.role === 'dream' ? Math.PI / 2 : Math.atan2(40 - s.z, 40 - s.x),
         st: 0, dc: 0, dt: 0, sn: 0, pc: 0, warp: null, sgQ: 0, m: 0, carry: null, carrier: null, q: [], seq: 0,
         aPrev: 0, aHeld: 0, im: 0, sg: 0, cell: -1, jt: 0, hist: [],
-        dPrev: 0, chm: 0, fim: 0, tw: 0, dcd: this.settings.fate ? 5 : CFG.DASH_CD, fates: [], escT: 0,
+        dPrev: 0, kPrev: 0, sth: 0, stc: 0, chm: 0, fim: 0, tw: 0, dcd: this.settings.fate ? 5 : CFG.DASH_CD, fates: [], escT: 0,
         pts: { col: 0, assist: 0, res: 0, bear: 0, stun: 0, esc: 0, caught: 0 }
       });
     }
@@ -219,7 +220,8 @@ export class Room {
       tp: TRACE_INFO.map(() => 0), tr: TRACE_INFO.map(() => 0), tby: TRACE_INFO.map(() => null),
       rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0,
       cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null,
-      lastId: null, lastRvT: 0,
+      lastId: null, lastRvT: 0, stealth: !!this.settings.stealth, sthNext: 0,
+      nA: ids.filter(id => !dreams.has(id)).length, nD: ids.filter(id => dreams.has(id)).length,
       fate: !!this.settings.fate, boost: !!this.settings.boost, sb: 1, awake: !!this.settings.awake, aw: 0, awT: 0, twins: null, doorT: 0, nextRv: 0, twfT: 0
     };
     this.phase = 'game';
@@ -230,6 +232,16 @@ export class Room {
   }
 
   ev(k, o) { this.g.ev.push({ k, ...o }); }
+
+  /* ---------- 숨은 꿈 ---------- */
+  useStealth(d) {
+    const g = this.g;
+    if (!g.stealth || !g.door || !(d.stc > 0) || d.st !== 0 || g.t < g.sthNext) return;
+    if ([...this.players.values()].some(o => o.role === 'dream' && o.sth > 0)) return; // 한 번에 한 꿈만
+    if (Math.hypot(d.x - g.door.x, d.z - g.door.z) < CFG.BURN_R) return;
+    d.stc = 0; d.sth = 10; this.ev('sth', { d: d.id });
+  }
+  endStealth(d) { d.sth = 0; this.g.sthNext = this.g.t + 10; this.ev('sthEnd', { d: d.id }); }
 
   /* ---------- 운명계승 ---------- */
   hasFate(p, k) { return p.fates && p.fates.some(f => f.k === k); }
@@ -312,7 +324,7 @@ export class Room {
       if (g.t - g.doorT >= 10 && g.t >= g.nextRv) {
         g.nextRv = g.t + 6;
         const pts = ps.filter(a => a.role === 'alice' && (a.st === 0 || a.st === 1)).map(a => [r2(a.x), r2(a.z)]);
-        if (pts.length) this.ev('rv', { pts, dur: 6 });
+        if (pts.length) this.ev('rv', { pts, dur: 6, dr: 1 });
       }
     }
   }
@@ -366,6 +378,7 @@ export class Room {
     if (best) {
       for (const o of this.players.values()) if (o.carrier === d.id) o.carrier = null;
       best.st = 1; best.carrier = d.id; best.sg = 0; d.carry = best.id; best.pts.caught++;
+      if (d.sth > 0) this.endStealth(d);
       this.ev('catch', { a: best.id, d: d.id });
     } else {
       // 방송국: 가까운 CCTV 끄기
@@ -394,6 +407,7 @@ export class Room {
           if (p.warp != null) { this.ev('warp', { a: p.id, x: bx, z: bz, fx: p.x, fz: p.z, ey: p.warp }); p.warp = null; }
           if (press && p.role === 'dream') this.dreamAct(p);
           const dp = inp.d ? 1 : 0; if (dp && !p.dPrev && p.role === 'alice') this.useFate(p); p.dPrev = dp;
+          const kp = inp.k ? 1 : 0; if (kp && !p.kPrev && p.role === 'dream') this.useStealth(p); p.kPrev = kp;
         } else if (p.st === 1 && press && inp.q - (p.sgQ || 0) >= CFG.STRUGGLE_GAP) { p.sg += CFG.STRUGGLE_ADD * (p.last ? 1.5 : 1); p.sgQ = inp.q; }
       }
       if (!p.on) { p.aHeld = 0; p.m = 0; }
@@ -490,6 +504,7 @@ export class Room {
       }
       g.door = { x: best.x, z: best.z };
       this.ev('door', g.door);
+      if (g.stealth) for (const p of ps) if (p.role === 'dream') p.stc = 1;
     }
     // 빛기둥 곁의 꿈: 느려지고, 오래 머물면 빛에 튕겨 나간다
     for (const d of ps) {
@@ -519,6 +534,12 @@ export class Room {
       for (const p of al) p.last = p === last ? 1 : 0;
       if (last && last.st === 0) { g.lastRvT -= dt; if (g.lastRvT <= 0) { g.lastRvT = 10; this.ev('rv', { pts: [[r2(last.x), r2(last.z)]], dur: 3, lst: 1 }); } }
     }
+    // 숨은 꿈: 은신 시간 · 빛기둥에 닿으면 풀림
+    if (g.stealth) for (const d of ps) {
+      if (d.role !== 'dream' || !(d.sth > 0)) continue;
+      d.sth -= dt;
+      if (d.sth <= 0 || d.st !== 0 || !d.on || (g.door && Math.hypot(d.x - g.door.x, d.z - g.door.z) < CFG.BURN_R)) this.endStealth(d);
+    }
     if (g.fate) this.fateTick(ps, dt);
     // 꿈이 깨어나는 시간: 1분 30초마다 30초씩 (3초 전 예고)
     if (g.awake) {
@@ -531,7 +552,9 @@ export class Room {
     // 인원 보정: 앨리스가 꿈보다 3명 이상 많으면 꿈이 빨라지고, 갇힌 앨리스가 늘수록 원래대로
     // 흔적이 하나 모일 때마다 꿈이 3%씩 빨라진다 (최대 +15%), 인원 보정과 곱해진다
     {
-      let mul = 1 + .03 * g.tr.reduce((a, b) => a + b, 0);
+      // 흔적 보너스: 앨리스÷꿈 비율 1 이하면 0, 3 이상이면 흔적 하나에 1.8% (사이는 비례)
+      const per = .018 * Math.min(1, Math.max(0, (g.nA / Math.max(1, g.nD) - 1) / 2));
+      let mul = 1 + per * g.tr.reduce((a, b) => a + b, 0);
       if (g.boost) { const nd = ps.filter(p => p.role === 'dream' && p.on).length, free = ps.filter(p => p.role === 'alice' && p.on && (p.st === 0 || p.st === 1)).length; mul *= 1 + Math.min(.2, Math.max(0, free - nd - 2) * .04); }
       g.sb = mul;
       for (const p of ps) if (p.role === 'dream') p.sb = g.sb;
@@ -549,9 +572,10 @@ export class Room {
     const p = [...this.players.values()].map(p => ({
       i: p.id, x: r2(p.x), z: r2(p.z), y: r2(p.yaw), s: p.st, m: p.m | 0, dc: r1(p.dc), dt: r2(p.dt), sn: r1(p.sn),
       c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell,
+      ...(g.stealth && p.role === 'dream' ? { h: p.sth > 0 ? r1(p.sth) : 0, hc: p.stc || 0 } : {}),
       ...(g.fate ? { f: p.fates.map(f => f.k + (f.k === 'C' ? f.u : '')).join(''), ch: r1(p.chm || 0), w: p.tw ? 1 : 0, fi: r1(p.fim || 0), fc: (() => { const c = p.fates.find(f => f.k === 'C'); return c && c.cd > g.t ? r1(c.cd - g.t) : 0; })() } : {})
     }));
-    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.sb > 1.001 ? { sb: r2(g.sb) } : {}), ...(g.awake ? { aw: g.aw, awT: r1(g.awT) } : {}), ...(g.lastId ? { la: g.lastId } : {}) });
+    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.sb > 1.001 ? { sb: r2(g.sb) } : {}), ...(g.awake ? { aw: g.aw, awT: r1(g.awT) } : {}), ...(g.lastId ? { la: g.lastId } : {}), ...(g.stealth ? { hn: r1(Math.max(0, g.sthNext - g.t)), sd: Math.abs(g.nA - g.nD) < 2 ? 1 : 0 } : {}) });
     g.ev = [];
     for (const pl of this.players.values()) if (pl.ws) try { pl.ws.send('{"ack":' + (pl.seq | 0) + ',' + body.slice(1)); } catch (e) {}
   }

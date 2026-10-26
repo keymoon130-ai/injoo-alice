@@ -152,16 +152,17 @@ $('btnCopy').addEventListener('click', async () => {
 $('btnReady').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'ready', v: !(me && me.ready) }); });
 $('btnWant').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'want', v: !(me && me.want) }); });
 $('btnStart').addEventListener('click', () => send({ type: 'start' }));
-$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
-$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
+$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake, stealth: !!lobby.settings.stealth }));
+$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake, stealth: !!lobby.settings.stealth }));
 { const sb = $('selBright'); for (let i = 0; i < 5; i++) { const o = document.createElement('option'); o.value = i; o.textContent = '■'.repeat(i + 1) + '□'.repeat(4 - i); sb.append(o); } sb.value = bright; sb.addEventListener('change', e => setBright(+e.target.value)); }
 { const ss = $('selSens'); for (let i = 1; i <= 9; i++) { const o = document.createElement('option'); o.value = i; o.textContent = `${i}${i === 5 ? ' (기본)' : ''}`; ss.append(o); } ss.value = sens; ss.addEventListener('change', e => setSens(+e.target.value)); }
-$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
-$('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
-$('chkFate').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: e.target.checked, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
-$('chkBoost').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: e.target.checked, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
-$('chkFree').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: e.target.checked, awake: !!lobby.settings.awake }));
-$('chkAwake').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: e.target.checked }));
+$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake, stealth: !!lobby.settings.stealth }));
+$('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake, stealth: !!lobby.settings.stealth }));
+$('chkFate').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: e.target.checked, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake, stealth: !!lobby.settings.stealth }));
+$('chkBoost').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: e.target.checked, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake, stealth: !!lobby.settings.stealth }));
+$('chkFree').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: e.target.checked, awake: !!lobby.settings.awake, stealth: !!lobby.settings.stealth }));
+$('chkAwake').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: e.target.checked, stealth: !!lobby.settings.stealth }));
+$('chkStealth').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake, stealth: e.target.checked }));
 { const sh = $('selHiss'); sh.value = hiss ? '1' : '0'; sh.addEventListener('change', e => { hiss = e.target.value === '1'; store.set('hiss', hiss); if (A.hiss && A.ctx) A.hiss.gain.setTargetAtTime(hiss ? .014 : 0, A.ctx.currentTime, .05); }); }
 $('lbChatForm').addEventListener('submit', e => { e.preventDefault(); const v = $('lbChatIn').value.trim(); if (v) send({ type: 'chat', text: v }); $('lbChatIn').value = ''; });
 
@@ -213,6 +214,7 @@ function renderLobby() {
   $('chkFate').checked = !!L.settings.fate; $('chkFate').disabled = !isHost; $('fateInfo').hidden = !L.settings.fate;
   $('chkBoost').checked = !!L.settings.boost; $('chkBoost').disabled = !isHost; $('boostInfo').hidden = !L.settings.boost;
   $('chkAwake').checked = !!L.settings.awake; $('chkAwake').disabled = !isHost; $('awakeInfo').hidden = !L.settings.awake;
+  $('chkStealth').checked = !!L.settings.stealth; $('chkStealth').disabled = !isHost; $('stealthInfo').hidden = !L.settings.stealth;
   $('chkFree').checked = !!L.settings.freeCol; $('chkFree').disabled = !isHost; $('freeLbl').hidden = !L.settings.skins;
   skinEd.setFree(!!L.settings.freeCol);
   if (L.settings.skins) skinEd.draw();
@@ -875,7 +877,7 @@ function post(dt) {
    조작
    ========================================================= */
 const keys = {};
-const ctl = { actHeld: false, actLatch: false, dashQ: false, joyX: 0, joyY: 0, touchAct: false };
+const ctl = { actHeld: false, actLatch: false, dashQ: false, stQ: false, joyX: 0, joyY: 0, touchAct: false };
 let chatOpen = false;
 window.addEventListener('keydown', e => {
   if (!game) return;
@@ -895,7 +897,7 @@ window.addEventListener('keydown', e => {
   if (game.cctv && (k === 'arrowright' || k === 'd')) { game.cctv.page = (game.cctv.page + 1) % 3; return; }
   if (game.cctv && k === 'escape') { game.cctv = null; return; }
   if (k === 'shift' && game.role === 'dream') ctl.dashQ = true;
-  if (k === 'f') ctl.dashQ = true; // 꿈: 대시 · 앨리스: 운명
+  if (k === 'f') { if (game.role === 'dream') ctl.stQ = true; else ctl.dashQ = true; } // 꿈: 은신 · 앨리스: 운명
   if (k === 'm') game.mapOn = !game.mapOn;
   if (k === 'tab' || k === 'h' || k === '?') game.briefOn = !game.briefOn;
   if (k === '[' || k === ']') { setSens(sens + (k === ']' ? 1 : -1)); say(`시점 감도 ${sens}`, '#cfc6b6', 1.5); }
@@ -957,7 +959,7 @@ const hold = (el, on, off) => {
 };
 hold($('tAct'), () => { if (cctvKey()) return; ctl.touchAct = true; ctl.actLatch = true; if (game && game.spectate) cycleSpectate(); }, () => { ctl.touchAct = false; });
 hold($('tDash'), () => { ctl.dashQ = true; });
-hold($('tFate'), () => { ctl.dashQ = true; });
+hold($('tFate'), () => { if (game && game.role === 'dream') ctl.stQ = true; else ctl.dashQ = true; });
 hold($('tMap'), () => { if (game) game.mapOn = !game.mapOn; });
 hold($('tChat'), () => openChat());
 hold($('tHelp'), () => { if (game) game.briefOn = !game.briefOn; });
@@ -1008,7 +1010,7 @@ function cctvKey() {
 }
 function readControls() {
   let f = 0, s = 0;
-  if (game && game.cctv) { if (Math.hypot(ctl.joyX, ctl.joyY) > .6) game.cctv = null; else { ctl.actLatch = false; ctl.dashQ = false; return { f: 0, s: 0, act: false, dash: false }; } }
+  if (game && game.cctv) { if (Math.hypot(ctl.joyX, ctl.joyY) > .6) game.cctv = null; else { ctl.actLatch = false; ctl.dashQ = false; ctl.stQ = false; return { f: 0, s: 0, act: false, dash: false, st: false }; } }
   if (!chatOpen) {
     f = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
     s = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
@@ -1017,7 +1019,8 @@ function readControls() {
   const act = !chatOpen && (keys.e || keys[' '] || ctl.touchAct || ctl.actLatch);
   ctl.actLatch = false;
   const dash = ctl.dashQ; ctl.dashQ = false;
-  return { f: clamp(f, -1, 1), s: clamp(s, -1, 1), act, dash };
+  const st = ctl.stQ; ctl.stQ = false;
+  return { f: clamp(f, -1, 1), s: clamp(s, -1, 1), act, dash, st };
 }
 
 
@@ -1257,6 +1260,7 @@ function startGame(m) {
     revealN: Math.floor((CFG.GAME_TIME - m.time) / CFG.REVEAL_EVERY), reveal: null
   };
   game.skins = new Map(); for (const p of m.players) { if (!p.skin) continue; const k = p.role === 'dream' ? 'dream' : 'alice'; if (freeSkinValid(p.skin, k) || (k === 'dream' ? dskinValid(p.skin) : skinValid(p.skin))) game.skins.set(p.id, skinSprite(p.skin, k)); }
+  game.stealth = !!m.stealth; game.mySth = 0; game.myStc = 0; game.hn = 0; game.sd = 0; game.anySth = false; game.sBtn = null;
   game.fate = !!m.fate; game.pred.dcd = game.fate ? 5 : CFG.DASH_CD; game.boost = !!m.boost; game.sb = 1;
   game.awake = !!m.awake; game.aw = 0; game.awT = 0; game.eyes = new Map(); for (const p of m.players) if (p.role === 'dream' && eyesValid(p.eyes)) game.eyes.set(p.id, eyeCoords(p.eyes));
   Object.assign(game, { trail: new Map(), pings: [], track: [], myF: '', fcard: null, cT: 0, twins: null, mbT: 0 });
@@ -1321,6 +1325,7 @@ function onSnap(m) {
       if (tr.length > 600) tr.shift();
     }
   }
+  if (g.stealth) { g.hn = m.hn || 0; g.sd = m.sd || 0; g.anySth = m.p.some(q => q.h > 0); const me1 = m.p.find(q => q.i === myId); g.mySth = me1 && me1.h || 0; g.myStc = me1 && me1.hc || 0; }
   for (const e of m.ev) handleEv(e);
   const s = m.p.find(p => p.i === myId);
   if (s) {
@@ -1391,13 +1396,22 @@ function handleEv(e) {
     case 'trace': {
       const tr = w.traces[e.i], n = g.tr.reduce((a, b) => a + b, 0);
       sfx.bell(); at(tr.x, tr.z, 30, sfx.whisper);
-      setTimeout(() => { if (game === g) say(g.role === 'dream' ? `흔적이 모일수록 꿈은 짙어진다 — 속도 +${n * 3}%` : '…꿈이 조금 더 빨라졌다', g.role === 'dream' ? '#ff7070' : '#c8a0a0', 3); }, 900);
+      setTimeout(() => { const per = trPer(g); if (game === g && per > 0) say(g.role === 'dream' ? `흔적이 모일수록 꿈은 짙어진다 — 속도 +${(n * per * 100).toFixed(1).replace(/\.0$/, '')}%` : '…꿈이 조금 더 빨라졌다', g.role === 'dream' ? '#ff7070' : '#c8a0a0', 3); }, 900);
       say(`${tr.suit} ${josa(nameOf(e.by), '이', '가')} ${josa(tr.name, '을', '를')} 찾았다 (${n}/5)`, tr.color === '#b49b2e' ? '#e0c860' : tr.color === '#4a64c8' ? '#9fb0ff' : tr.color === '#3e8a4c' ? '#8fd29a' : '#ff7a7a', 5);
       break;
     }
     case 'door':
       sfx.choir(); fx.glitch = .6;
       say(g.role === 'dream' ? '하늘에 문이 열렸다. 앨리스들이 빠져나가려 한다!' : '하늘에 문이 열렸다! 빛기둥으로 달려가!', '#ffffff', 7);
+      if (g.stealth && g.role === 'dream') setTimeout(() => { if (game === g) say(`어둠이 짙어졌다 — ${device === 'phone' ? '「은신」' : 'F'}로 10초 동안 기척을 숨길 수 있다 (한 번)`, '#c0a0ff', 6); }, 1500);
+      break;
+    case 'sth':
+      if (e.d === myId) { fx.glitch = .9; sfx.reverse(); vib(60); g.sthFlash = performance.now(); say('기척을 지웠다 — 10초 동안 앨리스가 너를 느끼지 못한다', '#c0a0ff', 3.5); }
+      else if (g.role === 'dream') say(`${josa(nameOf(e.d), '이', '가')} 기척을 지웠다 (10초)`, '#c0a0ff', 3);
+      else { sfx.reverse(); fx.glitch = .5; say('…어딘가에서 꿈의 기척이 사라졌다', '#c0a0c0', 4.5); }
+      break;
+    case 'sthEnd':
+      if (e.d === myId) say('기척이 돌아왔다', '#a89e90', 2.5);
       break;
     case 'esc':
       sfx.chime();
@@ -1439,7 +1453,8 @@ function handleEv(e) {
       else if (e.k === 'M') { sfx.song(); fx.glitch = .5; say('♦ 노래가 꿈 전체에 울린다… 갇힌 앨리스들이 따라 부른다', '#9fb0ff', 4.5); }
       break;
     }
-    case 'rv': if (g.role === 'dream') { for (const [x, z] of e.pts) g.pings.push({ x, z, t: performance.now(), dur: e.dur, col: e.tw ? '#e0c860' : e.lst ? '#ffffff' : '#ff5050' }); if (!e.tw) { sfx.whisper(1); } } else if (e.lst && g.lastId === myId) sfx.whisper(.8); break;
+    case 'rv': if (e.dr && g.sd && g.mySth > 0) break; // 숨은 꿈: 인원 차가 적으면 은신 중엔 위치 공개를 못 받는다
+      if (g.role === 'dream') { for (const [x, z] of e.pts) g.pings.push({ x, z, t: performance.now(), dur: e.dur, col: e.tw ? '#e0c860' : e.lst ? '#ffffff' : '#ff5050' }); if (!e.tw) { sfx.whisper(1); } } else if (e.lst && g.lastId === myId) sfx.whisper(.8); break;
     case 'last': {
       if (!e.a) { if (g.wasLast) say('동료가 돌아왔다 — 더는 혼자가 아니다', '#cfe8d2', 4); g.wasLast = false; break; }
       if (e.a === myId) { g.wasLast = true; g.lastCard = performance.now(); fx.glitch = 1.6; sfx.heart(1); sfx.choir(); vib([100, 60, 100]); }
@@ -1632,7 +1647,7 @@ function update(dt) {
   while (g.acc >= CFG.INPUT_DT && n < 6) {
     g.acc -= CFG.INPUT_DT; n++;
     const c = readControls();
-    const inp = { q: ++g.seq, f: r2(c.f), s: r2(c.s), y: Math.round(g.yaw * 1000) / 1000, a: c.act ? 1 : 0, d: c.dash ? 1 : 0 };
+    const inp = { q: ++g.seq, f: r2(c.f), s: r2(c.s), y: Math.round(g.yaw * 1000) / 1000, a: c.act ? 1 : 0, d: c.dash ? 1 : 0, ...(c.st ? { k: 1 } : {}) };
     if (c.dash && g.role === 'dream' && g.pred.st === 0 && g.pred.dc <= 0 && !g.pred.carry && !(g.intro > 0)) sfx.dash();
     g.pred.door = g.door;
     if (g.pred.st === 0 && !(g.intro > 0) && !g.ended) { stepPlayer(g.world, g.pred, inp, CFG.INPUT_DT); if (g.pred.warp != null) { g.yaw = g.pred.warp; g.pred.warp = null; g.smooth.x = g.smooth.z = 0; sfx.warp(); fx.glitch = 1.2; } }
@@ -1661,7 +1676,7 @@ function update(dt) {
   let nd = 99, ndp = null;
   if (g.role === 'alice' && !g.spectate) {
     for (const p of g.players.values()) {
-      if (p.role !== 'dream' || !p.cur || p.cur.o === 0) continue;
+      if (p.role !== 'dream' || !p.cur || p.cur.o === 0 || p.cur.h > 0) continue;
       const ip = interp(p); if (!ip) continue;
       const d = Math.hypot(ip.x - g.cam.x, ip.z - g.cam.z);
       if (d < nd) { nd = d; ndp = ip; }
@@ -1698,7 +1713,7 @@ function update(dt) {
       const tm = (g.stepTimers.get(p.id) || 0) - dt;
       if (tm <= 0) {
         g.stepTimers.set(p.id, p.role === 'dream' ? .55 : .4);
-        if (p.role === 'dream') at(ip.x, ip.z, g.awake && g.aw === 2 ? 26 : 15, sfx.thud);
+        if (p.role === 'dream') { if (!(p.cur.h > 0 && g.role === 'alice')) at(ip.x, ip.z, g.awake && g.aw === 2 ? 26 : 15, sfx.thud); }
         else at(ip.x, ip.z, g.role === 'dream' ? (p.id === g.lastId ? 18 : 11) : 7, () => sfx.step(1.6));
       } else g.stepTimers.set(p.id, tm);
     }
@@ -1714,7 +1729,44 @@ function update(dt) {
     }
   }
   if (g.fate) fateUpdate(g, dt);
+  if (g.stealth && g.role === 'dream') stealthUpdate(g);
   fx.glitch = Math.max(0, fx.glitch - dt * 1.4);
+}
+// 숨은 꿈: 꿈 모바일 버튼 (운명 버튼 자리)
+// 흔적 하나당 꿈 속도 증가치 (판 시작 때 앨리스÷꿈 비율: 1 이하 0, 3 이상 1.8%)
+function trPer(g) { let a = 0, d = 0; for (const p of g.players.values()) p.role === 'dream' ? d++ : a++; return .018 * clamp((a / Math.max(1, d) - 1) / 2, 0, 1); }
+function stealthState(g) {
+  const ms = g.meS;
+  if (g.mySth > 0) return { t: '은신 중', s: `${Math.ceil(g.mySth)}초`, ok: false, on: true };
+  if (!g.myStc || !g.door || !ms || ms.s !== 0) return null;
+  if (g.anySth) return { t: '은신', s: '동료 사용 중', ok: false };
+  if (g.hn > 0) return { t: '은신', s: `${Math.ceil(g.hn)}초`, ok: false };
+  if (Math.hypot(g.pred.x - g.door.x, g.pred.z - g.door.z) < CFG.BURN_R) return { t: '은신', s: '빛 곁', ok: false };
+  return { t: '은신', s: '지금!', ok: true };
+}
+function stealthUpdate(g) {
+  if (device !== 'phone') return;
+  const st = stealthState(g), key = st ? `${st.t}|${st.s}|${st.ok ? 1 : 0}` : '';
+  if (key !== g.sBtn) {
+    const b = $('tFate');
+    if (st) { b.hidden = false; $('tFateT').textContent = st.t; $('tFateS').textContent = st.s; b.classList.toggle('off', !st.ok && !st.on); b.style.setProperty('--fc', '#a080e0'); }
+    else b.hidden = true;
+    g.sBtn = key;
+  }
+}
+function drawStealthHud(g, c, sh, tnow) {
+  if (g.role !== 'dream') return;
+  if (g.mySth > 0) {
+    const k = clamp(g.mySth / 10, 0, 1);
+    const rg = c.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * .9);
+    rg.addColorStop(0, 'rgba(20,0,40,0)'); rg.addColorStop(1, `rgba(30,10,60,${.35 + .2 * Math.sin(tnow / 300) * k})`);
+    c.fillStyle = rg; c.fillRect(0, 0, W, H);
+    const bw = 120; c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(W / 2 - bw / 2 - 1, H - 72, bw + 2, 6); c.fillStyle = '#a080e0'; c.fillRect(W / 2 - bw / 2, H - 71, bw * k, 4);
+    sh(`은신 ${g.mySth.toFixed(1)}초 — 빛기둥에 닿거나 앨리스를 잡으면 풀린다`, W / 2, H - 78, '#c0a0ff', `11px 'Nanum Gothic Coding', monospace`, 'center');
+  } else if (device !== 'phone') {
+    const st = stealthState(g);
+    if (st) sh(`[F] 은신 ${st.s}`, 10, 142, st.ok ? '#c0a0ff' : '#8a8090', `11px 'Nanum Gothic Coding', monospace`);
+  }
 }
 function nearDreamTo(g, x, z, r) { let best = null, bd = r; for (const p of g.players.values()) { if (p.role !== 'dream' || !p.cur || p.cur.s !== 0) continue; const ip = interp(p); if (!ip) continue; const d = Math.hypot(ip.x - x, ip.z - z); if (d <= bd) { bd = d; best = p; } } return best; }
 function fateUpdate(g, dt) {
@@ -1821,7 +1873,8 @@ function drawBrief(c, g, alpha, count) {
     : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다 → 절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
   if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다.' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
   if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
-  goals.push(dream ? '★ 흔적이 하나 모일 때마다 3%씩 빨라진다' : '★ 흔적을 모을수록 꿈이 빨라진다 (하나에 3%)');
+  { const per = trPer(g), pc = (per * 100).toFixed(1).replace(/\.0$/, ''); if (per > 0) goals.push(dream ? `★ 흔적이 하나 모일 때마다 ${pc}%씩 빨라진다` : `★ 흔적을 모을수록 꿈이 빨라진다 (하나에 ${pc}%)`); }
+  if (g.stealth) goals.push(dream ? `★ 숨은 꿈: 문이 열리면 ${phone ? '「은신」' : 'F'}로 10초 은신 (한 번)` : '★ 숨은 꿈: 문이 열린 뒤엔 꿈이 기척 없이 다가올 수 있다');
   if ([...g.players.values()].filter(p => p.role === 'alice').length >= 2) goals.push(dream ? '★ 앨리스가 혼자 남으면 10초마다 위치가 보인다' : '★ 혼자 남으면 최후의 앨리스: 빨라지고 위치 노출');
   if (g.awake) goals.push(dream ? '★ 1분 30초마다 30초간 깨어난다: 더 빠르고, 앨리스는 거의 못 본다' : '★ 1분 30초마다 꿈이 깨어난다: 30초간 어둠 속에서 붉은 눈만 보인다');
   if (g.boost) goals.push(dream ? '★ 인원 보정: 앨리스가 많을수록 빠르다 (가둘수록 원래대로)' : '★ 인원 보정: 꿈이 더 빠르다 (동료가 갇힐수록 원래대로)');
@@ -1834,7 +1887,7 @@ function drawBrief(c, g, alpha, count) {
       ? [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['잡기'], '잡기 · 감옥에 가두기'], [['대시'], `순간 돌진 (${g.fate ? 5 : CFG.DASH_CD}초마다)`], [['지도'], '지도 열기']]
       : [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['행동'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['행동'], '잡혔을 때 연타로 몸부림'], [['지도'], '지도 열기']])
     : (dream
-      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '잡기 · 감옥에 가두기'], [['Shift'], `순간 돌진 (${g.fate ? 5 : CFG.DASH_CD}초마다)`], [['M'], '지도'], [['B'], '밝기'], [['[', ']'], '시점 감도'], [['Enter'], '채팅']]
+      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '잡기 · 감옥에 가두기'], [['Shift'], `순간 돌진 (${g.fate ? 5 : CFG.DASH_CD}초마다)`], ...(g.stealth ? [[['F'], '은신 (문이 열린 뒤 한 번)']] : []), [['M'], '지도'], [['B'], '밝기'], [['[', ']'], '시점 감도'], [['Enter'], '채팅']]
       : [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['E'], '잡혔을 때 연타로 몸부림'], [['M'], '지도'], [['Enter'], '채팅']]);
   if (g.fate && !dream) rows.splice(3, 0, [[phone ? '운명' : 'F'], '운명 쓰기 (꿈이 가까울 때)']);
   let y = hy + 20; const step = Math.min(17, (H - 44 - y) / Math.max(1, rows.length - 1));
@@ -1957,6 +2010,7 @@ function drawHud(g, tags) {
   c.globalAlpha = 1;
   drawEffects(g, c, tnow);
   if (g.fate) drawFateHud(g, c, sh, tnow);
+  if (g.stealth) drawStealthHud(g, c, sh, tnow);
   // 상황별 안내
   const P = g.pred, w = g.world, actKey = device === 'phone' ? '행동' : 'E';
   const bar = (x, y, wd, v, col) => { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - wd / 2 - 1, y - 1, wd + 2, 6); c.fillStyle = col; c.fillRect(x - wd / 2, y, wd * clamp(v, 0, 1), 4); };
