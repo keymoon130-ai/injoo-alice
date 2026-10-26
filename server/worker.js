@@ -481,7 +481,7 @@ export class Room {
       if (on) return;
       if (camT[i]) { g.cp[i] += dt; if (g.cp[i] >= 2.5) { g.cams[i] = 1; g.cp[i] = 0; this.ev('cam', { i, on: 1, by: camT[i] }); } }
       else g.cp[i] = Math.max(0, g.cp[i] - dt);
-      if (!g.cams[i] && g.t - (g.camOffT[i] || 0) >= 60) { g.cams[i] = 1; g.cp[i] = 0; this.ev('cam', { i, on: 1, by: null }); } // 꺼진 지 1분이면 저절로 켜진다
+      if (!g.cams[i] && g.t - (g.camOffT[i] || 0) >= 150) { g.cams[i] = 1; g.cp[i] = 0; this.ev('cam', { i, on: 1, by: null }); } // 꺼진 지 2분 30초면 저절로 켜진다
     });
 
     // 감옥에서 썩어가는 앨리스

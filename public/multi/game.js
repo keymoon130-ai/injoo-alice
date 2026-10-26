@@ -1427,7 +1427,7 @@ function handleEv(e) {
     case 'cam': {
       const c = w.cams[e.i]; at(c.x, c.z, 30, e.on ? sfx.chime : sfx.clang);
       if (e.on) say(e.by === myId ? `CAM ${String(e.i + 1).padStart(2, '0')} 을(를) 다시 켰다` : `CAM ${String(e.i + 1).padStart(2, '0')} 이(가) ${e.by ? '' : '저절로 '}다시 켜졌다`, '#9fe0ff', 3);
-      else say(g.role === 'dream' ? `CAM ${String(e.i + 1).padStart(2, '0')} 을(를) 껐다 (1분 뒤 다시 켜진다)` : `CAM ${String(e.i + 1).padStart(2, '0')} 신호가 끊겼다`, '#e07070', 3);
+      else say(g.role === 'dream' ? `CAM ${String(e.i + 1).padStart(2, '0')} 을(를) 껐다 (2분 30초 뒤 다시 켜진다)` : `CAM ${String(e.i + 1).padStart(2, '0')} 신호가 끊겼다`, '#e07070', 3);
       if (g.cctv) fx.glitch = .6;
       break;
     }
@@ -1872,7 +1872,7 @@ function drawBrief(c, g, alpha, count) {
   const goals = dream
     ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '앨리스 절반 이상의 탈출을 막으면 승리 · 빛기둥 곁엔 오래 못 머문다.']
     : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다 → 절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
-  if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다 (1분 뒤 다시 켜짐).' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
+  if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다 (2분 30초 뒤 다시 켜짐).' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
   if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
   { const per = trPer(g), pc = (per * 100).toFixed(1).replace(/\.0$/, ''); if (per > 0) goals.push(dream ? `★ 흔적이 하나 모일 때마다 ${pc}%씩 빨라진다` : `★ 흔적을 모을수록 꿈이 빨라진다 (하나에 ${pc}%)`); }
   if (g.stealth) goals.push(dream ? `★ 숨은 꿈: 문이 열리면 ${phone ? '「은신」' : 'F'}로 10초 은신 (한 번)` : '★ 숨은 꿈: 문이 열린 뒤엔 꿈이 기척 없이 다가올 수 있다');
