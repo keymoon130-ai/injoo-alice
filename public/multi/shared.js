@@ -2,7 +2,7 @@
 // 같은 시드(seed)로 같은 맵을 만들고, 같은 이동 함수로 움직여서 기기 간 차이를 없앤다.
 
 // 서버·클라이언트 규칙 버전: 바뀌면 옛 화면은 자동으로 새로고침된다
-export const PROTO = 3;
+export const PROTO = 4;
 
 export const CFG = {
   N: 80,                 // 맵 한 변 (칸)
@@ -94,6 +94,10 @@ export function dskinValid(s) {
   let n = 0; for (const ch of s) if (ch !== 'x' && parseInt(ch, 16) >= DSKIN_BRIGHT) n++;
   return n >= DSKIN_BRIGHT_MIN && n <= DSKIN_BRIGHT_MAX;
 }
+
+// 꿈의 눈: 꾸미기 칸 번호(마스크 순서) 1~2개. 기본은 기본 꿈의 눈 자리
+export const DSKIN_EYES = DSKIN_MASK.map((k, i) => DREAM_ROWS[(k / DSKIN_W) | 0][k % DSKIN_W] === 'E' ? i : -1).filter(i => i >= 0);
+export function eyesValid(e) { return Array.isArray(e) && e.length >= 1 && e.length <= 2 && e.every(i => Number.isInteger(i) && i >= 0 && i < DSKIN_MASK.length) && new Set(e).size === e.length; }
 
 // 자유 색상 (추가 모드): '#' + 칸마다 RRGGBB. 실루엣은 그대로, 칸 수 제한 없음
 export function freeSkinValid(s, kind) {
@@ -655,6 +659,7 @@ export function stepPlayer(w, p, inp, dt) {
   const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
   let sp = p.role === 'dream' ? CFG.DREAM_SPEED * (p.carry ? CFG.CARRY_MUL : 1) * (p.sb || 1) : CFG.ALICE_SPEED;
   if (p.role === 'dream' && p.door && Math.hypot(p.x - p.door.x, p.z - p.door.z) < CFG.BURN_R) sp *= CFG.BURN_SLOW;
+  if (p.role === 'dream' && p.awk) sp *= 1.1; // 꿈이 깨어난 시간
   const charmed = p.role === 'dream' && p.chm > 0; if (charmed) p.chm = Math.max(0, p.chm - dt); // 초록 여왕에게 홀림
   if (p.role === 'alice' && p.tw) sp *= 1.08; // 쌍둥이
   if (p.dt > 0) { p.dt = Math.max(0, p.dt - dt); sp = CFG.DASH_SPEED; if (l < .1) { f = 1; s = 0; } }

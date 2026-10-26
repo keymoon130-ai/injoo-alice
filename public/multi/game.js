@@ -1,5 +1,5 @@
 // 人柱愛麗絲 : 망가진 꿈 — 클라이언트
-import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint, SKIN_PAL, SKIN_MASK, SKIN_DEFAULT, SKIN_W, SKIN_H, SKIN_DARK_MAX, skinValid, DSKIN_PAL, DSKIN_MASK, DSKIN_DEFAULT, DSKIN_W, DSKIN_H, DSKIN_BRIGHT, DSKIN_BRIGHT_MIN, DSKIN_BRIGHT_MAX, dskinValid, freeSkinValid, SKIN_CLEAR_MAX, PROTO } from './shared.js';
+import { CFG, GR, WL, WALL_H, TRACE_INFO, MAPS, MAP_NAMES, PORTAL_COLS, genWorld, stepPlayer, worldSig, mapFingerprint, SKIN_PAL, SKIN_MASK, SKIN_DEFAULT, SKIN_W, SKIN_H, SKIN_DARK_MAX, skinValid, DSKIN_PAL, DSKIN_MASK, DSKIN_DEFAULT, DSKIN_W, DSKIN_H, DSKIN_BRIGHT, DSKIN_BRIGHT_MIN, DSKIN_BRIGHT_MAX, dskinValid, freeSkinValid, SKIN_CLEAR_MAX, DSKIN_EYES, eyesValid, PROTO } from './shared.js';
 
 const $ = id => document.getElementById(id);
 const W = 400, H = 300;
@@ -152,15 +152,16 @@ $('btnCopy').addEventListener('click', async () => {
 $('btnReady').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'ready', v: !(me && me.ready) }); });
 $('btnWant').addEventListener('click', () => { const me = lobby && lobby.players.find(p => p.id === myId); send({ type: 'want', v: !(me && me.want) }); });
 $('btnStart').addEventListener('click', () => send({ type: 'start' }));
-$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol }));
-$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol }));
+$('selDreams').addEventListener('change', e => send({ type: 'set', dreams: +e.target.value, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
+$('selMax').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: +e.target.value, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
 { const sb = $('selBright'); for (let i = 0; i < 5; i++) { const o = document.createElement('option'); o.value = i; o.textContent = '■'.repeat(i + 1) + '□'.repeat(4 - i); sb.append(o); } sb.value = bright; sb.addEventListener('change', e => setBright(+e.target.value)); }
 { const ss = $('selSens'); for (let i = 1; i <= 9; i++) { const o = document.createElement('option'); o.value = i; o.textContent = `${i}${i === 5 ? ' (기본)' : ''}`; ss.append(o); } ss.value = sens; ss.addEventListener('change', e => setSens(+e.target.value)); }
-$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol }));
-$('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol }));
-$('chkFate').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: e.target.checked, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol }));
-$('chkBoost').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: e.target.checked, freeCol: !!lobby.settings.freeCol }));
-$('chkFree').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: e.target.checked }));
+$('selMap').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: e.target.value, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
+$('chkSkins').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: e.target.checked, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
+$('chkFate').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: e.target.checked, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
+$('chkBoost').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: e.target.checked, freeCol: !!lobby.settings.freeCol, awake: !!lobby.settings.awake }));
+$('chkFree').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: e.target.checked, awake: !!lobby.settings.awake }));
+$('chkAwake').addEventListener('change', e => send({ type: 'set', dreams: lobby.settings.dreams, max: lobby.settings.max, map: lobby.settings.map, skins: !!lobby.settings.skins, fate: !!lobby.settings.fate, boost: !!lobby.settings.boost, freeCol: !!lobby.settings.freeCol, awake: e.target.checked }));
 { const sh = $('selHiss'); sh.value = hiss ? '1' : '0'; sh.addEventListener('change', e => { hiss = e.target.value === '1'; store.set('hiss', hiss); if (A.hiss && A.ctx) A.hiss.gain.setTargetAtTime(hiss ? .014 : 0, A.ctx.currentTime, .05); }); }
 $('lbChatForm').addEventListener('submit', e => { e.preventDefault(); const v = $('lbChatIn').value.trim(); if (v) send({ type: 'chat', text: v }); $('lbChatIn').value = ''; });
 
@@ -211,6 +212,7 @@ function renderLobby() {
   $('skinPanel').hidden = !L.settings.skins;
   $('chkFate').checked = !!L.settings.fate; $('chkFate').disabled = !isHost; $('fateInfo').hidden = !L.settings.fate;
   $('chkBoost').checked = !!L.settings.boost; $('chkBoost').disabled = !isHost; $('boostInfo').hidden = !L.settings.boost;
+  $('chkAwake').checked = !!L.settings.awake; $('chkAwake').disabled = !isHost; $('awakeInfo').hidden = !L.settings.awake;
   $('chkFree').checked = !!L.settings.freeCol; $('chkFree').disabled = !isHost; $('freeLbl').hidden = !L.settings.skins;
   skinEd.setFree(!!L.settings.freeCol);
   if (L.settings.skins) skinEd.draw();
@@ -346,6 +348,7 @@ const sfx = {
   bell() { osc('sine', 196, 3.5, { vol: .22 }); osc('sine', 196 * 2.76, 2.2, { vol: .07 }); osc('sine', 196 * 5.4, 1.1, { vol: .03 }); },
   clang() { osc('square', 180, .5, { vol: .2, f2: 90 }); osc('sine', 860, 1.2, { vol: .12 }); nz(.3, { type: 'highpass', f: 2500, vol: .25 }); },
   squelch() { if (chicken) return sfx.pop(); nz(.6, { type: 'lowpass', f: 700, f2: 120, vol: .5, a: .01 }); osc('sine', 90, .5, { vol: .4, f2: 30 }); },
+  song() { const N = [392, 466.16, 523.25, 622.25, 698.46, 622.25, 523.25, 466.16, 392, 349.23, 392]; N.forEach((f, i) => { osc('sine', f, .9, { vol: .16, a: .01, delay: i * .38 }); osc('triangle', f / 2, .9, { vol: .05, delay: i * .38 }); for (const dt of [-14, 11, 23]) osc('sine', f * Math.pow(2, dt / 1200), 1.1, { vol: .045, a: .15, delay: i * .38 + .06 }); }); },
   choir() { for (const [f, d] of [[261.6, 0], [329.6, .1], [392, .2], [523.2, .3]]) osc('sine', f, 4.5, { vol: .1, a: 1.2, delay: d }); },
   gasp() { nz(.7, { type: 'bandpass', f: 650, f2: 2300, q: 2, vol: .3, a: .04 }); },
   boing() { osc('sine', 300, .45, { vol: .3, f2: 900 }); osc('sine', 600, .3, { vol: .12, f2: 200, delay: .12 }); },
@@ -722,7 +725,7 @@ function renderWorld(g, cam, feed) {
       if (pl.cur.o === 0) continue;
       if (g.meS && g.meS.s === 1 && Math.hypot(ip.x - cam.x, ip.z - cam.z) < 1.3) continue;
       if (chick) push(SPR.ghost, ip.x, ip.z, 1.0, 1.0, .35 + Math.sin(now * 3) * .05, 0, pl);
-      else push((g.skins && g.skins.get(pl.id)) || SPR.dream, ip.x, ip.z, .75, 1.8, 0, pl.cur.sn > 0 ? 4 : 0, pl);
+      else push((g.skins && g.skins.get(pl.id)) || SPR.dream, ip.x, ip.z, .75, 1.8, 0, pl.cur.sn > 0 ? 4 : pl.cur.ch > 0 ? 5 : 0, pl);
     } else if (st === 3) {
       push(chick ? SPR.ghost : SPR.body, ip.x, ip.z, .55, 1.0, 1.3, 0, pl);
     } else {
@@ -758,9 +761,11 @@ function renderWorld(g, cam, feed) {
     }
   }
   list.sort((a, b) => b.ty - a.ty);
-  const tags = [];
+  const tags = [], eyePts = [], awakeOn = !feed && g.awake && g.aw === 2 && g.role === 'alice';
+  const twinOf = g.fate && g.twins && g.role === 'alice' && g.pred.tw && g.twins.includes(myId) ? g.twins.find(id => id !== myId) : null;
   for (const s of list) {
     const { spr, tx, ty, ww, wh, z0, mode } = s;
+    const xr = twinOf && s.extra && s.extra.id === twinOf;
     const tyS = Math.max(ty, .55), scale = H / tyS, sx = W / 2 * (1 + tx / ty), hpx = wh * scale, wpx = ww * scale;
     const bot = hor + (.5 - z0) * scale, top = bot - hpx;
     const x0 = Math.floor(sx - wpx / 2), x1 = Math.floor(sx + wpx / 2);
@@ -772,13 +777,15 @@ function renderWorld(g, cam, feed) {
     const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H - 1, Math.floor(bot));
     let vis = false;
     for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
-      if (ty >= zcol[x]) continue;
-      vis = true;
+      const hid = ty >= zcol[x];
+      if (hid && !xr) continue;
+      if (!hid) vis = true;
       const fu = (x - (sx - wpx / 2)) / wpx * spr.w, pu = Math.min(spr.w - 1, fu | 0), ffu = fu - pu, big = spr === SPR.dream && wpx / spr.w > 5;
       for (let y = y0; y <= y1; y++) {
         const fv = (y - top) / hpx * spr.h, pv = Math.min(spr.h - 1, fv | 0);
         const k = pv * spr.w + pu;
         if (!spr.a[k]) continue;
+        if (hid) { const o = pix[y * W + x]; pix[y * W + x] = pack(lerp(o & 255, 235, .32) | 0, lerp((o >> 8) & 255, 205, .32) | 0, lerp((o >> 16) & 255, 110, .32) | 0); continue; } // 쌍둥이: 벽 너머 짝의 실루엣
         let r = spr.r[k], gg = spr.g[k], b = spr.b[k];
         if (spr.e[k]) {
           const ffv = fv - pv;
@@ -787,11 +794,20 @@ function renderWorld(g, cam, feed) {
         }
         if (mode === 1) { r = r * .72 + 62; gg = gg * .72 + 66; b = b * .72 + 82; }
         if (mode === 4 && (now * 10 | 0) % 2) { r = 120; gg = 20; b = 20; }
+        if (mode === 5) { const q = .45 + .2 * Math.sin(now * 9); r = lerp(r, 90, q); gg = lerp(gg, 230, q); b = lerp(b, 120, q); } // 왕관에 홀린 꿈
         if (pulse) { r = lerp(r, 255, pulse); gg = lerp(gg, 236, pulse); b = lerp(b, 200, pulse); }
         pix[y * W + x] = pack((r * kf + fogC[0] * ft) | 0, (gg * kf + fogC[1] * ft) | 0, (b * kf + fogC[2] * ft) | 0);
       }
     }
     if (vis && s.extra && s.extra.role === g.role && ty < 8) tags.push({ x: sx, y: top - 4, name: s.extra.name, a: 1 - ty / 8 });
+    if (awakeOn && s.extra && s.extra.role === 'dream') { // 깨어난 꿈의 눈
+      const ec = (g.eyes && g.eyes.get(s.extra.id)) || (spr === SPR.ghost ? [[4, 4], [9, 4]] : DEF_EYES);
+      for (const [ex, ey] of ec) {
+        const px_ = sx - wpx / 2 + (ex + .5) / spr.w * wpx, py_ = top + (ey + .5) / spr.h * hpx, xi = px_ | 0;
+        if (xi < 0 || xi >= W || ty >= zcol[xi]) continue;
+        eyePts.push({ x: px_, y: py_, r: Math.max(1.4, wpx / spr.w * .7) });
+      }
+    }
   }
   // 하늘의 문 빛기둥
   if (g.door) {
@@ -810,7 +826,24 @@ function renderWorld(g, cam, feed) {
       }
     }
   }
+  if (!feed && g.awake && g.role === 'alice' && (g.aw === 2 || (g.aw === 1 && Math.random() < .35))) darkness(eyePts);
   return tags;
+}
+// 꿈이 깨어난 시간: 앨리스 화면은 손전등만큼만 보이고, 꿈의 눈만 붉게 떠오른다
+let darkMask = null;
+function darkness(eyes) {
+  if (!darkMask) { darkMask = new Float32Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const d = Math.hypot((x - W / 2) * .9, (y - H / 2 - 8) * 1.1), c = clamp(1 - (d - 46) / 34, 0, 1); darkMask[y * W + x] = .045 + .955 * c * c * (3 - 2 * c); } }
+  const fl = .9 + Math.random() * .1;
+  for (let i = 0; i < W * H; i++) { const m = darkMask[i] * fl; if (m >= .999) continue; const v = pix[i]; pix[i] = (0xff000000 | (((v >>> 16 & 255) * m) << 16) | (((v >>> 8 & 255) * m) << 8) | ((v & 255) * m)) >>> 0; }
+  for (const e of eyes) {
+    const R = e.r * 4;
+    for (let y = Math.max(0, (e.y - R) | 0); y <= Math.min(H - 1, (e.y + R) | 0); y++) for (let x = Math.max(0, (e.x - R) | 0); x <= Math.min(W - 1, (e.x + R) | 0); x++) {
+      const d = Math.hypot(x - e.x, y - e.y), o = pix[y * W + x];
+      if (d <= e.r) { pix[y * W + x] = pack(255, 40 + (d < e.r * .4 ? 120 : 0), 30); continue; }
+      const k = clamp(1 - (d - e.r) / (R - e.r), 0, 1) * .55; if (k <= 0) continue;
+      pix[y * W + x] = pack(lerp(o & 255, 255, k) | 0, lerp((o >> 8) & 255, 20, k * .6) | 0, lerp((o >> 16) & 255, 20, k * .6) | 0);
+    }
+  }
 }
 
 function post(dt) {
@@ -999,6 +1032,8 @@ const hex2 = v => v.toString(16).padStart(2, '0');
 const rgbHex = c => hex2(c[0]) + hex2(c[1]) + hex2(c[2]);
 const hexRgb = h => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 const glowing = c => Math.max(c[0], c[1], c[2]) >= 200; // 자유 색상의 꿈: 아주 밝은 색은 스스로 빛난다
+const eyeCoords = (eyes, D_ = SK.dream) => (eyes || DSKIN_EYES).map(i => { const k = D_.MASK[i]; return [k % D_.W, (k / D_.W) | 0]; });
+const DEF_EYES = eyeCoords(DSKIN_EYES);
 function skinSprite(str, kind = 'alice') {
   const D = SK[kind], n = D.W * D.H, R = new Uint8Array(n), G = new Uint8Array(n), B = new Uint8Array(n), A_ = new Uint8Array(n), E = new Uint8Array(n), free = str[0] === '#';
   D.MASK.forEach((k, i) => {
@@ -1013,10 +1048,11 @@ const mine = {
   alice: (() => { const v = store.get('skin', null); return skinValid(v) ? v : SKIN_DEFAULT; })(),
   dream: (() => { const v = store.get('dskin', null); return typeof v === 'string' && v.length === DSKIN_MASK.length ? v : DSKIN_DEFAULT; })(),
   aliceF: (() => { const v = store.get('skinF', null); return freeSkinValid(v, 'alice') ? v : null; })(),
-  dreamF: (() => { const v = store.get('dskinF', null); return freeSkinValid(v, 'dream') ? v : null; })()
+  dreamF: (() => { const v = store.get('dskinF', null); return freeSkinValid(v, 'dream') ? v : null; })(),
+  deye: (() => { const v = store.get('deye', null); return eyesValid(v) ? v : DSKIN_EYES.slice(); })()
 };
 let skinWs = null, skinSendT = 0;
-function sendSkin() { send({ type: 'skin', v: mine.alice === SKIN_DEFAULT ? null : mine.alice, d: mine.dream !== DSKIN_DEFAULT && dskinValid(mine.dream) ? mine.dream : null, vf: mine.aliceF, df: mine.dreamF }); }
+function sendSkin() { send({ type: 'skin', v: mine.alice === SKIN_DEFAULT ? null : mine.alice, d: mine.dream !== DSKIN_DEFAULT && dskinValid(mine.dream) ? mine.dream : null, vf: mine.aliceF, df: mine.dreamF, e: mine.deye }); }
 const skinEd = (() => {
   const cv_ = $('skinCv'), cx = cv_.getContext('2d'), pv = $('skinPv'), px = pv.getContext('2d');
   const CS = 14;
@@ -1031,6 +1067,7 @@ const skinEd = (() => {
   const freeOf = k => { const D_ = SK[k], f = mine[k + 'F']; if (f) return f; return '#' + D_.MASK.map((_, i) => palHex(D_, mine[k][i])).join(''); };
   const cellRGB = i => { if (free) { const q = freeOf(kind).substr(1 + i * 6, 6); return q === 'xxxxxx' ? null : hexRgb(q); } const ch = mine[kind][i]; return ch === 'x' ? null : D.PAL[parseInt(ch, 16)]; };
   let clear = false; // 투명 칠하기
+  const isEye = i => kind === 'dream' && mine.deye.includes(i);
   const clearCount = () => { let n = 0; if (free) { const f = freeOf(kind); for (let i = 0; i < D.MASK.length; i++) if (f.substr(1 + i * 6, 6) === 'xxxxxx') n++; } else for (const ch of mine[kind]) if (ch === 'x') n++; return n; };
   function setKind(k) {
     kind = k; D = SK[k];
@@ -1047,7 +1084,7 @@ const skinEd = (() => {
       : kind === 'alice' ? '모양은 고정이고 색만 바꿀 수 있어요. 앨리스가 됐을 때 이 모습으로 나와요.' : `꿈은 어두운 색 위주예요. 빛나는 색(아래 줄)을 ${DSKIN_BRIGHT_MIN}칸 이상 칠해야 적용돼요 (최대 ${DSKIN_BRIGHT_MAX}칸). 꿈이 됐을 때 이 모습으로 나와요.`;
     pal.hidden = free; $('skinPick').hidden = !free;
   }
-  const mark = () => { [...pal.children].forEach((b, i) => b.classList.toggle('on', i === col[kind])); $('skinSym').classList.toggle('on', sym); $('skinFill').classList.toggle('on', tool === 'fill'); $('skinDrop').classList.toggle('on', tool === 'drop'); $('skinDrop').hidden = !free; $('skinClear').classList.toggle('on', clear); };
+  const mark = () => { [...pal.children].forEach((b, i) => b.classList.toggle('on', i === col[kind])); $('skinSym').classList.toggle('on', sym); $('skinFill').classList.toggle('on', tool === 'fill'); $('skinDrop').classList.toggle('on', tool === 'drop'); $('skinDrop').hidden = !free; $('skinClear').classList.toggle('on', clear); $('skinEye').classList.toggle('on', tool === 'eye'); $('skinEye').hidden = kind !== 'dream'; };
   const darkN = s => { let n = 0; for (const ch of s) if (ch === '2' || ch === '7') n++; return n; };
   const brightN = s => { let n = 0; for (const ch of s) if (ch !== 'x' && parseInt(ch, 16) >= DSKIN_BRIGHT) n++; return n; };
   const xN = s => { let n = 0; for (const ch of s) if (ch === 'x') n++; return n; };
@@ -1061,6 +1098,7 @@ const skinEd = (() => {
     mine[kind] = next; store.set(D.key, next === D.DEF ? null : next); draw(); queue();
   }
   function setCells(list) {
+    if (clear && kind === 'dream' && list.some(isEye)) { list = list.filter(i => !isEye(i)); say_('눈 칸은 투명하게 할 수 없어요.'); if (!list.length) return; }
     if (free) {
       const s = freeOf(kind).split(''), h = clear ? 'xxxxxx' : fcol[kind];
       for (const i of list) for (let j = 0; j < 6; j++) s[1 + i * 6 + j] = h[j];
@@ -1084,6 +1122,14 @@ const skinEd = (() => {
   function at(e) { const r = cv_.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * D.W), Math.floor((e.clientY - r.top) / r.height * D.H)]; }
   cv_.addEventListener('pointerdown', e => {
     e.preventDefault(); const [x, y] = at(e);
+    if (tool === 'eye') {
+      const i = idxOf[y * D.W + x]; if (i < 0 || kind !== 'dream') return;
+      if (!cellRGB(i)) { say_('투명 칸은 눈이 될 수 없어요.'); return; }
+      const e = mine.deye.slice(), at = e.indexOf(i);
+      if (at >= 0) { if (e.length <= 1) { say_('눈은 최소 1개가 있어야 해요.'); return; } e.splice(at, 1); }
+      else { e.push(i); if (e.length > 2) e.shift(); }
+      mine.deye = e; store.set('deye', e); draw(); queue(); say_(`눈 ${e.length}개 — 꿈이 깨어나면 이 칸이 붉게 빛나요.`); return;
+    }
     if (tool === 'drop') { const i = idxOf[y * D.W + x]; if (i >= 0 && free) { const v = valAt(i); if (v === 'xxxxxx') clear = true; else { fcol[kind] = v; picker.set(v); clear = false; } tool = 'pen'; mark(); } return; }
     if (tool === 'fill') { setCells(flood(x, y)); return; }
     painting = true; try { cv_.setPointerCapture(e.pointerId); } catch (_) {} setCells(cellsAt(x, y));
@@ -1094,10 +1140,12 @@ const skinEd = (() => {
   $('skinSym').addEventListener('click', () => { sym = !sym; mark(); });
   $('skinFill').addEventListener('click', () => { tool = tool === 'fill' ? 'pen' : 'fill'; mark(); });
   $('skinDrop').addEventListener('click', () => { tool = tool === 'drop' ? 'pen' : 'drop'; mark(); });
+  $('skinEye').addEventListener('click', () => { tool = tool === 'eye' ? 'pen' : 'eye'; clear = false; mark(); if (tool === 'eye') say_('눈으로 정할 칸을 누르세요 (1~2개).'); });
   $('skinClear').addEventListener('click', () => { clear = !clear; if (tool === 'drop') tool = 'pen'; mark(); if (clear) say_(`투명으로 칠해요 (최대 ${SKIN_CLEAR_MAX}칸). 지금 ${clearCount()}칸.`); });
   $('skinReset').addEventListener('click', () => { // 팔레트 그림과 자유 색상 그림 둘 다 지워서 진짜 기본으로
     mine[kind + 'F'] = null; store.set(D.fkey, null);
     mine[kind] = D.DEF; store.set(D.key, null);
+    if (kind === 'dream') { mine.deye = DSKIN_EYES.slice(); store.set('deye', null); }
     draw(); clearTimeout(skinSendT); skinSendT = setTimeout(sendSkin, 100); say_(`기본 ${D.name}(으)로 돌아왔어요.`);
   });
   // 프리셋: 탭마다 5칸. 칸을 누르면 불러오고, 「저장」을 켠 뒤 칸을 누르면 지금 모습을 저장
@@ -1109,20 +1157,23 @@ const skinEd = (() => {
     presets[kind].forEach((v, i) => {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'pre' + (v ? '' : ' empty') + (saving ? ' saving' : '');
       b.setAttribute('aria-label', `프리셋 ${i + 1}`);
-      if (v) { const c = document.createElement('canvas'); c.width = D.W; c.height = D.H; const x = c.getContext('2d'), im = x.createImageData(D.W, D.H), f = v[0] === '#';
+      const vs = v ? v.split('|')[0] : v;
+      if (v) { const v = vs; const c = document.createElement('canvas'); c.width = D.W; c.height = D.H; const x = c.getContext('2d'), im = x.createImageData(D.W, D.H), f = v[0] === '#';
         D.MASK.forEach((k, j) => { const q = f ? v.substr(1 + j * 6, 6) : v[j]; if (q === 'x' || q === 'xxxxxx') return; const col = f ? hexRgb(q) : D.PAL[parseInt(q, 16)] || D.PAL[0]; im.data.set([col[0], col[1], col[2], 255], k * 4); }); x.putImageData(im, 0, 0); b.append(c); }
       else b.textContent = saving ? '+' : String(i + 1);
       b.addEventListener('click', () => {
         if (saving) {
-          presets[kind][i] = free ? freeOf(kind) : mine[kind]; store.set('presets', presets); saving = false; $('skinSave').classList.remove('on'); presetsUI(); say_(`${i + 1}번 프리셋에 저장했어요.`); return;
+          presets[kind][i] = (free ? freeOf(kind) : mine[kind]) + (kind === 'dream' ? '|' + mine.deye.join(',') : ''); store.set('presets', presets); saving = false; $('skinSave').classList.remove('on'); presetsUI(); say_(`${i + 1}번 프리셋에 저장했어요.`); return;
         }
         if (!v) { say_('빈 칸이에요. 「저장」을 누른 뒤 칸을 고르면 저장돼요.'); return; }
+        const pe = v.split('|')[1]; if (kind === 'dream' && pe) { const e = pe.split(',').map(Number); if (eyesValid(e)) { mine.deye = e; store.set('deye', e); } }
+        const v0 = v; { const v = v0.split('|')[0];
         if (v[0] === '#') {
           if (!free) { say_('자유 색상으로 만든 프리셋은 자유 색상 모드에서만 불러올 수 있어요.'); return; }
           mine[kind + 'F'] = v; store.set(D.fkey, v);
         } else if (free) { mine[kind + 'F'] = '#' + D.MASK.map((_, j) => palHex(D, v[j])).join(''); store.set(D.fkey, mine[kind + 'F']); }
         else { mine[kind] = v; store.set(D.key, v === D.DEF ? null : v); }
-        draw(); queue(); say_(`${i + 1}번 프리셋을 불러왔어요.`);
+        draw(); queue(); say_(`${i + 1}번 프리셋을 불러왔어요.`); }
       });
       preBox.append(b);
     });
@@ -1166,6 +1217,7 @@ const skinEd = (() => {
       if (!cc) { for (let q = 0; q < 4; q++) { cx.fillStyle = (q === 0 || q === 3) ? '#6a6460' : '#3a3632'; cx.fillRect(x * CS + (q & 1) * CS / 2, y * CS + (q >> 1) * CS / 2, CS / 2, CS / 2); } continue; }
       cx.fillStyle = hex(cc); cx.fillRect(x * CS, y * CS, CS, CS);
       cx.strokeStyle = kind === 'dream' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.25)'; cx.strokeRect(x * CS + .5, y * CS + .5, CS - 1, CS - 1);
+      if (isEye(i)) { cx.strokeStyle = '#ff2a2a'; cx.lineWidth = 2; cx.strokeRect(x * CS + 1.5, y * CS + 1.5, CS - 3, CS - 3); cx.lineWidth = 1; cx.fillStyle = '#ff2a2a'; cx.beginPath(); cx.arc(x * CS + CS / 2, y * CS + CS / 2, 2, 0, 7); cx.fill(); }
     }
     const im = px.createImageData(D.W, D.H);
     D.MASK.forEach((k, i) => { const c = cellRGB(i); if (c) im.data.set([c[0], c[1], c[2], 255], k * 4); });
@@ -1176,6 +1228,7 @@ const skinEd = (() => {
     else if (mine.dream === D.DEF) st = '기본 꿈';
     else { const n = brightN(mine.dream); st = n < DSKIN_BRIGHT_MIN ? `빛나는 색 ${n}/${DSKIN_BRIGHT_MIN} — 아직 기본 꿈으로 나와요` : '꾸민 꿈'; }
     { const n = clearCount(); if (n) st += ` · 투명 ${n}/${SKIN_CLEAR_MAX}`; }
+    if (kind === 'dream') st += ` · 눈 ${mine.deye.length}`;
     $('skinState').textContent = st;
   }
   setKind('alice');
@@ -1205,6 +1258,7 @@ function startGame(m) {
   };
   game.skins = new Map(); for (const p of m.players) { if (!p.skin) continue; const k = p.role === 'dream' ? 'dream' : 'alice'; if (freeSkinValid(p.skin, k) || (k === 'dream' ? dskinValid(p.skin) : skinValid(p.skin))) game.skins.set(p.id, skinSprite(p.skin, k)); }
   game.fate = !!m.fate; game.pred.dcd = game.fate ? 5 : CFG.DASH_CD; game.boost = !!m.boost; game.sb = 1;
+  game.awake = !!m.awake; game.aw = 0; game.awT = 0; game.eyes = new Map(); for (const p of m.players) if (p.role === 'dream' && eyesValid(p.eyes)) game.eyes.set(p.id, eyeCoords(p.eyes));
   Object.assign(game, { trail: new Map(), pings: [], track: [], myF: '', fcard: null, cT: 0, twins: null, mbT: 0 });
   game.mapImg = buildMap(world);
   game.pdist = cellField(world);
@@ -1248,6 +1302,7 @@ function onSnap(m) {
   const g = game, t = performance.now();
   g.lastSnap = t;
   if (m.sb) { g.sb = m.sb; g.pred.sb = m.sb; }
+  if (g.awake) { const pa = g.aw; g.aw = m.aw || 0; g.awT = m.awT || 0; g.pred.awk = g.role === 'dream' && g.aw === 2 ? 1 : 0; if (pa !== g.aw) awakeTurn(g, pa, g.aw); }
   g.T = m.T; g.intro = m.in; g.tr = m.tr; g.tp = m.tp; g.rp = m.rp; g.door = m.door; g.cams = m.cams; g.cp = m.cp;
   for (const s of m.p) {
     const pl = g.players.get(s.i); if (!pl) continue;
@@ -1377,13 +1432,13 @@ function handleEv(e) {
       const F = FATES[e.k]; if (!F) break;
       if (g.role === 'dream') g.pings.push({ x: e.x, z: e.z, t: performance.now(), dur: 3, col: F.col });
       if (e.a === myId) { g.fflash = { text: e.k === 'S' ? '♠ 베었다! 꿈 3초 기절' : e.k === 'C' ? `♥ 홀렸다! 꿈 3초간 느려짐${e.u > 0 ? ` (남은 ${e.u}회)` : ' — 왕관이 바스러졌다'}` : '♦ 노래로 감옥 문을 빨리 열었다', col: F.col, t: performance.now() }; sfx.choir(); fx.glitch = .6; vib(80); }
-      if (e.k === 'S') { at(e.x, e.z, 30, sfx.swing); at(e.x, e.z, 30, sfx.clang); if (e.d === myId) { fx.glitch = 1.6; g.burnFlash = .5; vib([120, 40, 200]); say(chicken ? '뿅망치에 맞았다! (3초 기절)' : '붉은 검에 베였다! (3초 기절)', '#ff7070', 3); } else say(`♠ ${josa(nameOf(e.a), '이', '가')} 붉은 검으로 꿈을 베었다!`, '#ff8a8a', 3); }
-      else if (e.k === 'C') { at(e.x, e.z, 30, sfx.choir); if (e.d === myId) { fx.glitch = 1; say('여왕의 아름다움에 홀렸다… (3초간 느려짐)', '#8fd29a', 3); } else say(`♥ ${josa(nameOf(e.a), '이', '가')} 꿈을 홀렸다${e.u > 0 ? '' : ' — 왕관이 바스러졌다'}`, '#8fd29a', 3); }
-      else if (e.k === 'M') say(`♦ 노랫소리에 감옥 문이 빨리 열렸다`, '#9fb0ff', 3);
+      if (e.k === 'S') { at(e.x, e.z, 30, sfx.swing); at(e.x, e.z, 30, sfx.clang); at(e.x, e.z, 45, sfx.scream); if (e.d === myId) g.crack = performance.now(); else if (g.role === 'alice' && Math.hypot(g.cam.x - e.x, g.cam.z - e.z) < 22) g.redFlash = 1; if (e.d === myId) { fx.glitch = 1.6; g.burnFlash = .5; vib([120, 40, 200]); say(chicken ? '뿅망치에 맞았다! (3초 기절)' : '붉은 검에 베였다! (3초 기절)', '#ff7070', 3); } else say(`♠ ${josa(nameOf(e.a), '이', '가')} 붉은 검으로 꿈을 베었다!`, '#ff8a8a', 3); }
+      else if (e.k === 'C') { at(e.x, e.z, 30, sfx.choir); if (e.d === myId) { fx.glitch = 1; g.charmT = performance.now(); say('여왕의 아름다움에 홀렸다… (3초간 느려짐)', '#8fd29a', 3); } else say(`♥ ${josa(nameOf(e.a), '이', '가')} 꿈을 홀렸다${e.u > 0 ? '' : ' — 왕관이 바스러졌다'}`, '#8fd29a', 3); }
+      else if (e.k === 'M') { sfx.song(); fx.glitch = .5; say('♦ 노래가 꿈 전체에 울린다… 갇힌 앨리스들이 따라 부른다', '#9fb0ff', 4.5); }
       break;
     }
     case 'rv': if (g.role === 'dream') { for (const [x, z] of e.pts) g.pings.push({ x, z, t: performance.now(), dur: e.dur, col: e.tw ? '#e0c860' : '#ff5050' }); if (!e.tw) { sfx.whisper(1); } } break;
-    case 'rv1': if (g.role === 'dream') { g.track.push({ id: e.a, until: performance.now() + e.dur * 1000 }); say('쌍둥이의 짝이 드러났다 — 지도를 봐라', '#e0c860', 3); } else if (e.a === myId) say('쌍둥이가 붙잡혔다… 꿈이 당신을 보고 있다 (10초)', '#e0c860', 4); break;
+    case 'rv1': if (g.role === 'dream') { g.track.push({ id: e.a, until: performance.now() + e.dur * 1000 }); say('쌍둥이의 짝이 드러났다 — 지도를 봐라', '#e0c860', 3); } else if (e.a === myId) { sfx.scream(); fx.glitch = 1.4; g.fflash = { text: '「 …같이 가자 」', col: '#e0c860', t: performance.now() }; say('쌍둥이가 붙잡혔다… 꿈이 당신을 보고 있다 (10초)', '#e0c860', 4); } break;
   }
 }
 
@@ -1604,7 +1659,7 @@ function update(dt) {
     }
   }
   g.nearDream = nd;
-  const terror = clamp(1 - (nd - 2) / 14, 0, 1);
+  const terror = clamp(1 - (nd - 2) / (g.awake && g.aw === 2 ? 22 : 14), 0, 1);
   g.terror = terror;
   {
     const pres = clamp(1 - (nd - 1.5) / 10.5, 0, 1);
@@ -1634,7 +1689,7 @@ function update(dt) {
       const tm = (g.stepTimers.get(p.id) || 0) - dt;
       if (tm <= 0) {
         g.stepTimers.set(p.id, p.role === 'dream' ? .55 : .4);
-        if (p.role === 'dream') at(ip.x, ip.z, 15, sfx.thud);
+        if (p.role === 'dream') at(ip.x, ip.z, g.awake && g.aw === 2 ? 26 : 15, sfx.thud);
         else at(ip.x, ip.z, g.role === 'dream' ? 11 : 7, () => sfx.step(1.6));
       } else g.stepTimers.set(p.id, tm);
     }
@@ -1757,6 +1812,7 @@ function drawBrief(c, g, alpha, count) {
     : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다 → 절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
   if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다.' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
   if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
+  if (g.awake) goals.push(dream ? '★ 1분 30초마다 30초간 깨어난다: 더 빠르고, 앨리스는 거의 못 본다' : '★ 1분 30초마다 꿈이 깨어난다: 30초간 어둠 속에서 붉은 눈만 보인다');
   if (g.boost) goals.push(dream ? '★ 인원 보정: 앨리스가 많을수록 빠르다 (가둘수록 원래대로)' : '★ 인원 보정: 꿈이 더 빠르다 (동료가 갇힐수록 원래대로)');
   if (g.fate) goals.push(dream ? '★ 운명계승: 앨리스가 힘을 쓰면 위치가 드러난다' : `★ 운명계승: 흔적 주인의 힘과 저주를 잇는다 (${phone ? '운명' : 'F'})`);
   goals.forEach((l, i) => sh(l, W / 2, 84 + i * 15, i >= 3 ? '#9fe0c0' : '#d8cfbf', KR));
@@ -1888,6 +1944,7 @@ function drawHud(g, tags) {
     sh(m.text, W / 2, my, m.color, KR, 'center'); my += 16;
   }
   c.globalAlpha = 1;
+  drawEffects(g, c, tnow);
   if (g.fate) drawFateHud(g, c, sh, tnow);
   // 상황별 안내
   const P = g.pred, w = g.world, actKey = device === 'phone' ? '행동' : 'E';
@@ -2010,6 +2067,39 @@ function fateTarget(g, P, r) { // 운명을 쓸 수 있는 꿈이 있나 (서버
     return { ok: true };
   }
   return { ok: false, why };
+}
+function awakeTurn(g, from, to) {
+  const al = g.role === 'alice';
+  if (to === 1) { fx.glitch = 1; if (al) { say('…오르골 소리가 멈췄다', '#ff8080', 3); sfx.reverse(); } else say('곧 깨어난다…', '#ff6060', 3); }
+  else if (to === 2) { fx.glitch = 2; sfx.growl(); if (al) { sfx.ear(); say('꿈이 깨어났다. 붉은 눈을 피해라.', '#ff4040', 4); } else say('깨어났다 — 30초 동안 더 빠르다', '#ff4040', 4); drone(.22, .7, 1); }
+  else if (to === 0 && from === 2) { fx.glitch = 1.2; say(al ? '빛이 돌아왔다…' : '다시 잠든다', '#cfc6b6', 3); }
+}
+function drawEffects(g, c, tnow) {
+  // 붉은 검: 근처 앨리스는 화면 가장자리가 붉게
+  if (g.redFlash > 0) { const rg = c.createRadialGradient(W / 2, H / 2, H * .3, W / 2, H / 2, H * .85); rg.addColorStop(0, 'rgba(200,0,0,0)'); rg.addColorStop(1, `rgba(200,0,0,${.6 * g.redFlash})`); c.fillStyle = rg; c.fillRect(0, 0, W, H); g.redFlash = Math.max(0, g.redFlash - frameDt * .9); }
+  // 붉은 검에 베인 꿈: 금 간 붉은 화면 3초
+  if (g.crack) { const a = (tnow - g.crack) / 1000; if (a > 3) g.crack = 0; else {
+    const k = a < .15 ? 1 : 1 - (a - .15) / 2.85; c.fillStyle = chicken ? `rgba(255,150,200,${.35 * k})` : `rgba(140,0,0,${.45 * k})`; c.fillRect(0, 0, W, H);
+    c.strokeStyle = `rgba(255,${chicken ? 220 : 230},${chicken ? 240 : 230},${.8 * k})`; c.lineWidth = 1.2; c.beginPath();
+    for (let i = 0; i < 9; i++) { let x = W / 2 + Math.cos(i * 2.1) * 6, y = H / 2 + Math.sin(i * 2.1) * 6; c.moveTo(x, y); for (let j = 0; j < 5; j++) { x += Math.cos(i * 2.1 + Math.sin(i * 5 + j) * .6) * (18 + j * 6); y += Math.sin(i * 2.1 + Math.sin(i * 5 + j) * .6) * (18 + j * 6); c.lineTo(x, y); } }
+    c.stroke(); } }
+  // 왕관에 홀린 꿈: 초록빛 일렁임 + 여왕의 얼굴
+  if (g.charmT) { const a = (tnow - g.charmT) / 1000; if (a > 3) g.charmT = 0; else {
+    const k = Math.min(1, a * 4) * (1 - Math.max(0, a - 2.4) / .6);
+    c.save(); c.globalAlpha = .22 * k; c.fillStyle = '#3c9a5a'; c.fillRect(0, 0, W, H);
+    c.globalAlpha = .28 * k; const fx_ = W / 2 + Math.sin(a * 3) * 10, fy = H / 2 - 10;
+    c.fillStyle = '#16301f'; c.beginPath(); c.ellipse(fx_, fy - 6, 52, 64, 0, 0, 7); c.fill(); c.fillStyle = '#d8cfbd'; c.beginPath(); c.ellipse(fx_, fy, 34, 44, 0, 0, 7); c.fill();
+    c.fillStyle = '#050303'; c.beginPath(); c.ellipse(fx_ - 12, fy - 4, 5, 6, 0, 0, 7); c.ellipse(fx_ + 12, fy - 4, 5, 6, 0, 0, 7); c.fill();
+    c.fillStyle = '#b08e2a'; c.beginPath(); c.moveTo(fx_ - 22, fy - 40); c.lineTo(fx_ - 14, fy - 58); c.lineTo(fx_ - 6, fy - 44); c.lineTo(fx_, fy - 62); c.lineTo(fx_ + 6, fy - 44); c.lineTo(fx_ + 14, fy - 58); c.lineTo(fx_ + 22, fy - 40); c.closePath(); c.fill();
+    c.restore(); fx.wobble = Math.max(fx.wobble, 2.5 * k); } }
+  // 꿈이 깨어난 시간
+  if (g.awake && g.aw) {
+    const sh_ = (t, y, col) => { c.font = `12px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.fillStyle = '#000'; c.fillText(t, W / 2 + 1, y + 1); c.fillStyle = col; c.fillText(t, W / 2, y); };
+    if (g.aw === 2) {
+      if (g.role === 'dream') { c.fillStyle = 'rgba(120,0,0,.12)'; c.fillRect(0, 0, W, H); sh_(`깨어났다 — ${Math.ceil(g.awT)}초`, 44, '#ff5050'); }
+      else sh_(`꿈이 깨어 있다 — ${Math.ceil(g.awT)}초`, 44, '#ff6060');
+    } else if (g.role === 'alice') { c.fillStyle = `rgba(0,0,0,${.15 + Math.random() * .2})`; c.fillRect(0, 0, W, H); }
+  }
 }
 function fateWarn(g, i) {
   if (!g.fate || g.role !== 'alice') return '';

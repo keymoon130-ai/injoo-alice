@@ -2,7 +2,7 @@
 // 방 하나 = Durable Object 하나. 그 방의 모든 플레이어가 같은 객체에 연결되므로
 // 위치·잡힘·감옥·흔적·문을 전부 서버 한 곳에서 판정한다 (권위 서버).
 
-import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint, skinValid, dskinValid, freeSkinValid, solid, PROTO } from '../public/multi/shared.js';
+import { CFG, TRACE_INFO, MAPS, genWorld, stepPlayer, collide, worldSig, mapFingerprint, skinValid, dskinValid, freeSkinValid, eyesValid, solid, PROTO } from '../public/multi/shared.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
@@ -43,7 +43,7 @@ export class Room {
     this.inited = false; this.code = '';
     this.players = new Map(); this.order = [];
     this.host = null;
-    this.settings = { dreams: 1, max: 8, map: 'random', skins: false, freeCol: false, fate: false, boost: false };
+    this.settings = { dreams: 1, max: 8, map: 'random', skins: false, freeCol: false, fate: false, boost: false, awake: false };
     this.phase = 'lobby';
     this.g = null; this.loop = null; this.backTimer = null;
   }
@@ -150,6 +150,7 @@ export class Room {
         if (typeof m.fate === 'boolean') this.settings.fate = m.fate;
         if (typeof m.boost === 'boolean') this.settings.boost = m.boost;
         if (typeof m.freeCol === 'boolean') this.settings.freeCol = m.freeCol;
+        if (typeof m.awake === 'boolean') this.settings.awake = m.awake;
         this.pushLobby();
         break;
       case 'start':
@@ -167,6 +168,7 @@ export class Room {
         if (m.d === null) p.dskin = null; else if (dskinValid(m.d)) p.dskin = m.d;
         if (m.vf === null) p.skinF = null; else if (freeSkinValid(m.vf, 'alice')) p.skinF = m.vf;
         if (m.df === null) p.dskinF = null; else if (freeSkinValid(m.df, 'dream')) p.dskinF = m.df;
+        if (eyesValid(m.e)) p.deye = m.e.slice();
         break;
       case 'ping': this.send(p, { type: 'pong', t: m.t }); break;
       case 'rtt': p.rtt = clamp(+m.v || 100, 0, 1000); break;
@@ -184,8 +186,8 @@ export class Room {
   startMsg(p) {
     const g = this.g;
     return {
-      type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time, fate: g.fate ? 1 : 0, boost: g.boost ? 1 : 0,
-      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: !this.settings.skins ? null : (this.settings.freeCol && (x.role === 'dream' ? x.dskinF : x.skinF)) || (x.role === 'dream' ? x.dskin : x.skin) || null })),
+      type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time, fate: g.fate ? 1 : 0, boost: g.boost ? 1 : 0, awake: g.awake ? 1 : 0,
+      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: !this.settings.skins ? null : (this.settings.freeCol && (x.role === 'dream' ? x.dskinF : x.skinF)) || (x.role === 'dream' ? x.dskin : x.skin) || null, eyes: x.role === 'dream' && this.settings.skins && x.deye ? x.deye : null })),
       me: { x: p.x, z: p.z, yaw: p.yaw, seq: p.seq }
     };
   }
@@ -217,7 +219,7 @@ export class Room {
       tp: TRACE_INFO.map(() => 0), tr: TRACE_INFO.map(() => 0), tby: TRACE_INFO.map(() => null),
       rp: w.cells.map(() => 0), door: null, ev: [], mbT: 0, rotSlot: 0,
       cams: w.cams ? w.cams.map(() => 1) : null, cp: w.cams ? w.cams.map(() => 0) : null,
-      fate: !!this.settings.fate, boost: !!this.settings.boost, sb: 1, twins: null, doorT: 0, nextRv: 0, twfT: 0
+      fate: !!this.settings.fate, boost: !!this.settings.boost, sb: 1, awake: !!this.settings.awake, aw: 0, awT: 0, twins: null, doorT: 0, nextRv: 0, twfT: 0
     };
     this.phase = 'game';
     for (const p of this.players.values()) this.send(p, this.startMsg(p));
@@ -509,6 +511,14 @@ export class Room {
     }
 
     if (g.fate) this.fateTick(ps, dt);
+    // 꿈이 깨어나는 시간: 1분 30초마다 30초씩 (3초 전 예고)
+    if (g.awake) {
+      const run = CFG.GAME_TIME - g.time, cyc = run % 90;
+      // 1분 30초마다 한 번: 60초 잠잠 → 3초 예고(57~60) → 30초 깨어남(60~90)
+      g.aw = cyc >= 60 ? 2 : cyc >= 57 ? 1 : 0;
+      g.awT = g.aw === 2 ? 90 - cyc : g.aw === 1 ? 60 - cyc : 0;
+      for (const p of ps) if (p.role === 'dream') p.awk = g.aw === 2 ? 1 : 0;
+    }
     // 인원 보정: 앨리스가 꿈보다 3명 이상 많으면 꿈이 빨라지고, 갇힌 앨리스가 늘수록 원래대로
     if (g.boost) {
       const nd = ps.filter(p => p.role === 'dream' && p.on).length, free = ps.filter(p => p.role === 'alice' && p.on && (p.st === 0 || p.st === 1)).length;
@@ -530,7 +540,7 @@ export class Room {
       c: p.carry ? 1 : 0, pc: r2(p.pc || 0), b: r1(p.burnT || 0), sg: r2(p.sg), jt: r1(p.jt), im: p.im > 0 ? 1 : 0, o: p.on ? 1 : 0, cl: p.cell,
       ...(g.fate ? { f: p.fates.map(f => f.k + (f.k === 'C' ? f.u : '')).join(''), ch: r1(p.chm || 0), w: p.tw ? 1 : 0, fi: r1(p.fim || 0), fc: (() => { const c = p.fates.find(f => f.k === 'C'); return c && c.cd > g.t ? r1(c.cd - g.t) : 0; })() } : {})
     }));
-    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.boost ? { sb: r2(g.sb) } : {}) });
+    const body = JSON.stringify({ type: 'snap', T: r1(g.time), in: r1(Math.max(0, g.intro)), tr: g.tr, tp: g.tp.map(r2), rp: g.rp.map(r2), door: g.door, cams: g.cams, cp: g.cp ? g.cp.map(r2) : null, ev: g.ev, p, ...(g.fate ? { tw: g.twins } : {}), ...(g.boost ? { sb: r2(g.sb) } : {}), ...(g.awake ? { aw: g.aw, awT: r1(g.awT) } : {}) });
     g.ev = [];
     for (const pl of this.players.values()) if (pl.ws) try { pl.ws.send('{"ack":' + (pl.seq | 0) + ',' + body.slice(1)); } catch (e) {}
   }

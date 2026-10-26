@@ -197,7 +197,9 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <span>꾸미기</span><span class="row" style="justify-content:flex-start;gap:14px"><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label><label class="chk" id="freeLbl" style="font-size:13px!important"><input type="checkbox" id="chkFree"> 자유 색상</label></span>
         <span>추가 모드</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkFate"> 운명계승 (방장)</label>
         <span></span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkBoost"> 인원 보정 (방장)</label>
+        <span></span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkAwake"> 꿈이 깨어나는 시간 (방장)</label>
       </div>
+      <p class="hint" id="awakeInfo" hidden style="text-align:left;border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:#0a0809">꿈이 깨어나는 시간 켜짐 — 1분 30초마다 30초 동안 꿈이 깨어나요. 앨리스 화면은 빛이 꺼져 가운데만 겨우 보이고, 꿈의 눈만 붉게 빛나요. 꿈은 그동안 10% 빨라지고 발소리가 멀리까지 들려요. 3초 전에 오르골 소리가 끊기며 예고해요. (꿈 꾸미기에서 「눈」으로 눈 위치를 1~2칸 정할 수 있어요)</p>
       <p class="hint" id="boostInfo" hidden style="text-align:left;border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:#0a0809">인원 보정 켜짐 — 갇히지 않은 앨리스가 꿈보다 3명 많으면 꿈이 4% 빨라지고, 한 명 더 많을 때마다 4%씩 더 빨라져요 (최대 +20%). 앨리스가 갇히거나 탈출해 수가 줄면 원래 속도로 돌아가요.</p>
       <details id="fateInfo" hidden><summary>운명계승이란? (추가 모드 켜짐)</summary>
         <p class="hint" style="text-align:left">흔적을 모은 앨리스는 그 흔적의 원래 주인 — 이전 앨리스들의 운명을 이어받는다. 힘(축복)과 함께 저주(대가)도. 앨리스는 <b>F</b> / 모바일 「운명」 버튼으로 쓴다.</p>
@@ -233,6 +235,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
             <button type="button" id="skinFill">채우기</button>
             <button type="button" id="skinDrop" hidden>스포이드</button>
             <button type="button" id="skinClear">투명</button>
+            <button type="button" id="skinEye" hidden>눈</button>
             <button type="button" id="skinReset">기본으로</button>
           </div>
           <div class="skinPrev"><canvas id="skinPv"></canvas><span class="hint">게임 속 모습</span></div>
