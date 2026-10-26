@@ -893,8 +893,8 @@ window.addEventListener('keydown', e => {
   keys[k] = true;
   initAudio();
   if (k === 'e' || k === ' ') { if (cctvKey()) return; ctl.actLatch = true; if (game.spectate) cycleSpectate(); }
-  if (game.cctv && (k === 'arrowleft' || k === 'a')) { game.cctv.page = (game.cctv.page + 2) % 3; return; }
-  if (game.cctv && (k === 'arrowright' || k === 'd')) { game.cctv.page = (game.cctv.page + 1) % 3; return; }
+  if (game.cctv && (k === 'arrowleft' || k === 'a')) { game.cctv.page = (game.cctv.page + camPages() - 1) % camPages(); return; }
+  if (game.cctv && (k === 'arrowright' || k === 'd')) { game.cctv.page = (game.cctv.page + 1) % camPages(); return; }
   if (game.cctv && k === 'escape') { game.cctv = null; return; }
   if (k === 'shift' && game.role === 'dream') ctl.dashQ = true;
   if (k === 'f') { if (game.role === 'dream') ctl.stQ = true; else ctl.dashQ = true; } // 꿈: 은신 · 앨리스: 운명
@@ -941,7 +941,7 @@ function moveJoy(e) {
 cv.addEventListener('pointerdown', e => {
   if (!game || device !== 'phone' || e.pointerType === 'mouse') return;
   initAudio();
-  if (game.cctv) { const r = cv.getBoundingClientRect(), v = ROT() ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width; game.cctv.page = (game.cctv.page + (v < .5 ? 2 : 1)) % 3; return; }
+  if (game.cctv) { const r = cv.getBoundingClientRect(), v = ROT() ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width; game.cctv.page = (game.cctv.page + (v < .5 ? camPages() - 1 : 1)) % camPages(); return; }
   if (game.spectate) { cycleSpectate(); return; }
   lookId = e.pointerId; lookX = ROT() ? e.clientY : e.clientX; try { cv.setPointerCapture(e.pointerId); } catch (_) {}
 });
@@ -1002,6 +1002,7 @@ $('btnBack').addEventListener('click', () => { stopGame(); show('scLobby'); rend
 
 // 모니터실: 책상 앞에서 행동 → CCTV 보기 (보는 동안은 움직일 수 없다)
 function nearMonitor(g) { const w = g.world; if (!w.monitors || g.role !== 'alice' || !g.meS || g.meS.s !== 0) return null; for (const m of w.monitors) if (Math.hypot(g.pred.x - m.x, g.pred.z - m.z) < 1.9) return m; return null; }
+const camPages = () => Math.max(1, Math.ceil(((game && game.world.cams) || []).length / 4));
 function cctvKey() {
   const g = game; if (!g || g.ended) return false;
   if (g.cctv) { g.cctv = null; sfx.tick(); return true; }
@@ -1942,7 +1943,7 @@ function drawCCTV(g) {
     if (g.cams && g.cams[i] && Math.floor(now * 2) % 2) { c.fillStyle = '#e02020'; c.beginPath(); c.arc(x + pw - 8, y + 8, 3, 0, 7); c.fill(); }
   }
   c.font = `12px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.fillStyle = '#cfd8cf';
-  c.fillText(`모니터실 ─ ${g.cctv.page + 1} / 3`, W / 2, 22);
+  c.fillText(`모니터실 ─ ${g.cctv.page + 1} / ${camPages()}`, W / 2, 22);
   c.fillStyle = '#8a948a';
   c.fillText(device === 'phone' ? '화면 왼쪽·오른쪽 탭: 다른 카메라 · 행동: 닫기' : '← → : 다른 카메라 · E: 닫기', W / 2, H - 12);
   c.fillStyle = 'rgba(200,40,40,.9)'; if (Math.floor(now * 3) % 2) c.fillText('보는 동안 움직일 수 없다', W / 2, H - 26);

@@ -2,7 +2,7 @@
 // 같은 시드(seed)로 같은 맵을 만들고, 같은 이동 함수로 움직여서 기기 간 차이를 없앤다.
 
 // 서버·클라이언트 규칙 버전: 바뀌면 옛 화면은 자동으로 새로고침된다
-export const PROTO = 7;
+export const PROTO = 8;
 
 export const CFG = {
   N: 80,                 // 맵 한 변 (칸)
@@ -467,12 +467,16 @@ function genStudio(seed) {
     }
   }
   for (const [x, z] of [[36, 54], [44, 54], [40, 56]]) props.push({ kind: 'tvcam', x, z });
-  // CCTV 카메라 9대: 복도 교차로와 스튜디오
+  // CCTV 카메라 16대: 복도 교차로와 스튜디오
   const cams = [];
   const addCam = (x, z, yaw) => cams.push({ x, z, yaw });
   addCam(18.5, 3, Math.PI / 2); addCam(60.5, 3, Math.PI / 2); addCam(3, 18.5, 0); addCam(76, 60.5, Math.PI);
   addCam(18.5, 76, -Math.PI / 2); addCam(60.5, 76, -Math.PI / 2);
   addCam(22, 57, -Math.PI / 4); addCam(57, 22, Math.PI * .75); addCam(40, 52, -Math.PI / 2);
+  // 추가 7대: 남은 복도 끝 2 · 복도 한가운데 4 (돌아가며 비춘다) · 로비 1
+  addCam(76, 18.5, Math.PI); addCam(3, 60.5, 0);
+  addCam(40, 18.5, Math.PI); addCam(40, 60.5, 0); addCam(18.5, 40, -Math.PI / 2); addCam(60.5, 40, Math.PI / 2);
+  { const lx = lobby.cx < 40 ? lobby.x1 + .3 : lobby.x0 + .7, lz = lobby.z0 + .7; addCam(lx, lz, Math.atan2(lobby.cz + 1 - lz, lobby.cx - lx)); }
   for (const c of cams) props.push({ kind: 'cctv', x: c.x, z: c.z });
   // 흔적: 서로 멀리 떨어진 방 (모니터실 제외)
   const cands = shuffleR(rooms.filter(rm => rm.kind !== 'monitor'), r);
