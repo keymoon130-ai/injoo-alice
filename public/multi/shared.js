@@ -2,7 +2,7 @@
 // 같은 시드(seed)로 같은 맵을 만들고, 같은 이동 함수로 움직여서 기기 간 차이를 없앤다.
 
 // 서버·클라이언트 규칙 버전: 바뀌면 옛 화면은 자동으로 새로고침된다
-export const PROTO = 9;
+export const PROTO = 10;
 
 export const CFG = {
   N: 80,                 // 맵 한 변 (칸)
@@ -25,7 +25,7 @@ export const CFG = {
   STRUGGLE_ADD: 0.028,   // 몸부림 한 번에 차는 양
   STRUGGLE_DECAY: 0.13,  // 1초마다 빠지는 양
   STRUGGLE_GAP: 3,       // 연타 인정 간격 (입력 3번 = 0.1초) — 매크로 방지
-  GAME_TIME: 360,        // 6분
+  GAME_TIME: 420,        // 7분
   INTRO: 10,
   ESCAPE_R: 2.4,
   BURN_R: 4,             // 하늘의 문 빛기둥이 꿈을 태우는 반경
