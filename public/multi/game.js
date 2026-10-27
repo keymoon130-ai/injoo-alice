@@ -1887,40 +1887,90 @@ function drawBrief(c, g, alpha, count) {
   c.strokeStyle = dream ? 'rgba(200,60,60,.6)' : 'rgba(220,210,190,.4)'; c.lineWidth = 1; c.strokeRect(14.5, 14.5, W - 29, H - 29);
   c.textBaseline = 'alphabetic'; c.textAlign = 'center';
   const sh = (s, x, y, col, font, al = 'center') => { c.font = font; c.textAlign = al; c.fillStyle = 'rgba(0,0,0,.85)'; c.fillText(s, x + 1, y + 1); c.fillStyle = col; c.fillText(s, x, y); };
-  const KR = `12px 'Nanum Gothic Coding', monospace`, KRS = `11px 'Nanum Gothic Coding', monospace`;
-  sh(dream ? '당신은  작은 꿈' : '당신은  다섯 번째 앨리스', W / 2, 44, dream ? '#ff7070' : '#f0e8d8', `800 20px 'Nanum Myeongjo', serif`);
-  sh('─  목 표  ─', W / 2, 68, '#8d8478', KRS);
+  const F = px => `${px}px 'Nanum Gothic Coding', monospace`;
+  // 글자 폭에 맞춰 줄 바꾸기 (띄어쓰기 우선, 너무 길면 글자 단위)
+  const wrap = (text, font, maxW) => {
+    c.font = font; const out = []; let line = '';
+    for (const word of text.split(' ')) {
+      const t = line ? line + ' ' + word : word;
+      if (c.measureText(t).width <= maxW) { line = t; continue; }
+      if (line) out.push(line);
+      line = '';
+      for (const ch of word) { if (c.measureText(line + ch).width > maxW && line) { out.push(line); line = ''; } line += ch; }
+    }
+    if (line) out.push(line);
+    return out;
+  };
+  sh(dream ? '당신은  작은 꿈' : '당신은  다섯 번째 앨리스', W / 2, 42, dream ? '#ff7070' : '#f0e8d8', `800 20px 'Nanum Myeongjo', serif`);
+
+  // ── 오른쪽: 이번 판 규칙 (켜진 것만, 짧게) ──
+  const mapName = { theater: '극장', tea: '노란 방들', mirror: '거울 미궁', studio: '방송국' }[g.world.map] || '숲';
+  const rules = [];
+  const R = (t, d) => rules.push([t, d]);
+  if (g.world.map === 'studio') R('CCTV', dream ? '가까이서 E로 끈다 (2분 30초 뒤 복구)' : '모니터실 책상에서 본다 (보는 동안 무방비)');
+  if (g.world.map === 'mirror') R('거울', '빛나는 거울에 닿으면 같은 색 짝 거울로');
+  { const per = trPer(g), pc = (per * 100).toFixed(1).replace(/\.0$/, ''); if (per > 0) R('흔적 가속', dream ? `흔적 하나마다 +${pc}% 빨라짐` : `흔적 하나마다 꿈 +${pc}%`); }
+  if ([...g.players.values()].filter(p => p.role === 'alice').length >= 2) R('최후의 앨리스', dream ? '모두 갇히고 1명 남으면 10초마다 위치 노출' : '동료가 다 갇히면 빨라지고 위치 노출');
+  if (g.awake) R('깨어나는 시간', dream ? '1분 30초마다 30초간: 더 빠르고 앨리스 시야 암흑' : '1분 30초마다 30초간 어둠, 붉은 눈만 보임');
+  if (g.stealth) R('숨은 꿈', dream ? `문이 열리면 ${phone ? '「은신」' : 'F'}로 10초 은신 (한 번)` : '문이 열린 뒤 꿈이 기척 없이 올 수 있다');
+  if (g.boost) R('인원 보정', dream ? '앨리스가 많을수록 빠름 (가둘수록 원래대로)' : '꿈이 더 빠름 (동료가 갇힐수록 원래대로)');
+  if (g.fate) R('운명계승', dream ? '앨리스가 힘을 쓰면 위치가 드러난다' : `흔적 주인의 힘과 저주를 잇는다 (${phone ? '운명' : 'F'})`);
+  const two = rules.length > 0;
+  const LX = two ? 24 : 60, LW = two ? 178 : W - 120, RX = 216, RW = W - 24 - RX;
+
+  // ── 왼쪽: 목표 ──
+  const lc = two ? LX + LW / 2 : W / 2;
+  sh('─  목 표  ─', lc, 64, '#8d8478', F(11));
   const goals = dream
-    ? [`앨리스에게 다가가 잡고, ${prisonName()}까지 끌고 가 가두세요.`, '갇힌 지 2분이 지나면 앨리스는 썩어 전시대에 걸립니다.', '앨리스 절반 이상의 탈출을 막으면 승리 · 빛기둥 곁엔 오래 못 머문다.']
-    : [`${g.world.map === 'theater' ? '극장' : g.world.map === 'tea' ? '노란 방들' : g.world.map === 'mirror' ? '거울 미궁' : g.world.map === 'studio' ? '방송국' : '숲'} 곳곳에 흩어진 이전 앨리스들의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다 → 절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
-  if (g.world.map === 'studio') goals.push(dream ? 'CCTV 가까이서 E: 카메라를 꺼 앨리스의 눈을 가린다 (2분 30초 뒤 다시 켜짐).' : '모니터실 책상에서 CCTV 보기 (보는 동안 무방비).');
-  if (g.world.map === 'mirror') goals.push('빛나는 거울에 몸을 대면 같은 색 짝 거울로 나간다.');
-  { const per = trPer(g), pc = (per * 100).toFixed(1).replace(/\.0$/, ''); if (per > 0) goals.push(dream ? `★ 흔적이 하나 모일 때마다 ${pc}%씩 빨라진다` : `★ 흔적을 모을수록 꿈이 빨라진다 (하나에 ${pc}%)`); }
-  if (g.stealth) goals.push(dream ? `★ 숨은 꿈: 문이 열리면 ${phone ? '「은신」' : 'F'}로 10초 은신 (한 번)` : '★ 숨은 꿈: 문이 열린 뒤엔 꿈이 기척 없이 다가올 수 있다');
-  if ([...g.players.values()].filter(p => p.role === 'alice').length >= 2) goals.push(dream ? '★ 앨리스가 모두 갇히고 하나만 남으면 10초마다 위치가 보인다' : '★ 동료가 모두 갇히면 최후의 앨리스: 빨라지고 위치 노출');
-  if (g.awake) goals.push(dream ? '★ 1분 30초마다 30초간 깨어난다: 더 빠르고, 앨리스는 거의 못 본다' : '★ 1분 30초마다 꿈이 깨어난다: 30초간 어둠 속에서 붉은 눈만 보인다');
-  if (g.boost) goals.push(dream ? '★ 인원 보정: 앨리스가 많을수록 빠르다 (가둘수록 원래대로)' : '★ 인원 보정: 꿈이 더 빠르다 (동료가 갇힐수록 원래대로)');
-  if (g.fate) goals.push(dream ? '★ 운명계승: 앨리스가 힘을 쓰면 위치가 드러난다' : `★ 운명계승: 흔적 주인의 힘과 저주를 잇는다 (${phone ? '운명' : 'F'})`);
-  goals.forEach((l, i) => sh(l, W / 2, 84 + i * 15, i >= 3 ? '#9fe0c0' : '#d8cfbf', KR));
-  const hy = Math.max(146, 84 + goals.length * 15 + 4);
-  sh('─  조 작  ─', W / 2, hy, '#8d8478', KRS);
-  const rows = phone
+    ? [`앨리스를 잡아 ${prisonName()}에 가두세요.`, '갇힌 지 2분이면 썩어 전시대에 걸린다.', '절반 이상 탈출을 막으면 승리.', '빛기둥 곁엔 오래 못 머문다.']
+    : [`${mapName} 곳곳의 흔적 5개를 찾으세요.`, '다 모으면 빛기둥 문이 열린다.', '절반 이상 탈출하면 승리!', '잡히면 연타로 몸부림 · 갇힌 동료는 감옥 문에서 구출.'];
+  let y = 79;
+  for (const gl of goals) for (const l of wrap(gl, F(11), LW)) { sh(l, lc, y, '#d8cfbf', F(11)); y += 13; }
+
+  // ── 왼쪽: 조작 (짧은 칸들을 흘려 배치) ──
+  y += 6; sh('─  조 작  ─', lc, y, '#8d8478', F(11)); y += 17;
+  const segs = phone
     ? (dream
-      ? [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['잡기'], '잡기 · 감옥에 가두기'], [['대시'], `순간 돌진 (${g.fate ? 5 : CFG.DASH_CD}초마다)`], [['지도'], '지도 열기']]
-      : [[['왼쪽 원'], '이동'], [['화면 끌기'], '둘러보기'], [['행동'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['행동'], '잡혔을 때 연타로 몸부림'], [['지도'], '지도 열기']])
+      ? [[['왼쪽 원'], '이동'], [['화면 끌기'], '시점'], [['잡기'], '잡기 · 가두기'], [['대시'], `돌진 (${g.fate ? 5 : CFG.DASH_CD}초)`], ...(g.stealth ? [[['은신'], '10초 은신']] : []), [['지도'], '지도']]
+      : [[['왼쪽 원'], '이동'], [['화면 끌기'], '시점'], [['행동'], '꾹: 줍기 · 구출'], [['행동'], '연타: 몸부림'], ...(g.fate ? [[['운명'], '운명 쓰기']] : []), [['지도'], '지도']])
     : (dream
-      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '잡기 · 감옥에 가두기'], [['Shift'], `순간 돌진 (${g.fate ? 5 : CFG.DASH_CD}초마다)`], ...(g.stealth ? [[['F'], '은신 (문이 열린 뒤 한 번)']] : []), [['M'], '지도'], [['B'], '밝기'], [['[', ']'], '시점 감도'], [['Enter'], '채팅']]
-      : [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '둘러보기 (화면 클릭)'], [['E'], '꾹 눌러 흔적 줍기 · 동료 구출'], [['E'], '잡혔을 때 연타로 몸부림'], [['M'], '지도'], [['Enter'], '채팅']]);
-  if (g.fate && !dream) rows.splice(3, 0, [[phone ? '운명' : 'F'], '운명 쓰기 (꿈이 가까울 때)']);
-  let y = hy + 20; const step = Math.min(17, (H - 44 - y) / Math.max(1, rows.length - 1));
-  for (const [ks, desc] of rows) {
-    let x = 92;
-    for (const k of ks) x += keycap(c, x, y, k, 15) + 3;
-    sh(desc, 200, y, '#cfc6b6', KR, 'left');
+      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '시점'], [['E'], '잡기 · 가두기'], [['Shift'], `돌진 (${g.fate ? 5 : CFG.DASH_CD}초)`], ...(g.stealth ? [[['F'], '은신']] : []), [['M'], '지도'], [['B'], '밝기'], [['[', ']'], '감도'], [['Enter'], '채팅']]
+      : [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '시점'], [['E'], '꾹: 줍기 · 구출'], [['E'], '연타: 몸부림'], ...(g.fate ? [[['F'], '운명 쓰기']] : []), [['M'], '지도'], [['B'], '밝기'], [['Enter'], '채팅']]);
+  // 한 칸의 폭을 재서 줄을 채우고, 넘치면 다음 줄로
+  c.font = F(11);
+  const segW = ([ks, d]) => ks.reduce((a, k) => a + Math.max(15, c.measureText(k).width + 10) + 3, 0) + 3 + c.measureText(d).width;
+  const lines = []; let cur = [], cw = 0;
+  for (const sg of segs) { const w0 = segW(sg); if (cur.length && cw + 12 + w0 > LW) { lines.push([cur, cw]); cur = []; cw = 0; } cw += (cur.length ? 12 : 0) + w0; cur.push(sg); }
+  if (cur.length) lines.push([cur, cw]);
+  const step = Math.min(18, (H - 40 - y) / Math.max(1, lines.length - 1));
+  for (const [ln, lw] of lines) {
+    let x = two ? LX : W / 2 - lw / 2;
+    for (const [ks, d] of ln) {
+      for (const k of ks) x += keycap(c, x, y, k, 15) + 3;
+      c.font = F(11); sh(d, x + 3, y, '#cfc6b6', F(11), 'left'); c.font = F(11); x += 3 + c.measureText(d).width + 12;
+    }
     y += step;
   }
-  sh(phone ? '왼쪽 위 [?] 버튼으로 언제든 다시 볼 수 있어요' : 'Tab 키로 언제든 다시 볼 수 있어요', W / 2, H - 26, '#7a7268', KRS);
-  if (count > 0) sh(`${Math.ceil(count)}`, W - 34, 46, '#ffffff', `28px 'VT323', monospace`);
+
+  // ── 오른쪽 칸 그리기 (넘치면 글씨를 줄인다) ──
+  if (two) {
+    c.strokeStyle = 'rgba(220,210,190,.18)'; c.beginPath(); c.moveTo(208.5, 56); c.lineTo(208.5, H - 40); c.stroke();
+    sh('─  이번 판 규칙  ─', RX + RW / 2, 64, '#8d8478', F(11));
+    let fs = 11, lay;
+    for (; fs >= 8.5; fs -= .5) {
+      lay = rules.map(([t, d]) => [t, wrap(d, F(fs - 1), RW - 8)]);
+      const hgt = lay.reduce((a, [, ls]) => a + (fs + 2) + ls.length * fs + 4, 0);
+      if (79 + hgt <= H - 36) break;
+    }
+    let ry = 79;
+    for (const [t, ls] of lay) {
+      sh('★ ' + t, RX, ry, '#9fe0c0', F(fs), 'left'); ry += fs + 2;
+      for (const l of ls) { sh(l, RX + 8, ry, '#cfc6b6', F(fs - 1), 'left'); ry += fs; }
+      ry += 4;
+    }
+  }
+  sh(phone ? '왼쪽 위 [?] 버튼으로 언제든 다시 볼 수 있어요' : 'Tab 키로 언제든 다시 볼 수 있어요', W / 2, H - 22, '#7a7268', F(11));
+  if (count > 0) sh(`${Math.ceil(count)}`, W - 34, 44, '#ffffff', `28px 'VT323', monospace`);
   c.restore();
 }
 const feeds = [], feedTmp = document.createElement('canvas'); feedTmp.width = W; feedTmp.height = H;
