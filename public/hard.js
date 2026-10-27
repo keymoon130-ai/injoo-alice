@@ -1942,15 +1942,33 @@ function LivingRoom(next, opt = {}) {
   const REM = SPOTS[Math.random() * SPOTS.length | 0];
 
   const cam = { x: 7.6, z: 8.6, yaw: -2.42, bob: 0 };
-  const SEAT = { x: TV.x, z: 3.95, yaw: -Math.PI / 2 };
+  const SEAT = { x: TV.x, z: 3.62, yaw: -Math.PI / 2 };
+  function walkPath(tx, tz) { // 가구를 피해 칸 중심으로 걷는 길
+    const prev = new Int16Array(N * N).fill(-1), s0 = (cam.z | 0) * N + (cam.x | 0), goal = (tz | 0) * N + (tx | 0), q = [s0]; prev[s0] = s0;
+    for (let h = 0; h < q.length; h++) { const k = q[h]; if (k === goal) break; const x = k % N, z = (k / N) | 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nk = (z + dz) * N + x + dx; if (prev[nk] >= 0 || e.wall[nk] || e.block[nk]) continue; prev[nk] = k; q.push(nk); } }
+    const path = []; let k = goal; if (prev[k] < 0) return [{ x: tx, z: tz }];
+    while (k !== s0) { path.unshift({ x: k % N + .5, z: ((k / N) | 0) + .5 }); k = prev[k]; }
+    path[path.length - 1] = { x: tx, z: tz }; return path;
+  }
   const angDiff_ = a => Math.atan2(Math.sin(a), Math.cos(a));
-  let phase = 'search', pt = 0, bob = 0, stepAcc = 0, idle = 0, moved = false, got = false, from = null, humT = 0, breathT = 0, heartT = 0, creakT = 6, tapX = 0, tapT = 0, lastHint = 0;
+  let route = null, ri = 0, pitch = 0, phase = 'search', pt = 0, bob = 0, stepAcc = 0, idle = 0, moved = false, got = false, from = null, humT = 0, breathT = 0, heartT = 0, creakT = 6, tapX = 0, tapT = 0, lastHint = 0;
   const T_REF = HARDM ? 4 : 6, T_RAMP = HARDM ? 25 : 40, T_HOLD = 3;
 
   // TV 크게 (시점 고정 뒤): 화면의 3분의 2
   const TX = 64, TY = 44, TW = 272, TH = 206, SX = TX + 16, SY = TY + 14, SW = TW - 62, SH = TH - 30;
-  function bigTV(alpha, eyeK) {
-    g.save(); g.globalAlpha = alpha;
+  // 3D TV가 화면에 그려지는 자리 (엔진과 같은 투영)
+  const TVW = 1.0, TVH = TVW * TH / TW, TVY0 = .42;
+  function tvRect() {
+    const dirX = Math.cos(cam.yaw), dirZ = Math.sin(cam.yaw), plX = -dirZ * FOVP, plZ = dirX * FOVP, inv = 1 / (plX * dirZ - dirX * plZ);
+    const dx = TV.x - cam.x, dz = TV.z + .02 - cam.z, tx = inv * (dirZ * dx - dirX * dz), ty = inv * (-plZ * dx + plX * dz);
+    if (ty < .2) return null;
+    const scale = H / Math.max(ty, .3), sx = W / 2 * (1 + tx / ty), hor = (H / 2 + (cam.bob || 0)) | 0, bot = hor + (.5 - TVY0) * scale;
+    return { x: sx - TVW * scale / 2, y: bot - TVH * scale, w: TVW * scale };
+  }
+  function bigTV(eyeK, mode) {
+    const rc = tvRect(); if (!rc) return;
+    const k = rc.w / TW;
+    g.save(); g.translate(rc.x - TX * k, rc.y - TY * k); g.scale(k, k);
     g.fillStyle = '#17150f'; g.beginPath(); g.roundRect(TX, TY, TW, TH, 10); g.fill();
     g.fillStyle = '#211e18'; g.fillRect(TX + 4, TY + 3, TW - 8, 3);
     g.fillStyle = '#0e0d0b'; g.fillRect(TX + TW - 40, TY + 20, 30, TH - 40);
@@ -1961,7 +1979,8 @@ function LivingRoom(next, opt = {}) {
     g.save(); g.beginPath(); g.roundRect(SX, SY, SW, SH, 22); g.clip();
     const bg = g.createRadialGradient(SX + SW * .45, SY + SH * .45, 10, SX + SW / 2, SY + SH / 2, SW * .7); bg.addColorStop(0, '#0c0d13'); bg.addColorStop(1, '#020203'); g.fillStyle = bg; g.fillRect(SX, SY, SW, SH);
     // 웅… 검은 화면이 반복된다 (아주 옅게 깜빡임)
-    const hb = .5 + .5 * Math.sin(now() * 2.2); g.fillStyle = `rgba(40,50,90,${.05 + hb * .05})`; g.fillRect(SX, SY, SW, SH);
+    if (mode === 'static') { for (let i = 0; i < 900; i++) { const v = Math.random() * 230 | 0; g.fillStyle = `rgb(${v},${v},${v + 10})`; g.fillRect(SX + Math.random() * SW, SY + Math.random() * SH, 4, 3); } g.restore(); g.restore(); return; }
+    const hb = mode === 'blue' ? 1 : .5 + .5 * Math.sin(now() * 2.2); g.fillStyle = `rgba(40,50,90,${.05 + hb * .07})`; g.fillRect(SX, SY, SW, SH);
     // 비친 스탠드 불빛
     const lx = SX + SW * .2, ly = SY + SH * .34, lm = e.lightMul;
     if (lm > .05) {
@@ -2073,17 +2092,31 @@ function LivingRoom(next, opt = {}) {
         blink = (pt * 1.1 | 0) % 2; tvState = blink ? 'blue' : 'black';
         e.dyn = blink ? [{ x: TV.x, z: TV.z + .7, r: 2.4, i: .12, c: [.4, .5, .9] }] : [];
         humT += dt; if (humT >= 1) hum();
-        if (pt > 3.4) { phase = 'move'; pt = 0; from = { x: cam.x, z: cam.z, yaw: cam.yaw }; }
+        if (pt > 2.2) { phase = 'move'; pt = 0; route = walkPath(SEAT.x, SEAT.z); ri = 0; pitch = 0; }
       } else if (phase === 'move') {
-        tvState = ((pt * 1.1 | 0) % 2) ? 'blue' : 'black';
+        // 터벅터벅 TV 앞까지 걸어가서 선다
+        blink = (pt * 1.1 | 0) % 2; tvState = blink ? 'blue' : 'black';
+        e.dyn = [{ x: TV.x, z: TV.z + .7, r: 2.6, i: blink ? .14 : .08, c: [.4, .5, .9] }];
         humT += dt; if (humT >= 1) hum();
-        const k = clamp(pt / 3, 0, 1), s = k * k * (3 - 2 * k);
-        cam.x = lerp(from.x, SEAT.x, s); cam.z = lerp(from.z, SEAT.z, s); cam.yaw = from.yaw + angDiff_(SEAT.yaw - from.yaw) * s; cam.bob = 0;
-        if (pt > 3.2) { phase = 'cine'; pt = 0; }
+        const wp = route[ri];
+        if (wp) {
+          // 눈은 TV에서 떼지 않은 채, 가구를 피해 걸어간다
+          const dx = wp.x - cam.x, dz = wp.z - cam.z, d = Math.hypot(dx, dz), want = Math.atan2(TV.z - cam.z, TV.x - cam.x);
+          cam.yaw += angDiff_(want - cam.yaw) * Math.min(1, dt * 1.6);
+          if (pt > .8) { const sp = Math.min(d, .7 * dt); cam.x += dx / (d || 1) * sp; cam.z += dz / (d || 1) * sp; bob += dt * 4.2; stepAcc += dt; if (stepAcc > .75) { stepAcc = 0; sfx.step(); } }
+          cam.bob = Math.sin(bob) * 1.6;
+          if (d < .05) ri++;
+        } else {
+          // 멈춰 서서 TV를 바라본다 (고개를 살짝 들어 화면을 가운데로)
+          cam.yaw += angDiff_(SEAT.yaw - cam.yaw) * Math.min(1, dt * 1.5);
+          const rc = tvRect(), want = rc ? H / 2 - (rc.y + rc.w * TH / TW / 2) + (cam.bob || 0) : 0;
+          pitch += (want - pitch) * Math.min(1, dt * 1.2); cam.bob = pitch;
+          if (Math.abs(angDiff_(SEAT.yaw - cam.yaw)) < .01 && Math.abs(want - pitch) < .6) { phase = 'cine'; pt = 0; }
+        }
       } else if (phase === 'cine') {
         tvState = 'black';
         // TV 둘레가 어렴풋이 보이게: 화면의 푸른 기운 + 왼쪽에서 번지는 스탠드 빛
-        e.dyn = [{ x: TV.x, z: TV.z + .8, r: 3, i: .2, c: [.5, .55, .9] }, { x: 3.3, z: 3.4, r: 3.2, i: .75 * e.lightMul, c: [1, .7, .4] }];
+        e.dyn = [{ x: TV.x, z: TV.z + .7, r: 2.6, i: .1, c: [.4, .5, .9] }];
         const u = clamp((pt - T_REF) / T_RAMP, 0, 1);
         humT += dt; if (humT >= 1 && u < .97) hum();
         if (u > .2 && !ch0) { breathT -= dt; if (breathT <= 0) { breathT = 3.2 - u * 1.8; nz(1.1, { type: 'bandpass', f: 480, q: .9, vol: .04 + u * .12, a: .5, pan: .85 }); } }
@@ -2106,7 +2139,7 @@ function LivingRoom(next, opt = {}) {
       if (phase === 'search' || phase === 'remote') e.dyn = [];
       const sprites = [
         { spr: cab, x: TV.x, z: TV.z, w: 1.3, h: .42, y0: 0 },
-        ...(phase === 'cine' || (phase === 'move' && pt > 2.6) ? [] : [{ spr: tvSpr(tvState), x: TV.x - .02, z: TV.z + .02, w: 1.0, h: .82, y0: .42 }]),
+        { spr: tvSpr(tvState), x: TV.x, z: TV.z + .02, w: TVW, h: TVH, y0: TVY0 },
         { spr: sideT, x: LAMP.x, z: LAMP.z, w: .5, h: .42, y0: 0 },
         { spr: e.flick < .5 ? lampOff : lamp, x: LAMP.x, z: LAMP.z, w: .26, h: .75, y0: .42 },
         { spr: sofa, x: SOFA.x, z: SOFA.z, w: 2.1, h: .62, y0: 0 },
@@ -2115,17 +2148,16 @@ function LivingRoom(next, opt = {}) {
       ];
       if (!got) sprites.push({ spr: remoteS, x: REM.x, z: REM.z, w: .24, h: .07, y0: 0 });
       e.render(cam, sprites);
-      if (phase === 'remote' || phase === 'static' || phase === 'hum') { // 손에 든 리모컨
+      if (phase === 'remote' || phase === 'static' || phase === 'hum' || (phase === 'move' && pt < 1.2)) { // 손에 든 리모컨
         g.save(); g.translate(W * .8, H + 6 + Math.sin(bob) * 2); g.rotate(-.35);
         ell(6, -6, 26, 16, '#4a3a30');
         g.fillStyle = '#121212'; g.fillRect(-14, -78, 26, 74); g.fillStyle = '#2a2a2a'; for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) g.fillRect(-10 + c * 7, -62 + r * 9, 4, 4);
         g.fillStyle = phase === 'remote' ? '#c02020' : '#ff4040'; g.fillRect(-9, -74, 5, 4);
         g.restore();
       }
-      if (phase === 'move' || phase === 'cine') {
-        const a = phase === 'move' ? clamp((pt - 2) / 1.2, 0, 1) : 1;
+      if (phase === 'static' || phase === 'hum' || phase === 'move' || phase === 'cine') {
         const u = phase === 'cine' ? clamp((pt - T_REF) / T_RAMP, 0, 1) : 0;
-        bigTV(a, Math.pow(u, 2.2));
+        bigTV(Math.pow(u, 2.2), phase === 'static' ? 'static' : tvState === 'blue' ? 'blue' : 'black');
       }
     }
   };
