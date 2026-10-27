@@ -127,7 +127,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="hard.js?v=18"></script>
+<script src="hard.js?v=19"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -1434,7 +1434,7 @@ function NameScene(){
     noPause:true,
     enter(){ setFx({ noise:.12, flicker:.05 }); drone(.07, .7, 2); nameForm.hidden = false; nameInput.value = ''; nameInput.maxLength = 10; nameInput.placeholder = ''; setTimeout(() => { try{ nameInput.focus(); }catch(e){} }, 50); },
     exit(){ nameForm.hidden = true; nameInput.blur(); },
-    submit(){ const v = nameInput.value.trim().slice(0, 10); playerName = v || '이름 없는 아이'; store.set('name', playerName); sfx.bell(); if (hard && HARD && HARD.RedWords) go(HARD.RedWords(() => go(Eject()))); else go(Invite()); },
+    submit(){ const v = nameInput.value.trim().slice(0, 10); playerName = v || '이름 없는 아이'; store.set('name', playerName); sfx.bell(); if (hard && HARD && HARD.RedWords) go(HARD.RedWords(() => go(HARD.LivingRoom ? HARD.LivingRoom(() => go(Eject()), { hard:true }) : Eject()))); else go(Invite()); },
     pointer(t){ if (t === 'down') try{ nameInput.focus(); }catch(e){} },
     draw(){
       g.fillStyle = '#030303'; g.fillRect(-20, -20, W + 40, H + 40);
@@ -1448,7 +1448,7 @@ nameForm.addEventListener('submit', e => { e.preventDefault(); if (scene && scen
 function Invite(){
   return {
     enter(){ setFx({ noise:.1, flicker:.04 }); },
-    adv(){ if (this.t < 2.5) return; sfx.clunk(); go(Card(timeLines(), () => go(Room()), { drone:.08, pitch:.65 })); },
+    adv(){ if (this.t < 2.5) return; sfx.clunk(); go(Card(timeLines(), () => go(HARD && HARD.LivingRoom ? HARD.LivingRoom(() => go(Eject())) : Room()), { drone:.08, pitch:.65 })); },
     key(){ this.adv(); }, pointer(t){ if (t === 'down') this.adv(); },
     update(){ if (this.t > 9) this.adv(); },
     draw(){
