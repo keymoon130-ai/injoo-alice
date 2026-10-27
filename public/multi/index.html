@@ -197,7 +197,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <span>맵</span><select id="selMap" aria-label="맵"></select>
         <span>밝기</span><select id="selBright" aria-label="화면 밝기 (이 기기)"></select>
         <span>시점 감도</span><select id="selSens" aria-label="시점 감도 (이 기기)"></select>
-        <span>칭호</span><span class="row" style="justify-content:flex-start;gap:8px"><select id="selTitle" aria-label="이름 옆에 달 칭호"></select><small id="titleCnt" class="hint" style="margin:0"></small></span>
+        <span>칭호</span><div id="titlePanel"></div>
         <span>테이프 잡음</span><select id="selHiss" aria-label="지지직 잡음 (이 기기)"><option value="1">켜기 (지지직)</option><option value="0">끄기</option></select>
         <span>꾸미기</span><span class="row" style="justify-content:flex-start;gap:14px"><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label><label class="chk" id="freeLbl" style="font-size:13px!important"><input type="checkbox" id="chkFree"> 자유 색상</label></span>
         <span>추가 모드</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkFate"> 운명계승 (방장)</label>
@@ -279,7 +279,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
   </div>
 </section>
 
-<script src="../titles.js?v=1"></script>
+<script src="../titles.js?v=2"></script>
 <script type="module" src="game.js"></script>
 </body>
 </html>

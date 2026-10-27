@@ -1079,20 +1079,13 @@ const mine = {
 let skinWs = null, skinSendT = 0;
 /* ---------- 칭호 ---------- */
 const TI = window.InjooTitles || null;
-let myTitle = store.get('title', null);
-function sendTitle() { if (TI && myTitle && !TI.has(myTitle)) myTitle = null; send({ type: 'title', v: myTitle || null }); }
+if (TI && store.get('title', null) && !TI.equipped()) { TI.equip(store.get('title', null)); store.set('title', null); } // 예전 저장 옮기기
+function sendTitle() { send({ type: 'title', v: TI ? TI.equipped() : null }); }
 function titleSpan(id) { const t = TI && TI.BY[id]; if (!t) return null; const sp = document.createElement('span'); sp.className = 'ttl' + (t.col === 'wave' ? ' wave' : ''); if (t.col !== 'wave') sp.style.color = t.col; sp.textContent = `「${t.name}」`; return sp; }
-function fillTitles() {
-  const sel = $('selTitle'); if (!sel) return; sel.textContent = '';
-  const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
-  add('', '없음'); let n = 0;
-  if (TI) for (const t of TI.LIST) if (TI.has(t.id)) { add(t.id, t.name); n++; }
-  sel.value = myTitle && TI && TI.has(myTitle) ? myTitle : '';
-  $('titleCnt').textContent = TI ? `${n} / ${TI.LIST.length}` : '';
-}
-if ($('selTitle')) { fillTitles(); $('selTitle').addEventListener('change', e => { myTitle = e.target.value || null; store.set('title', myTitle); sendTitle(); }); }
+if (TI && $('titlePanel')) TI.mountPanel($('titlePanel'));
+window.addEventListener('injoo-title-eq', () => sendTitle());
 window.addEventListener('injoo-title', e => {
-  const t = e.detail; fillTitles();
+  const t = e.detail;
   if (game) { say(`칭호 획득 ─ 「${t.name}」`, t.col === 'wave' ? '#ffffff' : t.col, 5); sfx.chime && sfx.chime(); } else addSys(`칭호 획득 ─ 「${t.name}」`);
 });
 // 멀티 칭호 판정 (이 기기의 기록)

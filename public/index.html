@@ -60,6 +60,11 @@ body{
 .deck button:hover{border-color:#4a3f42}
 .deck button:focus-visible{outline:2px solid var(--blood); outline-offset:2px}
 #nameForm[hidden]{display:none}
+#ttlBox[hidden]{display:none}
+#ttlBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:86%;padding:14px 16px;background:rgba(6,4,6,.92);border:1px solid #4a4038;border-radius:4px;display:flex;flex-direction:column;gap:10px}
+#ttlBox .ttlHead{font:800 16px 'Nanum Myeongjo',serif;color:#e8e0d0;text-align:center;display:flex;flex-direction:column;gap:4px}
+#ttlBox .ttlHead small{font:10px 'Nanum Gothic Coding',monospace;color:#8d8478}
+#ttlBack{align-self:center;font:12px 'Nanum Gothic Coding',monospace;color:#cfc6b6;background:none;border:1px solid #4a4038;border-radius:3px;padding:5px 14px;cursor:pointer}
 #nameForm{position:absolute; left:50%; top:58%; transform:translate(-50%,-50%); width:60%; display:flex; flex-direction:column; align-items:center; gap:8px;}
 #nameInput{width:100%; background:transparent; border:0; border-bottom:1px solid #8a7f72; color:#e8dfd0; font-family:var(--serif); font-size:clamp(16px, 3.4vw, 26px); text-align:center; padding:6px 4px; outline:none; caret-color:#b31f1f;}
 #nameForm small{font-size:11px; color:#7a7166; letter-spacing:.1em}
@@ -114,6 +119,7 @@ body.rot90 .rot{display:none!important}
       <button type="button" id="tAct" data-scene="h3d">베기</button>
       <div id="tJoy" hidden><div id="tJoyKnob"></div></div>
     </div>
+    <div id="ttlBox" hidden><div class="ttlHead">칭  호<small>이름 옆에 달 칭호를 고르세요 · 올려 두거나 누르면 획득 조건이 보여요</small></div><div id="ttlPanel"></div><button type="button" id="ttlBack">← 돌아가기</button></div>
     <form id="nameForm" hidden autocomplete="off">
       <input id="nameInput" maxlength="10" aria-label="당신의 이름">
       <small>ENTER</small>
@@ -127,7 +133,7 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="titles.js?v=1"></script>
+<script src="titles.js?v=2"></script>
 <script src="hard.js?v=22"></script>
 <script id="game">
 (function(){
@@ -566,6 +572,18 @@ function CuteJump(next, dur = 1.1){
 const TITLES = window.InjooTitles || null;
 let titleToast = null;
 window.addEventListener('injoo-title', e => { titleToast = { t: now, d: e.detail }; sfx.bell(); vib && vib([40, 40, 80]); });
+// 칭호 고르기 (메인 화면)
+let ttlMounted = false;
+function TitlesScene(){
+  const box = document.getElementById('ttlBox');
+  return {
+    noPause:true,
+    enter(){ setFx({ noise:.1, flicker:.03 }); if (!ttlMounted && TITLES){ ttlMounted = true; TITLES.mountPanel(document.getElementById('ttlPanel')); document.getElementById('ttlBack').addEventListener('click', () => { sfx.tick(); go(Title()); }); } box.hidden = false; },
+    exit(){ box.hidden = true; },
+    key(k){ if (k === 'Escape' || k === 'Backspace') go(Title()); },
+    draw(){ g.fillStyle = '#050405'; g.fillRect(-20, -20, W + 40, H + 40); }
+  };
+}
 function drawTitleToast(){
   if (!titleToast) return; const a = now - titleToast.t; if (a > 4.5){ titleToast = null; return; }
   const al = clamp(Math.min(a * 3, (4.5 - a) * 2), 0, 1), d = titleToast.d;
@@ -823,6 +841,7 @@ function Title(opt = {}){
     items = [{ toggle:true }, { l:'▶  처음부터 재생', f:() => { hard = modeHard; startChapter(1); } }];
     if (progress > 1 || completed) items.push({ l:'▶  이어하기', f:() => go(ChapterSelect()) });
     items.push({ l:'▶  멀티플레이 — 망가진 꿈', f:() => { try{ localStorage.setItem('injoo_m_chicken', JSON.stringify(chicken)); }catch(e){} stopTrack(.3); location.href = 'multi/'; } });
+    if (TITLES) items.push({ l:'▶  칭호', f:() => go(TitlesScene()) });
     items.push({ l:'▶  기록 · 설정', f:() => go(Options()) });
     if (sel >= items.length) sel = items.length - 1;
   }
@@ -1710,7 +1729,7 @@ const HARD = window.InjooHard ? window.InjooHard({
 go(Boot());
 requestAnimationFrame(frame);
 ['touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => { initAudio(); }, { passive:true }));
-window.__injoo = { dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, Options, ChapterSelect, saveCode, loadCode, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
+window.__injoo = { TitlesScene:() => TitlesScene(), dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, Options, ChapterSelect, saveCode, loadCode, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
 })();
 </script>
 
