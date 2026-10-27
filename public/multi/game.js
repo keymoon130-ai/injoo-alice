@@ -138,7 +138,7 @@ function onMsg(m) {
       sess.set('rejoinN', 0);
       break;
     case 'lobby':
-      if (skinWs !== ws) { skinWs = ws; sendSkin(); }
+      if (skinWs !== ws) { skinWs = ws; sendSkin(); sendTitle(); }
       lobby = m; renderLobby();
       if (m.phase === 'lobby' && game) { stopGame(); show('scLobby'); }
       else if (!game) show('scLobby');
@@ -204,7 +204,7 @@ function renderLobby() {
   const ul = $('lbPlayers'); ul.textContent = '';
   for (const p of L.players) {
     const li = document.createElement('li');
-    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name + (p.id === myId ? ' (나)' : ''); li.append(nm);
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name + (p.id === myId ? ' (나)' : ''); { const ts = p.t && titleSpan(p.t); if (ts) nm.append(ts); } li.append(nm);
     const add = (t, c) => { const b = document.createElement('span'); b.className = 'badge ' + (c || ''); b.textContent = t; li.append(b); };
     add(p.dev === 'phone' ? '폰' : 'PC');
     if (p.id === L.host) add('방장', 'host');
@@ -822,7 +822,7 @@ function renderWorld(g, cam, feed) {
         pix[y * W + x] = pack((r * kf + fogC[0] * ft) | 0, (gg * kf + fogC[1] * ft) | 0, (b * kf + fogC[2] * ft) | 0);
       }
     }
-    if (vis && s.extra && s.extra.role === g.role && ty < 8) tags.push({ x: sx, y: top - 4, name: s.extra.name, a: 1 - ty / 8 });
+    if (vis && s.extra && s.extra.role === g.role && ty < 8) tags.push({ x: sx, y: top - 4, name: s.extra.name, title: s.extra.title, a: 1 - ty / 8 });
     if (awakeOn && s.extra && s.extra.role === 'dream') { // 깨어난 꿈의 눈
       const ec = (g.eyes && g.eyes.get(s.extra.id)) || (spr === SPR.ghost ? [[4, 4], [9, 4]] : DEF_EYES);
       for (const [ex, ey] of ec) {
@@ -1077,6 +1077,26 @@ const mine = {
   deye: (() => { const v = store.get('deye', null); return eyesValid(v) ? v : DSKIN_EYES.slice(); })()
 };
 let skinWs = null, skinSendT = 0;
+/* ---------- 칭호 ---------- */
+const TI = window.InjooTitles || null;
+let myTitle = store.get('title', null);
+function sendTitle() { if (TI && myTitle && !TI.has(myTitle)) myTitle = null; send({ type: 'title', v: myTitle || null }); }
+function titleSpan(id) { const t = TI && TI.BY[id]; if (!t) return null; const sp = document.createElement('span'); sp.className = 'ttl' + (t.col === 'wave' ? ' wave' : ''); if (t.col !== 'wave') sp.style.color = t.col; sp.textContent = `「${t.name}」`; return sp; }
+function fillTitles() {
+  const sel = $('selTitle'); if (!sel) return; sel.textContent = '';
+  const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
+  add('', '없음'); let n = 0;
+  if (TI) for (const t of TI.LIST) if (TI.has(t.id)) { add(t.id, t.name); n++; }
+  sel.value = myTitle && TI && TI.has(myTitle) ? myTitle : '';
+  $('titleCnt').textContent = TI ? `${n} / ${TI.LIST.length}` : '';
+}
+if ($('selTitle')) { fillTitles(); $('selTitle').addEventListener('change', e => { myTitle = e.target.value || null; store.set('title', myTitle); sendTitle(); }); }
+window.addEventListener('injoo-title', e => {
+  const t = e.detail; fillTitles();
+  if (game) { say(`칭호 획득 ─ 「${t.name}」`, t.col === 'wave' ? '#ffffff' : t.col, 5); sfx.chime && sfx.chime(); } else addSys(`칭호 획득 ─ 「${t.name}」`);
+});
+// 멀티 칭호 판정 (이 기기의 기록)
+const tGive = id => TI && TI.give(id);
 function sendSkin() { send({ type: 'skin', v: mine.alice === SKIN_DEFAULT ? null : mine.alice, d: mine.dream !== DSKIN_DEFAULT && dskinValid(mine.dream) ? mine.dream : null, vf: mine.aliceF, df: mine.dreamF, e: mine.deye }); }
 const skinEd = (() => {
   const cv_ = $('skinCv'), cx = cv_.getContext('2d'), pv = $('skinPv'), px = pv.getContext('2d');
@@ -1267,7 +1287,7 @@ let game = null;
 function startGame(m) {
   const world = genWorld(m.seed, m.map);
   if (m.sig && worldSig(world) !== m.sig) { reloadAndRejoin(); return; }
-  const players = new Map(m.players.map(p => [p.id, { id: p.id, name: p.name, role: p.role, snaps: [], cur: null }]));
+  const players = new Map(m.players.map(p => [p.id, { id: p.id, name: p.name, role: p.role, title: p.t || null, snaps: [], cur: null }]));
   const me = players.get(myId); if (!me) return;
   const first = !game;
   game = {
@@ -1347,7 +1367,7 @@ function onSnap(m) {
       if (tr.length > 600) tr.shift();
     }
   }
-  if (g.stealth) { g.hn = m.hn || 0; g.sd = m.sd || 0; g.anySth = m.p.some(q => q.h > 0); const me1 = m.p.find(q => q.i === myId); g.mySth = me1 && me1.h || 0; g.myStc = me1 && me1.hc || 0; }
+  if (g.stealth) { g.hn = m.hn || 0; g.sd = m.sd || 0; g.anySth = m.p.some(q => q.h > 0); const me1 = m.p.find(q => q.i === myId); g.sthBefore = g.mySth; g.mySth = me1 && me1.h || 0; g.myStc = me1 && me1.hc || 0; }
   for (const e of m.ev) handleEv(e);
   const s = m.p.find(p => p.i === myId);
   if (s) {
@@ -1386,6 +1406,15 @@ function cycleSpectate() {
 function handleEv(e) {
   const g = game, w = g.world;
   const posOf = id => { const p = g.players.get(id); return p && p.cur ? p.cur : null; };
+  // 칭호 판정
+  const tk = g.tk || (g.tk = { jailed: 0, jails: 0, last: false });
+  if (e.k === 'catch' && e.d === myId && g.sthBefore > 0) tGive('hidden');               // 숨은 꿈: 은신 중에 잡기
+  if (e.k === 'jail' && e.a === myId && ++tk.jailed >= 3) tGive('jail');                  // 감옥 단골: 한 판 3번
+  if (e.k === 'jail' && e.d === myId) tk.jails++;                                         // 작은 꿈 (끝날 때 판정)
+  if (e.k === 'free' && e.a === myId && e.struggle && TI && TI.inc('strug') >= 10) tGive('strug'); // 몸부림 장인
+  if (e.k === 'burn' && e.d === myId && TI && TI.inc('burn') >= 5) tGive('hot');          // 앗뜨거!
+  if (e.k === 'last' && e.a === myId) tk.last = true;
+  if (e.k === 'esc' && e.a === myId && tk.last) tGive('alone');                           // 홀로 남은 앨리스
   switch (e.k) {
     case 'catch': {
       const an = nameOf(e.a), dn = nameOf(e.d), p = posOf(e.a);
@@ -1490,6 +1519,13 @@ function handleEv(e) {
 
 function onEnd(m) {
   const g = game; g.ended = { ...m, t: performance.now() }; g.fcard = null;
+  if (TI && !g.titled) { // 판이 끝날 때의 칭호
+    g.titled = true; const tk = g.tk || { jails: 0 }, mine = (m.scores || []).find(q => q.id === myId);
+    if (m.mvp === myId && TI.inc('mvp') >= 30) tGive('fifth');                                            // 다섯 번째 앨리스
+    if (g.role === 'dream' && m.win === 'dream' && tk.jails >= 3) tGive('small');                         // 작은 꿈
+    if (g.role === 'alice' && m.win === 'alice' && mine && mine.d.esc > 0 && !mine.d.col && !mine.d.assist && !mine.d.res && !mine.d.stun) tGive('free'); // 무임승차
+    if (chicken) { TI.flag('zzolM'); TI.checkZzol(); }                                                      // 쫄보킹 (멀티 한 판)
+  }
   if (m.mvp) setTimeout(() => sfx.bell(), 900);
   if (document.pointerLockElement) document.exitPointerLock();
   $('endBox').hidden = false;
@@ -1872,6 +1908,15 @@ function drawScare(c, g) {
   c.restore();
 }
 // 역할 브리핑 카드: 시작할 때 + 언제든 Tab / ? 버튼
+// 칭호 글씨 (다섯 번째 앨리스는 흑백 물결)
+function drawTitleTag(c, id, x, y, size = 9) {
+  const t = TI && TI.BY[id]; if (!t) return;
+  const s = `「${t.name}」`; c.save(); c.font = `700 ${size}px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center';
+  c.fillStyle = 'rgba(0,0,0,.85)'; c.fillText(s, x + 1, y + 1);
+  if (t.col === 'wave') { const w = c.measureText(s).width, gr = c.createLinearGradient(x - w / 2, 0, x + w / 2, 0), ph = (now * .5) % 1; for (let i = 0; i <= 6; i++) { const p = ((i / 6) + ph) % 1; gr.addColorStop(p, i % 2 ? '#ffffff' : '#141414'); } c.fillStyle = gr; c.strokeStyle = 'rgba(120,120,120,.6)'; c.lineWidth = .6; c.strokeText(s, x, y); }
+  else c.fillStyle = t.col;
+  c.fillText(s, x, y); c.restore();
+}
 function keycap(c, x, y, label, w = 0) {
   c.font = `11px 'Nanum Gothic Coding', monospace`;
   const tw = Math.max(w, c.measureText(label).width + 10), h = 15;
@@ -2045,7 +2090,7 @@ function drawHud(g, tags) {
   }
   // 이름표
   c.font = KRS; c.textAlign = 'center';
-  for (const t of tags) { c.globalAlpha = clamp(t.a * 1.4, 0, 1); c.fillStyle = '#000'; c.fillText(t.name, t.x + 1, t.y + 1); c.fillStyle = '#e8e0d0'; c.fillText(t.name, t.x, t.y); }
+  for (const t of tags) { c.globalAlpha = clamp(t.a * 1.4, 0, 1); c.fillStyle = '#000'; c.fillText(t.name, t.x + 1, t.y + 1); c.fillStyle = '#e8e0d0'; c.fillText(t.name, t.x, t.y); drawTitleTag(c, t.title, t.x, t.y - 11); }
   c.globalAlpha = 1;
   // OSD
   if (dream) { sh('REC', 14, 26, '#f2f2ee', OSD); if ((now * 2 | 0) % 2) { c.fillStyle = '#e02020'; c.beginPath(); c.arc(56, 19, 4, 0, 7); c.fill(); } }
@@ -2178,7 +2223,7 @@ function drawHud(g, tags) {
     const sc = e.scores || [], mvp = e.mvp && sc.find(q => q.id === e.mvp);
     let ry = 152;
     if (mvp) { // 다섯 번째 앨리스
-      c.fillStyle = '#e8e2d0'; c.fillRect(W / 2 - 92, 136, 184, 24); c.fillStyle = '#1a1414'; c.font = `800 13px 'Nanum Myeongjo', serif`; c.textAlign = 'center'; c.fillText(`「 다섯 번째 앨리스 ─ ${mvp.n} 」`, W / 2, 153);
+      c.fillStyle = '#e8e2d0'; c.fillRect(W / 2 - 92, 136, 184, 24); c.fillStyle = '#1a1414'; c.font = `800 13px 'Nanum Myeongjo', serif`; c.textAlign = 'center'; c.fillText(`「 다섯 번째 앨리스 ─ ${mvp.n} 」`, W / 2, 153); { const mp = g.players.get(mvp.id); if (mp && mp.title) drawTitleTag(c, mp.title, W / 2, 131, 10); }
       const d = mvp.d, parts = [];
       if (d.col) parts.push(`흔적 ${d.col}`); if (d.assist) parts.push(`도움 ${d.assist}`); if (d.res) parts.push(`구출 ${d.res}`); if (d.bear) parts.push(`운명 ${d.bear}`); if (d.stun) parts.push(`베기 ${d.stun}`); if (d.esc) parts.push(`탈출 ${d.esc}`); if (d.caught) parts.push(`잡힘 -${d.caught}`);
       sh(`${mvp.t}점`, W / 2, 174, '#efe6d4', KR, 'center'); sh(parts.join(' · '), W / 2, 189, '#a89e90', `10px 'Nanum Gothic Coding', monospace`, 'center'); ry = 206;

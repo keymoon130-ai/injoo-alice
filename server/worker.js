@@ -94,7 +94,7 @@ export class Room {
   lobbyMsg() {
     return {
       type: 'lobby', code: this.code, host: this.host, phase: this.phase, settings: this.settings,
-      players: this.order.map(id => this.players.get(id)).filter(Boolean).map(p => ({ id: p.id, name: p.name, ready: p.ready, want: p.want, dev: p.dev, on: p.on }))
+      players: this.order.map(id => this.players.get(id)).filter(Boolean).map(p => ({ id: p.id, name: p.name, ready: p.ready, want: p.want, dev: p.dev, on: p.on, t: p.title || null }))
     };
   }
   pushLobby() { this.all(this.lobbyMsg()); }
@@ -182,6 +182,9 @@ export class Room {
         if (m.df === null) p.dskinF = null; else if (freeSkinValid(m.df, 'dream')) p.dskinF = m.df;
         if (eyesValid(m.e)) p.deye = m.e.slice();
         break;
+      case 'title': // 칭호 (각자 기기 기록 — 이름표 장식일 뿐)
+        if (m.v === null || (typeof m.v === 'string' && /^[a-z]{1,8}$/.test(m.v))) { p.title = m.v; this.pushLobby(); }
+        break;
       case 'ping': this.send(p, { type: 'pong', t: m.t }); break;
       case 'rtt': p.rtt = clamp(+m.v || 100, 0, 1000); break;
     }
@@ -200,7 +203,7 @@ export class Room {
     const g = this.g;
     return {
       type: 'start', seed: g.seed, map: g.map, sig: g.sig, you: p.id, intro: g.intro, time: g.time, fate: g.fate ? 1 : 0, boost: g.boost ? 1 : 0, awake: g.awake ? 1 : 0, stealth: g.stealth ? 1 : 0,
-      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, skin: !this.settings.skins ? null : (this.settings.freeCol && (x.role === 'dream' ? x.dskinF : x.skinF)) || (x.role === 'dream' ? x.dskin : x.skin) || null, eyes: x.role === 'dream' && this.settings.skins && x.deye ? x.deye : null })),
+      players: [...this.players.values()].map(x => ({ id: x.id, name: x.name, role: x.role, t: x.title || null, skin: !this.settings.skins ? null : (this.settings.freeCol && (x.role === 'dream' ? x.dskinF : x.skinF)) || (x.role === 'dream' ? x.dskin : x.skin) || null, eyes: x.role === 'dream' && this.settings.skins && x.deye ? x.deye : null })),
       me: { x: p.x, z: p.z, yaw: p.yaw, seq: p.seq }
     };
   }

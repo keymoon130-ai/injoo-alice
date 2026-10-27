@@ -62,6 +62,9 @@ input,select{background:#0a0809;border:1px solid var(--line);border-radius:3px;p
 #lbPlayers{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 #lbPlayers li{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:#0a0809}
 #lbPlayers .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ttl{font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap}
+.ttl.wave{background:linear-gradient(90deg,#0a0a0a,#fff,#0a0a0a,#fff,#0a0a0a);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:.3px #777;animation:ttlwave 2.6s linear infinite}
+@keyframes ttlwave{from{background-position:0 0}to{background-position:-200% 0}}
 .badge{font-size:11px;padding:2px 6px;border-radius:2px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
 .badge.host{color:#e8d9a0;border-color:#5b5130}
 .badge.dream{color:#e5a0a0;border-color:#5a2526}
@@ -194,6 +197,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
         <span>맵</span><select id="selMap" aria-label="맵"></select>
         <span>밝기</span><select id="selBright" aria-label="화면 밝기 (이 기기)"></select>
         <span>시점 감도</span><select id="selSens" aria-label="시점 감도 (이 기기)"></select>
+        <span>칭호</span><span class="row" style="justify-content:flex-start;gap:8px"><select id="selTitle" aria-label="이름 옆에 달 칭호"></select><small id="titleCnt" class="hint" style="margin:0"></small></span>
         <span>테이프 잡음</span><select id="selHiss" aria-label="지지직 잡음 (이 기기)"><option value="1">켜기 (지지직)</option><option value="0">끄기</option></select>
         <span>꾸미기</span><span class="row" style="justify-content:flex-start;gap:14px"><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkSkins"> 허용 (방장)</label><label class="chk" id="freeLbl" style="font-size:13px!important"><input type="checkbox" id="chkFree"> 자유 색상</label></span>
         <span>추가 모드</span><label class="chk" style="font-size:13px!important"><input type="checkbox" id="chkFate"> 운명계승 (방장)</label>
@@ -275,6 +279,7 @@ body.rot90 .tv{width:min(100vh,calc(100vw*4/3));width:min(100dvh,calc(100dvw*4/3
   </div>
 </section>
 
+<script src="../titles.js?v=1"></script>
 <script type="module" src="game.js"></script>
 </body>
 </html>

@@ -127,7 +127,8 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="hard.js?v=21"></script>
+<script src="titles.js?v=1"></script>
+<script src="hard.js?v=22"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -561,7 +562,24 @@ function CuteJump(next, dur = 1.1){
     }
   };
 }
+/* ---------------- 칭호 ---------------- */
+const TITLES = window.InjooTitles || null;
+let titleToast = null;
+window.addEventListener('injoo-title', e => { titleToast = { t: now, d: e.detail }; sfx.bell(); vib && vib([40, 40, 80]); });
+function drawTitleToast(){
+  if (!titleToast) return; const a = now - titleToast.t; if (a > 4.5){ titleToast = null; return; }
+  const al = clamp(Math.min(a * 3, (4.5 - a) * 2), 0, 1), d = titleToast.d;
+  g.save(); g.globalAlpha = al;
+  g.fillStyle = 'rgba(6,4,6,.86)'; g.fillRect(W / 2 - 110, 30, 220, 40); g.strokeStyle = 'rgba(230,220,200,.5)'; g.strokeRect(W / 2 - 109.5, 30.5, 219, 39);
+  txt('칭호 획득', W / 2, 44, { size:10, color:'#a89e90', font:MONO });
+  let col = d.col;
+  if (col === 'wave'){ const gr = g.createLinearGradient(W / 2 - 80, 0, W / 2 + 80, 0), ph = (now * .4) % 1; for (let i = 0; i <= 4; i++){ const p = (i / 4 + ph) % 1; gr.addColorStop(p, i % 2 ? '#ffffff' : '#0a0a0a'); } col = gr; }
+  g.font = `800 16px ${SERIF}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeStyle = d.col === 'wave' ? '#5a5a5a' : 'rgba(0,0,0,.8)'; g.strokeText(`「 ${d.name} 」`, W / 2, 59); g.fillStyle = col; g.fillText(`「 ${d.name} 」`, W / 2, 59);
+  g.restore();
+}
 function die(msg, factory){
+  // 붉게물든자: 하드 1장에서 44번 죽기
+  if (TITLES && hard && HARD && factory === HARD.HCh1 && TITLES.inc('d1') >= 44) TITLES.give('red');
   go((chicken ? CuteJump : Jump)(() => go(Card(['— 신호 없음 —', '', msg, '', '테이프를 되감습니다.'], () => go(Rewind(() => go(factory()))), { bg:'#1430a6', color:'#e8ecff', fx:{ noise:.08, flicker:.02 } }))));
 }
 
@@ -833,7 +851,7 @@ function Title(opt = {}){
       idleT += dt;
       if (tapePending && HARD && HARD.TapeScene && unlockT <= 0 && meltT === 0 && idleT > 5){ meltT = .001; sfx.rew(); drone(0, 1, .3); stopTrack(.5); }
       if (meltT > 0){ meltT += dt; fx.glitch = Math.max(fx.glitch, .4 + meltT * .6); fx.wobble = .8 + meltT * 3; if (Math.random() < dt * 6) sfx.stat(.1);
-        if (meltT > 3.2){ tapePending = false; store.set('tapePending', false); go(HARD.TapeScene(() => { tapeSeen = true; store.set('tapeSeen', true); endings.archive = 1; store.set('endings', endings); go(Title({ forget:true })); })); } return; }
+        if (meltT > 3.2){ tapePending = false; store.set('tapePending', false); go(HARD.TapeScene(() => { tapeSeen = true; store.set('tapeSeen', true); endings.archive = 1; store.set('endings', endings); TITLES && TITLES.checkVhs(endings); go(Title({ forget:true })); })); } return; }
       flashT -= dt; lockMsgT -= dt; if (!chicken && Math.random() < dt * .1) flashT = .07; if (!chicken && Math.random() < dt * .05) fx.glitch = .6;
       if (unlockT > 0){ const was = unlockT; unlockT -= dt; if (was > 5.3 && unlockT <= 5.3){ fx.glitch = 2.2; fx.shake = 8; sfx.stat(.6); sfx.sting(); } if (Math.random() < dt * 3) fx.glitch = Math.max(fx.glitch, .5); } },
     draw(){
@@ -1522,7 +1540,7 @@ function Eject(){
     noPause:true,
     enter(){ osd.mode = 'EJECT ⏏'; setFx({ noise:.06, flicker:.01, wobble:.2 }); sfx.clunk(); drone(0, 1, .1); },
     exit(){ osd.mode = 'PLAY ▶'; },
-    update(){ if (this.t > 3) { if (hard){ hdone = true; store.set('hdone', true); endings[hroute === 'true' ? 'hardTrue' : 'hardBad'] = 1; } else endings.normal = 1; store.set('endings', endings); if (hasTape && !tapeSeen){ tapePending = true; store.set('tapePending', true); } completed = true; store.set('done', true); go(Card(T.fin, () => go(Title()), { drone:.04, pitch:.6 })); } },
+    update(){ if (this.t > 3) { if (hard){ hdone = true; store.set('hdone', true); endings[hroute === 'true' ? 'hardTrue' : 'hardBad'] = 1; } else endings.normal = 1; store.set('endings', endings); if (TITLES){ if (chicken) TITLES.flag(hard ? 'zzolH' : 'zzolN'); TITLES.checkZzol(); TITLES.checkVhs(endings); } if (hasTape && !tapeSeen){ tapePending = true; store.set('tapePending', true); } completed = true; store.set('done', true); go(Card(T.fin, () => go(Title()), { drone:.04, pitch:.6 })); } },
     draw(){ g.fillStyle = '#1430a6'; g.fillRect(-20, -20, W + 40, H + 40); txt('테이프가 없습니다', W / 2, 150, { size:16, color:'#e8ecff', font:MONO }); }
   };
 }
@@ -1594,6 +1612,7 @@ function frame(ts){
   g.setTransform(1, 0, 0, 1, (Math.random() - .5) * fx.shake * sm, (Math.random() - .5) * fx.shake * sm);
   if (scene && !paused){ scene.t += dt; if (scene.update) scene.update(dt); }
   if (scene) scene.draw();
+  drawTitleToast();
   touchUI.hidden = !TOUCH;
   if (TOUCH) for (const b of touchBtns) b.hidden = paused || !(scene && scene.touch === b.dataset.scene);
   if (TOUCH){ tJoy.hidden = paused || !(scene && scene.touch === 'h3d' && !scene.noJoy); tActBtn.textContent = (scene && scene.act) || '행동'; if (scene && scene.noAct) tActBtn.hidden = true; }
@@ -1685,7 +1704,7 @@ if (window.matchMedia) {
 const HARD = window.InjooHard ? window.InjooHard({
   W, H, g, cv, keys, ptr, joy, sfx, osc, nz, fx, setFx, drone, say, go, Card, T, txt, ell, poly, cuteGhost, drawFace, heart, vib, MONO, SERIF, OSDF, TOUCH, reduced, hint, stopOpening, playTrack, stopTrack,
   chicken:() => chicken, sens:() => SENS[sens] || 1, now:() => now, scene:() => scene, paused:() => paused, osd, playerName:() => playerName, Title:() => Title(), Static,
-  die:(m, f) => die(m, f), startChapter:n => startChapter(n), Jump, CuteJump, darkness, rgb,
+  die:(m, f) => die(m, f), startChapter:n => startChapter(n), Jump, CuteJump, darkness, rgb, nameForm, nameInput,
   setRoute:r => { hroute = r; store.set('hroute', r); }, gotTape:() => { hasTape = true; store.set('tape', true); }
 }) : null;
 go(Boot());

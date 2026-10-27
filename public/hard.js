@@ -10,6 +10,7 @@ const chicken = () => api.chicken();
 const now = () => api.now();
 const TOUCH = api.TOUCH;
 const angDiff = a => Math.atan2(Math.sin(a), Math.cos(a));
+const TITLES = () => window.InjooTitles || null;
 const pack = (r, gg, b) => (0xff000000 | ((b < 0 ? 0 : b > 255 ? 255 : b) << 16) | ((gg < 0 ? 0 : gg > 255 ? 255 : gg) << 8) | (r < 0 ? 0 : r > 255 ? 255 : r)) >>> 0;
 const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return (h ^ (h >>> 16)) & 255; };
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
@@ -780,6 +781,11 @@ function HCh2() {
       seats.push({ x: x + .5, z: z + .5, who: r < 120 ? 'man' : r < 170 ? 'hair' : null });
     }
   }
+  // 푸른음악가: 통로 쪽 빈 좌석 하나에 놓인 편지
+  const BLUE = (TITLES() && TITLES().blueCode()) || '3152';
+  const LET = (() => { const cands = seats.filter(s => (s.x === 17.5 || s.x === 23.5) && s.z > 14 && s.z < 32); const s0 = cands[Math.random() * cands.length | 0]; s0.who = null; s0.letter = true; return s0; })();
+  let letterOpen = 0, letterRead = false, codeBuf = '', nearLetter = false;
+  const letterSpr = canvasSprite(12, 8, x => { x.fillStyle = '#d8d2c0'; x.fillRect(0, 0, 12, 8); x.fillStyle = '#4a64c8'; x.fillRect(5, 3, 2, 2); x.strokeStyle = '#a89e88'; x.lineWidth = .5; x.beginPath(); x.moveTo(0, 0); x.lineTo(6, 4); x.lineTo(12, 0); x.stroke(); }, null, 3);
   // 조명: 무대 스포트라이트 + 벽 등
   e.lights.push({ x: 20.5, z: 7.0, r: 2.8, i: 2.4, c: [.8, .86, 1] }); // 오르골 하나만 비추는 핀 조명
   for (let z = 12; z <= 34; z += 5) { e.lights.push({ x: 4, z, r: 4, i: .8, c: [.55, .6, 1] }); e.lights.push({ x: 35.5, z, r: 4, i: .8, c: [.55, .6, 1] }); }
@@ -813,8 +819,10 @@ function HCh2() {
   function play(n, extra = 0) { const cents = (Math.random() - .5) * (round * 30 + miss * 60 + extra); sfx.music(NOTES[n], cents); lit = n; litT = .3; }
   const creak = (pan = 0) => { nz(.5, { type: 'bandpass', f: 380 + Math.random() * 200, f2: 220, q: 6, vol: .22, a: .05, pan }); osc('sawtooth', 90 + Math.random() * 40, .35, { vol: .05, f2: 60, pan }); };
   const S = {
-    game: true, fp: true, touch: 'h3d', act: '연주', noAct: true,
-    get noJoy() { return phase !== 'walk'; },
+    game: true, fp: true, touch: 'h3d',
+    get act() { return phase === 'walk' ? '읽기' : '연주'; },
+    get noAct() { return !(phase === 'walk' && nearLetter && !letterOpen); },
+    get noJoy() { return phase !== 'walk' || !!letterOpen; },
     dbg: { cam, aw, get phase() { return phase; }, set phase(v) { phase = v; }, startPerf: () => S.startPerf(), get round() { return round; }, seq },
     enter() { setFx({ noise: .11, ca: 1.3, wobble: .45 }); drone(.05, .8, 2); say('무대 위에서 오르골이 울리고 있다.', 3); },
     exit() { exitLock(); api.hint(null); },
@@ -826,13 +834,18 @@ function HCh2() {
       let n = 0; for (const s of seats) { if (s.who && s.z < 20 && n < 6 && Math.random() < .5) { s.who = null; addAw(s.x, s.z + 1); n++; } }
       say('제 1 소절', 2); setTimeout(() => creak(-.6), 900); setTimeout(() => creak(.6), 1500);
     },
+    openLetter() { letterOpen = now(); letterRead = true; exitLock(); api.hint(null); sfx.shh ? sfx.shh() : sfx.tick && sfx.tick(); },
     press(n) {
       if (phase !== 'perf' || pp === 'dead') return;
+      // 편지의 숫자를 오르골에 들려주면 (틀린 음은 잠깐 미뤄 두고 판정)
+      codeBuf = (codeBuf + (n + 1)).slice(-4);
+      let ck = 0; for (let L = codeBuf.length; L > 0; L--) if (BLUE.startsWith(codeBuf.slice(-L))) { ck = L; break; }
+      if (ck === 4) { codeBuf = ''; pendMiss = 0; four = 0; const TI = TITLES(); play(n); if (TI && TI.give('blue')) { say('「 …끝까지 들어 줘서 고마워. 」', 3); sfx.bell(); } return; }
       // 숨겨진 길: 4를 네 번 → 오르골이 열린다 (틀린 4는 잠깐 미뤄 두었다가 판정)
-      if (n === 3) { four++; if (four >= 4) { pendMiss = 0; this.openBox(); return; } } else { four = 0; if (pendMiss > 0) { pendMiss = 0; this.miss(); if (pp === 'dead') return; } }
+      if (n === 3) { four++; if (four >= 4) { pendMiss = 0; this.openBox(); return; } } else { four = 0; if (pendMiss > 0 && ck === 0) { pendMiss = 0; this.miss(); if (pp === 'dead') return; } }
       if (pp !== 'input') { if (n === 3) sfx.music(NOTES[3]); return; }
       play(n);
-      if (seq[idx] !== n && n === 3) { pendMiss = .9; return; }
+      if (seq[idx] !== n && (n === 3 || ck > 0)) { pendMiss = .9; return; }
       if (seq[idx] === n) {
         idx++;
         if (idx >= LENS[round]) { round++; if (round >= LENS.length) { phase = 'finale'; ft = 0; this.makeCrowd(); } else { pp = 'pause'; pt = 0; say(`제 ${round + 1} 소절`, 2); } }
@@ -853,9 +866,14 @@ function HCh2() {
       }
     },
     makeCrowd() { for (let i = 0; i < 22; i++) { const a = Math.PI / 2 + (i / 21 - .5) * 2.4, r = 1.6 + (i % 3) * .8; crowd.push({ x: cam.x + Math.cos(a) * r, z: cam.z + Math.sin(a) * r }); } },
-    key(k) { const n = '12345'.indexOf(k); if (n >= 0) this.press(n); },
+    key(k) {
+      if (letterOpen) { if (now() - letterOpen > .6) letterOpen = 0; return; }
+      if (phase === 'walk' && nearLetter && (k === ' ' || k === 'Enter' || k === 'x' || k === 'j')) { this.openLetter(); return; }
+      const n = '12345'.indexOf(k); if (n >= 0) this.press(n);
+    },
     pointer(t, x, y) {
-      if (phase === 'walk') { fpPointer(cam, t, x); return; }
+      if (letterOpen) { if (t === 'down' && now() - letterOpen > .6) letterOpen = 0; return; }
+      if (phase === 'walk') { fpPointer(cam, t, x); if (t === 'down' && nearLetter && !TOUCH && document.pointerLockElement === api.cv) this.openLetter(); return; }
       if (t !== 'down' || phase !== 'perf') return;
       for (let i = 0; i < 5; i++) { const kx = KX + i * (KW + KG); if (x >= kx - 4 && x <= kx + KW + 4 && y >= KY - 16 && y <= KY + KH + 12) this.press(i); }
     },
@@ -864,7 +882,9 @@ function HCh2() {
       e.flick = .94 + Math.sin(now() * 7) * .03;
       flowT -= dt; if (flowT <= 0) { flowT = .3; flow(); }
       if (pendMiss > 0) { pendMiss -= dt; if (pendMiss <= 0) { four = 0; this.miss(); } }
+      if (letterOpen) { api.hint(null); return; } // 편지를 읽는 동안은 시간이 멈춘다
       if (phase === 'walk') {
+        { const dx = LET.x - cam.x, dz = LET.z - cam.z, d = Math.hypot(dx, dz); nearLetter = d < 1.8 && Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)) < .7; }
         const c = fpControls(cam, dt, { speed: 2 });
         if (c.moving) { e.move(cam, c.vx, c.vz, .22); bob += dt * 7; stepAcc += dt; if (stepAcc > .5) { stepAcc = 0; sfx.step(); } }
         cam.bob = Math.sin(bob) * (c.moving ? 1.6 : 0);
@@ -876,7 +896,8 @@ function HCh2() {
           else if (m.seenAt != null) { if (m.moved - m.seenAt > 1.4 && !noticed) { noticed = true; say('…방금 저 자리에 있었나?', 2.8); sfx.sting(); } m.seenAt = null; }
           if (d < .85) { api.die('뒤에 서 있던 관객이 어깨를 붙잡았다.', HCh2); return; }
         }
-        if (idle > 5 && this.t < 30) api.hint(TOUCH ? '◀ 왼쪽 원으로 걷기 · 화면을 끌어 둘러보기 ▶' : '▶ W / ↑  걷기   ·   마우스·← →  둘러보기');
+        if (nearLetter && !letterRead) api.hint(TOUCH ? '✉ 좌석 위의 편지 — 「읽기」' : '✉ 좌석 위의 편지 — SPACE / 클릭');
+        else if (idle > 5 && this.t < 30) api.hint(TOUCH ? '◀ 왼쪽 원으로 걷기 · 화면을 끌어 둘러보기 ▶' : '▶ W / ↑  걷기   ·   마우스·← →  둘러보기');
         else if (!noticed && !turned && this.t > 14) api.hint(TOUCH ? '↻ 화면을 끌어 뒤를 돌아봐' : '↻ 뒤를 돌아봐');
         else api.hint(null);
         if (cam.z < 10.4 && Math.abs(cam.x - 20.5) < 2.4) this.startPerf();
@@ -906,6 +927,7 @@ function HCh2() {
     sprites() {
       const ch = chicken(), list = [];
       for (const s of seats) list.push({ spr: s.who === 'man' ? SP.seatMan : s.who === 'hair' ? SP.seatHair : SP.seat, x: s.x, z: s.z, w: .8, h: 1, y0: 0 });
+      if (phase === 'walk') { const dx = cam.x - LET.x, dz = cam.z - LET.z, d = Math.hypot(dx, dz) || 1; list.push({ spr: letterSpr, x: LET.x + dx / d * .3, z: LET.z + dz / d * .3, w: .26, h: .1, y0: .42, glow: .5 }); }
       for (const m of aw) list.push({ spr: ch ? (m.t ? SP.cGhostT : SP.cGhost) : (m.t ? SP.mannT : SP.mann), x: m.x, z: m.z, w: ch ? .8 : .6, h: ch ? .95 : 1.7, y0: ch ? .35 : 0, glow: rear > 0 ? .8 : 0 });
       for (const m of crowd) list.push({ spr: ch ? SP.cGhostT : SP.mannT, x: m.x, z: m.z, w: ch ? .8 : .6, h: ch ? .95 : 1.7, y0: ch ? .35 : 0 });
       list.push({ spr: SP.piano, x: 20.5, z: 6.6, w: 2.2, h: 1.1, y0: 0, glow: phase === 'walk' ? .55 : 0 });
@@ -975,6 +997,19 @@ function HCh2() {
         if (!ch && near < 5) { const k = clamp(1 - (near - 1) / 4, 0, 1); g.fillStyle = `rgba(0,0,0,${k * .35 * (.6 + .4 * Math.sin(now() * 6))})`; g.fillRect(0, 0, W, H); }
       }
       if (white > 0) { g.fillStyle = `rgba(255,255,255,${white})`; g.fillRect(0, 0, W, H); }
+      if (letterOpen) { // 좌석 위에 놓여 있던 편지
+        g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(0, 0, W, H);
+        g.save(); g.translate(W / 2, H / 2); g.rotate(-.025);
+        g.fillStyle = '#d9d2bf'; g.fillRect(-105, -110, 210, 220); g.strokeStyle = '#a89e88'; g.strokeRect(-99.5, -104.5, 199, 209);
+        const L = (t, y, o = {}) => txt(t, 0, y, { size: 12, color: '#2a2230', shadow: false, ...o });
+        L('끝까지 들어 줄 사람에게.', -78, { size: 13, w: 800 });
+        L('내 노래의 마지막 소절은', -48); L('아무도 듣지 못했어.', -30);
+        L('오르골 앞에 서게 되면', -2); L('이 순서대로 들려줘.', 16);
+        L(BLUE.split('').join('  ·  '), 54, { size: 22, w: 800, color: '#2a3a8a' });
+        L('─ 푸른 앨리스', 90, { size: 11, color: '#4a64c8' });
+        g.restore();
+        if (now() - letterOpen > .6) txt(TOUCH ? '화면을 누르면 닫혀요' : '아무 키나 누르면 닫혀요', W / 2, H - 16, { size: 10, color: '#8d8478', font: MONO });
+      }
     }
   };
   return S;
@@ -1107,6 +1142,11 @@ function HCh4(opt = {}) {
   const guests = [];
   let gi = 0;
   for (let x = 18; x <= 30; x += 2) { guests.push({ x: x + .5, z: 21.2, sx: x + .5, sz: 21.2, v: gi++ % 5 }); guests.push({ x: x - .5, z: 24.8, sx: x - .5, sz: 24.8, v: gi++ % 5 }); }
+  // 노란 쌍둥이: 손님 하나가 비운 자리
+  const EMPTY = { x: 26.5, z: 21.2 };
+  { const ix = guests.findIndex(gu => gu.sx === EMPTY.x && gu.sz === EMPTY.z); if (ix >= 0) guests.splice(ix, 1); }
+  const chairSpr = canvasSprite(16, 26, x => { x.fillStyle = '#3a2416'; x.fillRect(2, 0, 2, 26); x.fillRect(12, 0, 2, 26); x.fillRect(2, 2, 12, 3); x.fillRect(2, 8, 12, 2); x.fillStyle = '#5a3a26'; x.fillRect(1, 15, 14, 3); x.fillStyle = '#2a180e'; x.fillRect(3, 18, 2, 8); x.fillRect(11, 18, 2, 8); }, null, 2);
+  let sitT = 0, sitFrom = null, nearSeat = false;
   const plates = ITEMS.map((it, i) => ({ it, x: 19.5 + i * 2.5, z: i % 2 ? 23.6 : 22.4, full: false }));
   const items = ITEMS.map(it => ({ ...it, got: false }));
   // 조명
@@ -1140,8 +1180,8 @@ function HCh4(opt = {}) {
   const chew = () => { nz(.12, { type: 'lowpass', f: 400 + Math.random() * 300, vol: .1, pan: (Math.random() - .5) * 1.4 }); if (Math.random() < .3) osc('sine', 2400 + Math.random() * 800, .25, { vol: .04, pan: (Math.random() - .5) * 1.4 }); };
   const S = {
     game: true, fp: true, touch: 'h3d',
-    get act() { return phase === 'knight' ? '베기' : '행동'; },
-    get noAct() { return phase !== 'knight'; },
+    get act() { return phase === 'knight' ? '베기' : nearSeat ? '앉기' : '행동'; },
+    get noAct() { return phase !== 'knight' && !(phase === 'collect' && nearSeat && !sitT); },
     get noJoy() { return phase === 'feast' || phase === 'turn' || phase === 'shut' || phase === 'rescue'; },
     dbg: { cam, guests, items, rescue: () => S.rescue(), get phase() { return phase; }, set phase(v) { phase = v; }, get placed() { return placed; }, pickAll() { for (const it of items) if (!it.got) { it.got = true; carried.push(it); } } },
     enter() { setFx({ noise: .11, wobble: .6, ca: 1.3 }); drone(.06, 1.05, 2); if (opt.chase) { say('도망쳐.', 2); drone(.16, 1.5, .5); } else say('다과회 준비가 덜 끝났다.', 3); },
@@ -1163,13 +1203,22 @@ function HCh4(opt = {}) {
       guests.forEach((gu, i) => { gu.up = true; gu.dead = 0; gu.x = 23 + (i % 3) * .5 + (Math.random() - .5) * .3; gu.z = 37.6 - (i / 3 | 0) * .9 - Math.random() * .4; gu.jerk = Math.random(); });
       for (const k of GATE) e.wall[k] = 0; e.bake();
     },
-    key(k) { if (phase === 'rescue') return; if (k === ' ' || k === 'Enter' || k === 'x' || k === 'j') this.slash(); },
-    pointer(t, x) { if (phase === 'rescue') return; fpPointer(cam, t, x); if (t === 'down' && !TOUCH && document.pointerLockElement === api.cv) this.slash(); },
+    sit() { // 빈 손님 자리에 앉는다
+      sitT = .001; sitFrom = { x: cam.x, z: cam.z, yaw: cam.yaw }; cam.x = EMPTY.x; cam.z = EMPTY.z - .1; cam.yaw = Math.PI / 2; api.hint(null);
+      sfx.thump ? sfx.thump() : sfx.step(); say('…빈자리에 앉았다.', 2);
+      const TI = TITLES(); if (TI) TI.give('twin');
+      setTimeout(() => { if (sitT > 0) { say('맞은편 손님이 고개를 들고… 웃었다.', 2.4); const o = guests.findIndex(gu => Math.abs(gu.sx - EMPTY.x) <= 1 && gu.sz > 24); if (o >= 0) peek = o; if (!chicken()) sfx.whisper(1); } }, 1600);
+    },
+    doAct() { if (phase === 'collect' && nearSeat && !sitT) this.sit(); else this.slash(); },
+    key(k) { if (phase === 'rescue' || sitT) return; if (k === ' ' || k === 'Enter' || k === 'x' || k === 'j') this.doAct(); },
+    pointer(t, x) { if (phase === 'rescue' || sitT) return; fpPointer(cam, t, x); if (t === 'down' && !TOUCH && document.pointerLockElement === api.cv) this.doAct(); },
     update(dt) {
       slashT += dt; flash = Math.max(0, flash - dt * 2); scareT = Math.max(0, scareT - dt);
       if (phase === 'rescue') { this.cine(dt * slow); return; }
       e.flick = .92 + Math.sin(now() * 9) * .04 + Math.sin(now() * 23) * .02;
       flowT -= dt; if (flowT <= 0) { flowT = .25; flow(); }
+      if (sitT > 0) { sitT += dt; cam.bob = -16; if (sitT > 4.4) { sitT = 0; cam.x = sitFrom.x; cam.z = sitFrom.z; cam.yaw = sitFrom.yaw; cam.bob = 0; say('…일어섰다.', 1.4); } return; }
+      nearSeat = phase === 'collect' && Math.hypot(EMPTY.x - cam.x, EMPTY.z - cam.z) < 1.3;
       const lockMove = phase === 'feast' || phase === 'turn' || phase === 'shut' || phase === 'rescue';
       const c = fpControls(cam, dt, { speed: phase === 'chase' || phase === 'knight' ? 2.7 : 2.1, lock: lockMove });
       if (c.moving) { e.move(cam, c.vx, c.vz, .22); bob += dt * (phase === 'chase' ? 10 : 7); stepAcc += dt; if (stepAcc > (phase === 'chase' ? .33 : .48)) { stepAcc = 0; sfx.step(); } }
@@ -1293,6 +1342,7 @@ function HCh4(opt = {}) {
         return;
       }
       for (let x = 17; x <= 30; x++) list.push({ spr: SP.table, x: x + .5, z: 23, w: 1.05, h: .62, y0: 0 });
+      if (!sitT) list.push({ spr: chairSpr, x: EMPTY.x, z: EMPTY.z - .1, w: .5, h: .85, y0: 0 });
       for (const p of plates) list.push({ spr: p.full ? SP.plateFull[p.it.id] : SP.plate[p.it.id], x: p.x, z: p.z, w: .36, h: .36, y0: .55 });
       for (const it of items) if (!it.got) list.push({ spr: SP.item[it.id], x: it.x, z: it.z, w: .4, h: .4, y0: .3 + Math.sin(now() * 2 + it.x) * .04, glow: .9 });
       guests.forEach((gu, i) => {
@@ -1728,7 +1778,7 @@ function HCh3() {
   const cam = { x: 5.0, z: 8.4, yaw: -1.15, bob: 0 };
   const blot = Array.from({ length: 30 }, () => { const edge = Math.random() < .5; return { x: Math.random() * W, y: edge ? Math.random() * 60 : H - 70 + Math.random() * 70, r: 5 + Math.random() * 18, th: Math.random() }; });
   let phase = 'search', time = TT, bob = 0, stepAcc = 0, idle = 0, moved = false, selN = 0, found = 0, scareT = 0, scareDone = false, winLook = 0, buzzT = 0, flickT = 0, tapX = 0, tapT = 0;
-  let leadT = 0, tw = 0, twitT = 0, route = null, ri = 0, portT = 0, clkT = 0, dark = 0, lumpH = 1;
+  let leadT = 0, tw = 0, twitT = 0, route = null, ri = 0, portT = 0, clkT = 0, dark = 0, lumpH = 1, secret = 'none';
   const inView = (x, z, lim = .55) => { const dx = x - cam.x, dz = z - cam.z, d = Math.hypot(dx, dz); return Math.abs(angDiff(Math.atan2(dz, dx) - cam.yaw)) < lim && e.los(cam.x, cam.z, x - dx / d * .12, z - dz / d * .12); };
   function bfs(tx, tz) { // 방 안 최단 경로 (칸 중심)
     const prev = new Int16Array(N * N).fill(-1), s0 = (cam.z | 0) * N + (cam.x | 0), goal = (tz | 0) * N + (tx | 0), q = [s0]; prev[s0] = s0;
@@ -1751,9 +1801,24 @@ function HCh3() {
     get noJoy() { return phase !== 'search'; }, get noAct() { return phase !== 'search'; },
     dbg: { cam, TG, get phase() { return phase; }, get time() { return time; }, set time(v) { time = v; }, findAll() { for (const t of TG) if (!t.f) { t.f = true; t.ft = now(); found++; } phase = 'lead'; leadT = 0; } },
     enter() { setFx({ noise: .12, wobble: .5, ca: 1.2 }); drone(.06, .9, 2); say('초록 여왕의 방. 무언가… 틀렸다.', 3); },
-    exit() { exitLock(); api.hint(null); },
+    exit() { exitLock(); api.hint(null); this.closeSecret(); },
+    // 녹색아가씨: 처음부터 10초 동안 가만히 있으면 열리는 비밀 창 — 오늘 날짜(MMDD)
+    openSecret() {
+      secret = 'open'; exitLock(); api.hint(null); sfx.bell(); fx.glitch = .6;
+      const f = api.nameForm, i = api.nameInput; if (!f || !i) { secret = 'done'; return; }
+      i.value = ''; i.maxLength = 4; i.inputMode = 'numeric'; i.placeholder = 'MMDD'; f.hidden = false; setTimeout(() => { try { i.focus(); } catch (_) {} }, 60);
+    },
+    closeSecret() { if (secret !== 'open') return; secret = 'done'; const f = api.nameForm, i = api.nameInput; if (f) f.hidden = true; if (i) { i.blur(); i.maxLength = 10; i.inputMode = ''; i.placeholder = ''; i.value = ''; } },
+    submit() {
+      if (secret !== 'open') return;
+      const v = (api.nameInput.value || '').replace(/\D/g, ''), d = new Date(), mmdd = String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+      this.closeSecret();
+      if (!v) return;
+      if (v === mmdd) { sfx.choir ? sfx.choir() : sfx.bell(); say('「 …오늘을 기억해 줘서 고마워. 」', 3); const TI = TITLES(); TI && TI.give('green'); }
+      else { sfx.sting(); say('「 …아니야. 오늘이 아니야. 」', 2.4); }
+    },
     select() {
-      if (phase !== 'search') return; selN++;
+      if (phase !== 'search' || secret === 'open') return; selN++;
       let best = null, bs = 1e9;
       for (const t of TG) {
         if (t.f) continue;
@@ -1769,7 +1834,7 @@ function HCh3() {
         if (found >= TG.length) { phase = 'lead'; leadT = 0; exitLock(); drone(.14, .7, 3); }
         return;
       }
-      time -= 6; say('아니야.', 1.4); scareT = .55; bigScare();
+      time -= 6; say('아니야.', 1.4); scareT = .55; bigScare(); { const TI = TITLES(); if (TI && TI.inc('no3') >= 30) TI.give('fool'); }
     },
     key(k) { if (k === ' ' || k === 'Enter' || k === 'x' || k === 'j') this.select(); },
     pointer(t, x) {
@@ -1781,6 +1846,8 @@ function HCh3() {
     },
     update(dt) {
       scareT = Math.max(0, scareT - dt);
+      if (phase === 'search' && secret === 'none' && !moved && this.t >= 10) this.openSecret();
+      if (secret === 'open') { api.hint(null); return; }
       e.flick = .9 + Math.sin(now() * 11) * .04 + Math.sin(now() * 27) * .03;
       const rot = phase === 'search' ? 1 - time / TT : 1;
       // 시계는 멀쩡히 간다
@@ -1869,6 +1936,13 @@ function HCh3() {
       if (phase === 'lead') torch();
       if (phase === 'twist') { const k = clamp((tw - .6) / 6.2, 0, 1); g.fillStyle = `rgba(0,0,0,${k * .15})`; g.fillRect(0, 0, W, H); const v = g.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 230); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${.4 + k * .5})`); g.fillStyle = v; g.fillRect(0, 0, W, H); }
       if (scareT > 0) scareOverlay(scareT, .55, true);
+      if (secret === 'open') { // 비밀 창
+        g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, 0, W, H);
+        g.fillStyle = '#16301f'; g.fillRect(W / 2 - 120, 52, 240, 92); g.strokeStyle = '#a08a3a'; g.lineWidth = 2; g.strokeRect(W / 2 - 117, 55, 234, 86);
+        txt('─  창틀 사이에 끼워진 쪽지  ─', W / 2, 74, { size: 10, color: '#a8c8a8', font: MONO });
+        txt('「 오늘은… 며칠이죠? 」', W / 2, 102, { size: 15, color: '#e8e2d0', w: 800 });
+        txt('월월일일 네 자리 · 비워 두고 Enter 하면 닫혀요', W / 2, 128, { size: 9, color: '#7a9a80', font: MONO });
+      }
     }
   };
   return S;
@@ -1991,7 +2065,7 @@ function LivingRoom(next, opt = {}) {
     path[path.length - 1] = { x: tx, z: tz }; return path;
   }
   const angDiff_ = a => Math.atan2(Math.sin(a), Math.cos(a));
-  let route = null, ri = 0, pitch = 0, phase = 'search', pt = 0, bob = 0, stepAcc = 0, idle = 0, moved = false, got = false, from = null, humT = 0, breathT = 0, heartT = 0, creakT = 6, tapX = 0, tapT = 0, lastHint = 0;
+  let searchT = 0, route = null, ri = 0, pitch = 0, phase = 'search', pt = 0, bob = 0, stepAcc = 0, idle = 0, moved = false, got = false, from = null, humT = 0, breathT = 0, heartT = 0, creakT = 6, tapX = 0, tapT = 0, lastHint = 0;
   const T_REF = HARDM ? 4 : 6, T_RAMP = HARDM ? 25 : 40, T_HOLD = 3;
 
   // TV 크게 (시점 고정 뒤): 화면의 3분의 2
@@ -2098,6 +2172,7 @@ function LivingRoom(next, opt = {}) {
       const a = Math.abs(angDiff_(Math.atan2(dz, dx) - cam.yaw));
       if (d < 2.1 && a < Math.atan2(.35, d) + .12 && e.los(cam.x, cam.z, REM.x - dx / d * .12, REM.z - dz / d * .12)) {
         got = true; phase = 'remote'; pt = 0; sfx.clunk(); vib(30); api.hint(null);
+        if (searchT >= 180) { const TI = TITLES(); TI && TI.give('remote'); } // 리모컨 어디 갔어: 3분 넘게 헤맴
         say('…TV를 켜자.', 2.4);
       } else if (d < 2.4 && a < .6) say('…여기도 아니야.', 1.2);
     } else if (phase === 'remote') {
@@ -2125,6 +2200,7 @@ function LivingRoom(next, opt = {}) {
       // 하드: 스탠드가 불안하게 깜빡인다
       e.flick = HARDM && phase !== 'dark' ? (Math.random() < dt * 1.5 ? .25 : .92 + Math.sin(now() * 13) * .05) : 1;
       if (phase === 'search' || phase === 'remote') {
+        if (phase === 'search') searchT += dt;
         const c = fpControls(cam, dt, { speed: 1.6 });
         if (c.moving) { moved = true; e.move(cam, c.vx, c.vz, .22); bob += dt * 6.5; stepAcc += dt; if (stepAcc > .55) { stepAcc = 0; sfx.step(); } }
         cam.bob = Math.sin(bob) * (c.moving ? 1.4 : 0);
