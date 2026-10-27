@@ -80,22 +80,43 @@ $('inCode').addEventListener('input', e => { e.target.value = e.target.value.toU
 /* =========================================================
    네트워크
    ========================================================= */
-let ws = null, leaving = false, lastErr = '', curCode = '', lobby = null, retries = 0, rtt = 0;
+let ws = null, leaving = false, lastErr = '', curCode = '', lobby = null, retries = 0, rtt = 0, dropT = 0, retryTm = null, lastRx = 0;
 function connect(code, create) {
-  leaving = false; curCode = code;
+  if (!dropT) lobby = null; // 새로 들어갈 때는 이전 방 정보 없이 (재연결 중엔 유지)
+  leaving = false; curCode = code; $('btnRejoin').hidden = true;
   const u = `${WSB}/ws/${code}?id=${encodeURIComponent(myId)}&name=${encodeURIComponent(myName)}&dev=${device}&create=${create ? 1 : 0}`;
   let sock;
   try { sock = new WebSocket(u); } catch (e) { homeErr('서버에 연결할 수 없어요.'); return; }
-  ws = sock;
-  sock.onopen = () => { retries = 0; };
-  sock.onmessage = e => { if (sock !== ws) return; let m; try { m = JSON.parse(e.data); } catch (_) { return; } onMsg(m); };
+  ws = sock; lastRx = Date.now();
+  sock.onopen = () => { retries = 0; if (dropT) { dropT = 0; addSys('다시 연결됐어요.'); if (game) say('다시 연결됐다', '#cfe8d2', 2.5); } };
+  sock.onmessage = e => { if (sock !== ws) return; lastRx = Date.now(); let m; try { m = JSON.parse(e.data); } catch (_) { return; } onMsg(m); };
   sock.onclose = () => {
     if (sock !== ws) return; ws = null;
     if (leaving) return;
-    if (game && !lastErr && retries < 4) { retries++; addSys('연결이 끊겨 다시 연결하는 중…'); setTimeout(() => { if (!leaving) connect(curCode, false); }, 700 * retries); return; }
-    stopGame(); show('scHome'); homeErr(lastErr || '연결이 끊겼어요.'); lastErr = '';
+    // 게임 중이든 대기실이든: 1분 동안은 계속 다시 연결해 본다 (폰 화면을 껐다 켜거나 앱을 잠깐 바꿔도 돌아오게)
+    if ((game || lobby) && !lastErr) {
+      if (!dropT) { dropT = Date.now(); addSys('연결이 끊겨 다시 연결하는 중…'); if (game) say('연결이 끊겼다 — 다시 연결하는 중…', '#e0c080', 4); }
+      if (Date.now() - dropT < 60000) { retries++; clearTimeout(retryTm); retryTm = setTimeout(() => { if (!leaving && !ws) connect(curCode, false); }, Math.min(3000, 600 * retries)); return; }
+    }
+    const lost = !lastErr && (game || lobby) && curCode;
+    dropT = 0; stopGame(); show('scHome'); homeErr(lastErr || '연결이 끊겼어요.'); lastErr = '';
+    if (lost) showRejoin(curCode);
   };
 }
+// 홈 화면의 「다시 들어가기」 버튼 (끊겼던 방으로)
+function showRejoin(code) { const b = $('btnRejoin'); b.textContent = `다시 들어가기 (${code})`; b.hidden = false; b.onclick = () => { b.hidden = true; homeErr(''); connect(code, false); }; }
+// 화면으로 돌아오는 순간 바로 다시 연결
+// 조용히 죽은 연결 감지: 서버는 게임 중 초당 20번, 대기실에선 2초마다 답을 보낸다. 한동안 아무것도 안 오면 끊긴 걸로 보고 다시 연결
+function killStale(limit) {
+  if (!ws || leaving || !(game || lobby)) return;
+  if (Date.now() - lastRx > limit) { const s = ws; s.onclose(); try { s.close(); } catch (e) {} }
+}
+setInterval(() => killStale(ws && ws.readyState === 1 ? (game ? 4000 : 7000) : 6000), 1000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || leaving || !curCode) return;
+  if (ws) killStale(2500); // 화면으로 돌아왔는데 그동안 아무것도 못 받았으면 바로 새로 연결
+  if (dropT && !ws) { clearTimeout(retryTm); connect(curCode, false); }
+});
 // 서버가 새 버전으로 업데이트돼서 맵 코드가 다르면: 새로고침하고 같은 방으로 다시 들어간다
 function reloadAndRejoin() {
   const n = sess.get('rejoinN', 0);
@@ -2241,4 +2262,4 @@ requestAnimationFrame(frame);
 // 시작 화면
 if (device) goHome(); else show('scDevice');
 { const rj = sess.get('rejoin', null); if (rj && device && myName && Date.now() - rj.t < 60000 && /^[A-Z]{4}$/.test(rj.code)) { sess.set('rejoin', null); connect(rj.code, false); } }
-window.__injoo = { get game() { return game; }, get lobby() { return lobby; }, keys, ctl, onMsg: m => onMsg(m), setChicken(v) { chicken = !!v; } };
+window.__injoo = { get game() { return game; }, get ws() { return ws; }, get lobby() { return lobby; }, keys, ctl, onMsg: m => onMsg(m), setChicken(v) { chicken = !!v; } };

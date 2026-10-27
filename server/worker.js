@@ -67,7 +67,9 @@ export class Room {
     let p = this.players.get(id);
     if (p) {
       if (p.ws) { try { p.ws.close(4001, 'replaced'); } catch (e) {} }
-      p.ws = ws; p.on = true;
+      const back = !p.on; p.ws = ws; p.on = true;
+      if (back) this.sys(`${p.name} 님이 다시 연결됐어요.`);
+      if (!this.host || !this.players.has(this.host)) this.host = id;
     } else {
       if (this.phase !== 'lobby') return err('이미 게임이 진행 중이에요. 끝나면 다시 들어와 주세요.');
       if (this.players.size >= this.settings.max) return err('방이 꽉 찼어요.');
@@ -77,7 +79,7 @@ export class Room {
       this.sys(`${p.name} 님이 들어왔어요.`);
     }
     ws.addEventListener('message', e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } try { this.onMsg(p, m); } catch (ex) { console.log('msg error', ex && ex.stack); } });
-    ws.addEventListener('close', () => this.onClose(p, ws));
+    ws.addEventListener('close', () => { try { ws.close(1000, 'bye'); } catch (e) {} this.onClose(p, ws); });
     ws.addEventListener('error', () => this.onClose(p, ws));
     this.send(p, { type: 'hello', id, code: this.code, fp: mapFingerprint(), pv: PROTO });
     if (this.phase === 'game' && p.role) this.send(p, this.startMsg(p));
@@ -99,16 +101,25 @@ export class Room {
 
   onClose(p, ws) {
     if (p.ws !== ws) return;
-    p.ws = null; p.on = false;
+    p.ws = null; p.on = false; p.offAt = Date.now();
     if (this.phase === 'lobby') {
-      this.players.delete(p.id); this.order = this.order.filter(i => i !== p.id);
-      this.sys(`${p.name} 님이 나갔어요.`);
+      // 대기실: 15초 동안은 자리를 지켜 준다 (폰 화면을 잠깐 껐다 와도 그대로)
+      this.sys(`${p.name} 님의 연결이 끊겼어요. 15초 안에 돌아오면 그대로예요.`);
+      setTimeout(() => {
+        if (p.on || this.players.get(p.id) !== p) return;
+        if (this.phase === 'lobby') { this.players.delete(p.id); this.order = this.order.filter(i => i !== p.id); this.sys(`${p.name} 님이 나갔어요.`); }
+        if (!this.players.has(this.host)) this.pickHost();
+        if (![...this.players.values()].some(x => x.on)) this.reset(true); else this.pushLobby();
+      }, 15000);
     } else {
       this.sys(`${p.name} 님의 연결이 끊겼어요.`);
       if (this.g && p.role === 'dream' && p.carry) this.drop(p);
     }
     if (this.host === p.id || !this.players.has(this.host)) this.pickHost();
-    if (![...this.players.values()].some(x => x.on)) this.reset(true);
+    // 아무도 없으면: 대기실은 위 15초 뒤, 게임 중이면 1분 뒤까지 돌아오길 기다렸다가 정리
+    if (![...this.players.values()].some(x => x.on) && this.phase !== 'lobby') {
+      setTimeout(() => { if (![...this.players.values()].some(x => x.on)) this.reset(true); }, 60000);
+    }
     this.pushLobby();
   }
   pickHost() {
@@ -179,6 +190,7 @@ export class Room {
   cantStart() {
     const ps = [...this.players.values()];
     if (ps.length < 2) return '최소 2명이 있어야 시작할 수 있어요.';
+    if (ps.some(x => !x.on)) return '연결이 끊긴 사람이 있어요. 잠깐 기다리거나 추방해 주세요.';
     if (ps.some(x => !x.ready)) return '모두 준비해야 시작할 수 있어요.';
     if (this.settings.dreams >= ps.length) return '앨리스가 한 명 이상 있어야 해요. 꿈 인원을 줄여 주세요.';
     return '';
@@ -564,7 +576,7 @@ export class Room {
     this.snap();
 
     const alices = ps.filter(p => p.role === 'alice');
-    const active = alices.filter(p => (p.st === 0 || p.st === 1) && p.on).length;
+    const nowMs = Date.now(), active = alices.filter(p => (p.st === 0 || p.st === 1) && (p.on || nowMs - (p.offAt || 0) < 60000)).length;
     if (g.time <= 0 || active === 0) this.endGame();
   }
 
