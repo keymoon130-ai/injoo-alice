@@ -314,9 +314,36 @@ function Engine(o) {
       }
     }
     const list = [];
-    for (const s of sprites) { const [tx, ty] = proj(s.x, s.z); if (ty > .12 && ty < fogD + 2) list.push({ s, tx, ty }); }
+    for (const s of sprites) { const [tx, ty] = s.q ? proj((s.q.x1 + s.q.x2) / 2, (s.q.z1 + s.q.z2) / 2) : proj(s.x, s.z); if ((ty > .12 || s.q) && ty < fogD + 2) list.push({ s, tx, ty }); }
     list.sort((a, b) => b.ty - a.ty);
+    const drawQuad = s => {
+      const q = s.q, spr = s.spr, NEAR = .06;
+      let x1 = q.x1, z1 = q.z1, x2 = q.x2, z2 = q.z2, u1 = 0, u2 = 1;
+      let [tx1, ty1] = proj(x1, z1), [tx2, ty2] = proj(x2, z2);
+      if (ty1 < NEAR && ty2 < NEAR) return;
+      if (ty1 < NEAR) { const t = (NEAR - ty1) / (ty2 - ty1); x1 += (x2 - x1) * t; z1 += (z2 - z1) * t; u1 = t; [tx1, ty1] = proj(x1, z1); }
+      else if (ty2 < NEAR) { const t = (NEAR - ty2) / (ty1 - ty2); x2 += (x1 - x2) * t; z2 += (z1 - z2) * t; u2 = 1 - t; [tx2, ty2] = proj(x2, z2); }
+      const sx1 = W / 2 * (1 + tx1 / ty1), sx2 = W / 2 * (1 + tx2 / ty2);
+      if (sx2 <= sx1 + .01) return; // 뒷면
+      const iz1 = 1 / ty1, iz2 = 1 / ty2, uz1 = u1 * iz1, uz2 = u2 * iz2;
+      litAt((q.x1 + q.x2) / 2 + (q.nx || 0) * .05, (q.z1 + q.z2) / 2 + (q.nz || 0) * .05, lt);
+      const shd = q.sh || 1, lr = lt[0] * shd, lg = lt[1] * shd, lb = lt[2] * shd;
+      for (let x = Math.max(0, Math.ceil(sx1)); x <= Math.min(W - 1, Math.floor(sx2)); x++) {
+        const k0 = (x + .5 - sx1) / (sx2 - sx1), iz = iz1 + (iz2 - iz1) * k0, d = 1 / iz;
+        if (d >= zbuf[x]) continue;
+        let pu = (((uz1 + (uz2 - uz1) * k0) * d) * spr.w) | 0; if (pu < 0) pu = 0; if (pu >= spr.w) pu = spr.w - 1;
+        const scale = H / d, bot = hor + (.5 - q.yb) * scale, top = hor + (.5 - q.yt) * scale, hpx = bot - top;
+        const ft = fogT(d), kf = 1 - ft;
+        for (let y = Math.max(0, Math.ceil(top)); y <= Math.min(H - 1, Math.floor(bot)); y++) {
+          let pv = ((y - top) / hpx * spr.h) | 0; if (pv >= spr.h) pv = spr.h - 1;
+          const k = pv * spr.w + pu; if (!spr.a[k]) continue;
+          if (spr.e[k]) { pix[y * W + x] = pack(spr.r[k], spr.g[k], spr.b[k]); if (EM) EM[y * W + x] = 1; continue; }
+          pix[y * W + x] = pack((spr.r[k] * lr * kf + fogC[0] * ft) | 0, (spr.g[k] * lg * kf + fogC[1] * ft) | 0, (spr.b[k] * lb * kf + fogC[2] * ft) | 0);
+        }
+      }
+    };
     for (const { s, tx, ty } of list) {
+      if (s.q) { drawQuad(s); continue; }
       const spr = s.spr, tyS = Math.max(ty, .3), scale = H / tyS, sx = W / 2 * (1 + tx / ty) + (s.shake ? (Math.random() - .5) * s.shake : 0);
       const hpx = s.h * scale, wpx = s.w * scale;
       const bot = hor + (.5 - (s.y0 || 0)) * scale, top = bot - hpx;
@@ -1906,7 +1933,7 @@ function LivingRoom(next, opt = {}) {
   for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) { const k = z * N + x; if (x < 2 || x > 9 || z < 2 || z > 9) { e.wall[k] = 1; continue; } e.floor[k] = (x >= 3 && x <= 8 && z >= 4 && z <= 8) ? 1 : 0; }
   e.wall[9 * N + 9] = 0; e.wall[10 * N + 9] = 2; // 현관 쪽 문 (닫혀 있다)
   const LAMP = { x: 2.75, z: 7.6 }, TV = { x: 5.6, z: 2.5 }, SOFA = { x: 4.6, z: 7.9 };
-  e.block[2 * N + 5] = 1; e.block[7 * N + 2] = 1; e.block[7 * N + 4] = 1; e.block[7 * N + 5] = 1;
+  e.block[2 * N + 5] = 1; e.block[2 * N + 6] = 1; e.block[7 * N + 2] = 1; for (const [bx, bz] of [[3, 7], [4, 7], [5, 7], [3, 8], [4, 8], [5, 8]]) e.block[bz * N + bx] = 1;
   const LAMP_L = { x: LAMP.x, z: LAMP.z, r: 4.2, i: 1.7, c: [1, .72, .42] };
   e.lights.push(LAMP_L, { x: 5.6, z: 3.2, r: 1.8, i: .12, c: [.45, .55, 1] });
   e.bake();
@@ -1938,6 +1965,19 @@ function LivingRoom(next, opt = {}) {
   const lowT = canvasSprite(40, 12, x => { x.fillStyle = '#2a1e14'; x.fillRect(0, 0, 40, 3); x.fillRect(2, 3, 3, 9); x.fillRect(35, 3, 3, 9); x.fillStyle = '#d8d0c0'; x.fillRect(8, -1, 6, 2); }, null, 2);
   const plant = canvasSprite(20, 40, x => { x.fillStyle = '#2a1a12'; x.fillRect(6, 30, 8, 10); for (let i = 0; i < 9; i++) { x.fillStyle = i % 2 ? '#1a2a16' : '#22341c'; x.fillRect(9 + Math.sin(i * 2) * 7, 6 + i * 2.6, 6, 2); } }, null, 2);
   const remoteS = canvasSprite(12, 5, x => { x.fillStyle = '#161616'; x.fillRect(0, 0, 12, 5); x.fillStyle = '#2a2a2a'; x.fillRect(2, 1, 6, 1); }, x => { E2(x, 10, 2.5, .8, .8, '#ff4040'); }, 3);
+  // 방향이 고정된 가구: TV · 받침장 · 소파 (판 여러 장으로 만든 상자)
+  const plain = (w, h, col, dark) => canvasSprite(w, h, x => { x.fillStyle = col; x.fillRect(0, 0, w, h); x.fillStyle = dark; x.fillRect(0, 0, w, 1); x.fillRect(0, h - 1, w, 1); for (let i = 3; i < w; i += 6) x.fillRect(i, 2, 1, h - 4); }, null, 2);
+  const cabSide = plain(12, 10, '#24190f', '#160f08'), tvSide = plain(12, 18, '#151310', '#0c0b09');
+  const sofaBack = canvasSprite(64, 18, x => { x.fillStyle = '#34201e'; x.fillRect(0, 0, 64, 18); x.fillStyle = '#2a1816'; for (let i = 8; i < 64; i += 16) x.fillRect(i, 2, 1, 15); x.fillRect(0, 0, 64, 2); }, null, 2);
+  const sofaFront = canvasSprite(64, 18, x => { x.fillStyle = '#3a2422'; x.fillRect(0, 0, 64, 18); x.fillStyle = '#4a2e2a'; x.fillRect(0, 0, 7, 18); x.fillRect(57, 0, 7, 18); x.fillStyle = '#2e1c1a'; x.fillRect(8, 8, 23, 9); x.fillRect(33, 8, 23, 9); x.fillStyle = '#442a26'; x.fillRect(8, 1, 48, 6); }, null, 2);
+  const sofaSide = canvasSprite(20, 18, x => { x.fillStyle = '#4a2e2a'; x.fillRect(0, 0, 20, 18); x.fillStyle = '#3a2422'; x.fillRect(0, 0, 20, 3); }, null, 2);
+  const TVZ = 2.5, TVX0 = TV.x - .5, TVX1 = TV.x + .5, CBX0 = TV.x - .55, CBX1 = TV.x + .55;
+  const box = (x0, z0, x1, z1, yb, yt, front, side, back) => [
+    { spr: front, q: { x1: x0, z1, x2: x1, z2: z1, yb, yt, nz: 1 } },
+    ...(back ? [{ spr: back, q: { x1: x1, z1: z0, x2: x0, z2: z0, yb, yt, nz: -1 } }] : []),
+    { spr: side, q: { x1: x0, z1: z0, x2: x0, z2: z1, yb, yt, nx: -1, sh: .72 } },
+    { spr: side, q: { x1: x1, z1: z1, x2: x1, z2: z0, yb, yt, nx: 1, sh: .72 } }
+  ];
   const SPOTS = [{ x: 3.35, z: 6.45 }, { x: 3.15, z: 8.6 }, { x: 4.25, z: 6.75 }];
   const REM = SPOTS[Math.random() * SPOTS.length | 0];
 
@@ -1960,55 +2000,69 @@ function LivingRoom(next, opt = {}) {
   const TVW = 1.0, TVH = TVW * TH / TW, TVY0 = .42;
   function tvRect() {
     const dirX = Math.cos(cam.yaw), dirZ = Math.sin(cam.yaw), plX = -dirZ * FOVP, plZ = dirX * FOVP, inv = 1 / (plX * dirZ - dirX * plZ);
-    const dx = TV.x - cam.x, dz = TV.z + .02 - cam.z, tx = inv * (dirZ * dx - dirX * dz), ty = inv * (-plZ * dx + plX * dz);
+    const dx = TV.x - cam.x, dz = TVZ - cam.z, tx = inv * (dirZ * dx - dirX * dz), ty = inv * (-plZ * dx + plX * dz);
     if (ty < .2) return null;
     const scale = H / Math.max(ty, .3), sx = W / 2 * (1 + tx / ty), hor = (H / 2 + (cam.bob || 0)) | 0, bot = hor + (.5 - TVY0) * scale;
     return { x: sx - TVW * scale / 2, y: bot - TVH * scale, w: TVW * scale };
   }
-  function bigTV(eyeK, mode) {
-    const rc = tvRect(); if (!rc) return;
-    const k = rc.w / TW;
-    g.save(); g.translate(rc.x - TX * k, rc.y - TY * k); g.scale(k, k);
-    g.fillStyle = '#17150f'; g.beginPath(); g.roundRect(TX, TY, TW, TH, 10); g.fill();
-    g.fillStyle = '#211e18'; g.fillRect(TX + 4, TY + 3, TW - 8, 3);
-    g.fillStyle = '#0e0d0b'; g.fillRect(TX + TW - 40, TY + 20, 30, TH - 40);
-    for (const yy of [52, 80]) { ell(TX + TW - 25, TY + yy, 7, 7, '#2c2924'); ell(TX + TW - 25, TY + yy, 2, 6, '#1a1814'); }
-    for (let i = 0; i < 6; i++) g.fillRect(TX + TW - 34, TY + 110 + i * 7, 20, 2);
-    ell(TX + TW - 25, TY + TH - 26, 2, 2, '#ff3a30');
-    const sg = g.createLinearGradient(TX, 0, TX + 50, 0); sg.addColorStop(0, `rgba(255,170,90,${.18 * e.lightMul})`); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.fillRect(TX, TY, 50, TH);
-    g.save(); g.beginPath(); g.roundRect(SX, SY, SW, SH, 22); g.clip();
-    const bg = g.createRadialGradient(SX + SW * .45, SY + SH * .45, 10, SX + SW / 2, SY + SH / 2, SW * .7); bg.addColorStop(0, '#0c0d13'); bg.addColorStop(1, '#020203'); g.fillStyle = bg; g.fillRect(SX, SY, SW, SH);
+  function drawTV(c, eyeK, mode) { // TX·TY 기준 좌표로 TV 앞면을 그린다 (3D 판 무늬와 가까이서 보는 화면이 똑같도록)
+    c.save();
+    c.fillStyle = '#17150f'; c.beginPath(); c.roundRect(TX, TY, TW, TH, 10); c.fill();
+    c.fillStyle = '#211e18'; c.fillRect(TX + 4, TY + 3, TW - 8, 3);
+    c.fillStyle = '#0e0d0b'; c.fillRect(TX + TW - 40, TY + 20, 30, TH - 40);
+    for (const yy of [52, 80]) { E2(c, TX + TW - 25, TY + yy, 7, 7, '#2c2924'); E2(c, TX + TW - 25, TY + yy, 2, 6, '#1a1814'); }
+    for (let i = 0; i < 6; i++) c.fillRect(TX + TW - 34, TY + 110 + i * 7, 20, 2);
+    E2(c, TX + TW - 25, TY + TH - 26, 2, 2, '#ff3a30');
+    const sg = c.createLinearGradient(TX, 0, TX + 50, 0); sg.addColorStop(0, `rgba(255,170,90,${.18 * e.lightMul})`); sg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = sg; c.fillRect(TX, TY, 50, TH);
+    c.save(); c.beginPath(); c.roundRect(SX, SY, SW, SH, 22); c.clip();
+    const bg = c.createRadialGradient(SX + SW * .45, SY + SH * .45, 10, SX + SW / 2, SY + SH / 2, SW * .7); bg.addColorStop(0, '#0c0d13'); bg.addColorStop(1, '#020203'); c.fillStyle = bg; c.fillRect(SX, SY, SW, SH);
     // 웅… 검은 화면이 반복된다 (아주 옅게 깜빡임)
-    if (mode === 'static') { for (let i = 0; i < 900; i++) { const v = Math.random() * 230 | 0; g.fillStyle = `rgb(${v},${v},${v + 10})`; g.fillRect(SX + Math.random() * SW, SY + Math.random() * SH, 4, 3); } g.restore(); g.restore(); return; }
-    const hb = mode === 'blue' ? 1 : .5 + .5 * Math.sin(now() * 2.2); g.fillStyle = `rgba(40,50,90,${.05 + hb * .07})`; g.fillRect(SX, SY, SW, SH);
+    if (mode === 'static') { for (let i = 0; i < 900; i++) { const v = Math.random() * 230 | 0; c.fillStyle = `rgb(${v},${v},${v + 10})`; c.fillRect(SX + Math.random() * SW, SY + Math.random() * SH, 4, 3); } c.restore(); c.restore(); return; }
+    if (mode !== 'off') { const hb = mode === 'blue' ? 1 : .5 + .5 * Math.sin(now() * 2.2); c.fillStyle = `rgba(40,50,90,${.05 + hb * .07})`; c.fillRect(SX, SY, SW, SH); }
     // 비친 스탠드 불빛
     const lx = SX + SW * .2, ly = SY + SH * .34, lm = e.lightMul;
     if (lm > .05) {
-      const lg = g.createRadialGradient(lx, ly, 1, lx, ly, 46); lg.addColorStop(0, ch0 ? `rgba(255,170,210,${.4 * lm})` : `rgba(255,190,110,${.4 * lm})`); lg.addColorStop(.3, `rgba(190,110,50,${.12 * lm})`); lg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = lg; g.fillRect(SX, SY, SW, SH);
-      poly([lx - 6, ly + 6, lx + 6, ly + 6, lx + 4, ly - 3, lx - 4, ly - 3], `rgba(255,214,150,${.45 * lm})`);
+      const lg = c.createRadialGradient(lx, ly, 1, lx, ly, 46); lg.addColorStop(0, ch0 ? `rgba(255,170,210,${.4 * lm})` : `rgba(255,190,110,${.4 * lm})`); lg.addColorStop(.3, `rgba(190,110,50,${.12 * lm})`); lg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = lg; c.fillRect(SX, SY, SW, SH);
+      P2(c, [lx - 6, ly + 6, lx + 6, ly + 6, lx + 4, ly - 3, lx - 4, ly - 3], `rgba(255,214,150,${.45 * lm})`);
     }
     // 비친 소파와 내 뒷모습
-    g.fillStyle = 'rgba(14,9,9,.95)'; g.fillRect(SX, SY + SH * .74, SW, SH); g.fillRect(SX + 6, SY + SH * .66, 16, SH);
+    c.fillStyle = 'rgba(14,9,9,.95)'; c.fillRect(SX, SY + SH * .74, SW, SH); c.fillRect(SX + 6, SY + SH * .66, 16, SH);
     const mx = SX + SW * .5, my = SY + SH * .62;
-    ell(mx, my, 21, 26, '#020203');
-    g.fillStyle = '#020203'; g.beginPath(); g.moveTo(mx - 56, SY + SH); g.quadraticCurveTo(mx - 48, my + 30, mx, my + 24); g.quadraticCurveTo(mx + 48, my + 30, mx + 56, SY + SH); g.closePath(); g.fill();
-    g.strokeStyle = `rgba(255,170,100,${.2 * lm})`; g.lineWidth = 1; g.beginPath(); g.ellipse(mx, my, 21, 26, 0, Math.PI * .75, Math.PI * 1.3); g.stroke();
+    E2(c, mx, my, 21, 26, '#020203');
+    c.fillStyle = '#020203'; c.beginPath(); c.moveTo(mx - 56, SY + SH); c.quadraticCurveTo(mx - 48, my + 30, mx, my + 24); c.quadraticCurveTo(mx + 48, my + 30, mx + 56, SY + SH); c.closePath(); c.fill();
+    c.strokeStyle = `rgba(255,170,100,${.2 * lm})`; c.lineWidth = 1; c.beginPath(); c.ellipse(mx, my, 21, 26, 0, Math.PI * .75, Math.PI * 1.3); c.stroke();
     // 내 오른쪽 어깨 너머의 눈
     if (eyeK > 0) {
       const ex = mx + 46, ey = my - 18, col = ch0 ? [255, 150, 200] : [255, 50, 36];
       for (const dx of [-6, 6]) {
-        const r = 3 + eyeK * 9, gl = g.createRadialGradient(ex + dx, ey, 0, ex + dx, ey, r);
+        const r = 3 + eyeK * 9, gl = c.createRadialGradient(ex + dx, ey, 0, ex + dx, ey, r);
         gl.addColorStop(0, `rgba(${col[0]},${col[1] + eyeK * 40},${col[2] + eyeK * 20},${.12 + eyeK * .6})`); gl.addColorStop(1, 'rgba(120,0,0,0)');
-        g.fillStyle = gl; g.fillRect(ex + dx - r, ey - r, r * 2, r * 2);
-        ell(ex + dx, ey, 1.4 + eyeK * .6, .8 + eyeK * .5, `rgba(${col[0]},${col[1] + eyeK * 120},${col[2] + eyeK * 80},${.2 + eyeK * .8})`);
+        c.fillStyle = gl; c.fillRect(ex + dx - r, ey - r, r * 2, r * 2);
+        E2(c, ex + dx, ey, 1.4 + eyeK * .6, .8 + eyeK * .5, `rgba(${col[0]},${col[1] + eyeK * 120},${col[2] + eyeK * 80},${.2 + eyeK * .8})`);
       }
-      if (eyeK > .85) { g.strokeStyle = `rgba(120,10,10,${(eyeK - .85) / .15 * .25})`; g.lineWidth = 1; g.beginPath(); g.ellipse(ex, ey + 6, 22, 26, 0, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+      if (eyeK > .85) { c.strokeStyle = `rgba(120,10,10,${(eyeK - .85) / .15 * .25})`; c.lineWidth = 1; c.beginPath(); c.ellipse(ex, ey + 6, 22, 26, 0, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
     }
-    poly([SX + 14, SY + 8, SX + 70, SY + 8, SX + 24, SY + 70, SX + 8, SY + 70], 'rgba(200,210,255,.04)');
-    g.fillStyle = 'rgba(0,0,0,.22)'; for (let yy = SY; yy < SY + SH; yy += 2) g.fillRect(SX, yy, SW, 1);
-    const vg = g.createRadialGradient(SX + SW / 2, SY + SH / 2, SW * .25, SX + SW / 2, SY + SH / 2, SW * .62); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.8)'); g.fillStyle = vg; g.fillRect(SX, SY, SW, SH);
-    g.restore();
-    g.strokeStyle = '#0a0907'; g.lineWidth = 3; g.beginPath(); g.roundRect(SX, SY, SW, SH, 22); g.stroke();
+    P2(c, [SX + 14, SY + 8, SX + 70, SY + 8, SX + 24, SY + 70, SX + 8, SY + 70], 'rgba(200,210,255,.04)');
+    c.fillStyle = 'rgba(0,0,0,.22)'; for (let yy = SY; yy < SY + SH; yy += 2) c.fillRect(SX, yy, SW, 1);
+    const vg = c.createRadialGradient(SX + SW / 2, SY + SH / 2, SW * .25, SX + SW / 2, SY + SH / 2, SW * .62); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.8)'); c.fillStyle = vg; c.fillRect(SX, SY, SW, SH);
+    c.restore();
+    c.strokeStyle = '#0a0907'; c.lineWidth = 3; c.beginPath(); c.roundRect(SX, SY, SW, SH, 22); c.stroke();
+    c.restore();
+  }
+  let tvTex = null, tvTexKey = '', tvTexT = 0;
+  function tvTexture(mode) { // 3D TV 앞면 (스스로 빛나게 — 어두운 방에서도 TV는 보인다)
+    const key = mode + (mode === 'static' ? (now() * 10 | 0) : '');
+    if (key !== tvTexKey || (mode !== 'static' && now() - tvTexT > .25)) {
+      tvTexKey = key; tvTexT = now();
+      tvTex = canvasSprite(TW / 2 | 0, TH / 2 | 0, () => {}, x => { x.scale(.5, .5); x.translate(-TX, -TY); drawTV(x, 0, mode); });
+    }
+    return tvTex;
+  }
+  function bigTV(eyeK, mode, alpha = 1) {
+    const rc = tvRect(); if (!rc || alpha <= 0) return;
+    const k = rc.w / TW;
+    g.save(); g.globalAlpha = alpha; g.translate(rc.x - TX * k, rc.y - TY * k); g.scale(k, k);
+    drawTV(g, eyeK, mode);
     g.restore();
   }
   // 점프스케어: 멀티의 꿈 — 새까만 둥근 머리, 붉은 눈, 귀까지 찢어진 웃음
@@ -2138,11 +2192,11 @@ function LivingRoom(next, opt = {}) {
       if (phase === 'dark') { g.fillStyle = '#000'; g.fillRect(-20, -20, W + 40, H + 40); return; }
       if (phase === 'search' || phase === 'remote') e.dyn = [];
       const sprites = [
-        { spr: cab, x: TV.x, z: TV.z, w: 1.3, h: .42, y0: 0 },
-        { spr: tvSpr(tvState), x: TV.x, z: TV.z + .02, w: TVW, h: TVH, y0: TVY0 },
+        ...box(CBX0, 2.02, CBX1, TVZ, 0, TVY0, cab, cabSide),
+        ...box(TVX0, 2.06, TVX1, TVZ, TVY0, TVY0 + TVH, tvTexture(phase === 'static' ? 'static' : tvState === 'off' ? 'off' : tvState), tvSide),
         { spr: sideT, x: LAMP.x, z: LAMP.z, w: .5, h: .42, y0: 0 },
         { spr: e.flick < .5 ? lampOff : lamp, x: LAMP.x, z: LAMP.z, w: .26, h: .75, y0: .42 },
-        { spr: sofa, x: SOFA.x, z: SOFA.z, w: 2.1, h: .62, y0: 0 },
+        ...box(SOFA.x - 1.05, SOFA.z - .3, SOFA.x + 1.05, SOFA.z + .3, 0, .58, sofaBack, sofaSide, sofaFront),
         { spr: lowT, x: 5.4, z: 5.6, w: 1.1, h: .3, y0: 0 },
         { spr: plant, x: 8.6, z: 2.5, w: .45, h: .85, y0: 0 }
       ];
@@ -2155,9 +2209,9 @@ function LivingRoom(next, opt = {}) {
         g.fillStyle = phase === 'remote' ? '#c02020' : '#ff4040'; g.fillRect(-9, -74, 5, 4);
         g.restore();
       }
-      if (phase === 'static' || phase === 'hum' || phase === 'move' || phase === 'cine') {
-        const u = phase === 'cine' ? clamp((pt - T_REF) / T_RAMP, 0, 1) : 0;
-        bigTV(Math.pow(u, 2.2), phase === 'static' ? 'static' : tvState === 'blue' ? 'blue' : 'black');
+      if (phase === 'cine') { // 정면에 멈춰 선 뒤에야 화면 유리에 비친 것이 보이기 시작한다
+        const u = clamp((pt - T_REF) / T_RAMP, 0, 1);
+        bigTV(Math.pow(u, 2.2), 'black', clamp(pt / 2, 0, 1));
       }
     }
   };
