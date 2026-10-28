@@ -144,7 +144,7 @@ function onMsg(m) {
       else if (!game) show('scLobby');
       break;
     case 'chat': addChat(m); break;
-    case 'ping': onPing(m); break;
+    case 'sign': onPing(m); break;
     case 'start': startGame(m); break;
     case 'snap': if (game) onSnap(m); break;
     case 'end': if (game) onEnd(m); break;
@@ -960,7 +960,7 @@ let pingCd = 0;
 function sendPing(x, z) {
   if (!game || game.ended || game.intro > 0) return;
   const t = performance.now(); if (t - pingCd < 3000) { say('손짓은 3초에 한 번', '#a89e90', 1.2); return; }
-  pingCd = t; send({ type: 'ping', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 });
+  pingCd = t; send({ type: 'sign', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 });
 }
 function pingLook() { // PC: 보고 있는 곳 (벽 앞까지, 최대 16칸)
   const g = game; if (!g) return; if (g.mapOn) return;

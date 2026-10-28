@@ -2,7 +2,7 @@
 // 같은 시드(seed)로 같은 맵을 만들고, 같은 이동 함수로 움직여서 기기 간 차이를 없앤다.
 
 // 서버·클라이언트 규칙 버전: 바뀌면 옛 화면은 자동으로 새로고침된다
-export const PROTO = 12;
+export const PROTO = 13;
 
 export const CFG = {
   N: 80,                 // 맵 한 변 (칸)

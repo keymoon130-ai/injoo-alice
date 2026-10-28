@@ -182,12 +182,12 @@ export class Room {
         if (m.df === null) p.dskinF = null; else if (freeSkinValid(m.df, 'dream')) p.dskinF = m.df;
         if (eyesValid(m.e)) p.deye = m.e.slice();
         break;
-      case 'ping': { // 손짓: 같은 편에게만 위치를 알린다 (3초에 한 번)
+      case 'sign': { // 손짓: 같은 편에게만 위치를 알린다 (3초에 한 번)
         if (this.phase !== 'game' || !this.g || !p.role) return;
         const x = +m.x, z = +m.z, N = this.g.w.N, now = Date.now();
         if (!Number.isFinite(x) || !Number.isFinite(z) || x < 0 || z < 0 || x > N || z > N || now - (p.pingT || 0) < 2800) return;
         p.pingT = now;
-        const o = JSON.stringify({ type: 'ping', a: p.id, x: r2(x), z: r2(z) });
+        const o = JSON.stringify({ type: 'sign', a: p.id, x: r2(x), z: r2(z) });
         for (const q of this.players.values()) if (q.role === p.role) this.send(q, o);
         break;
       }
