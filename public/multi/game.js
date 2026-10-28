@@ -144,6 +144,7 @@ function onMsg(m) {
       else if (!game) show('scLobby');
       break;
     case 'chat': addChat(m); break;
+    case 'ping': onPing(m); break;
     case 'start': startGame(m); break;
     case 'snap': if (game) onSnap(m); break;
     case 'end': if (game) onEnd(m); break;
@@ -920,6 +921,7 @@ window.addEventListener('keydown', e => {
   if (k === 'shift' && game.role === 'dream') ctl.dashQ = true;
   if (k === 'f') { if (game.role === 'dream') ctl.stQ = true; else ctl.dashQ = true; } // 꿈: 은신 · 앨리스: 운명
   if (k === 'm') game.mapOn = !game.mapOn;
+  if (k === 'g') pingLook();
   if (k === 'tab' || k === 'h' || k === '?') game.briefOn = !game.briefOn;
   if (k === '[' || k === ']') { setSens(sens + (k === ']' ? 1 : -1)); say(`시점 감도 ${sens}`, '#cfc6b6', 1.5); }
   if (k === 'b') { setBright((bright + 1) % 5); say(`밝기 ${'■'.repeat(bright + 1)}${'□'.repeat(4 - bright)}`, '#cfc6b6', 1.5); }
@@ -953,6 +955,65 @@ joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) moveJoy(e)
 const endJoy = e => { if (e.pointerId !== joyId) return; joyId = null; ctl.joyX = ctl.joyY = 0; knob.style.transform = 'translate(-50%,-50%)'; };
 joy.addEventListener('pointerup', endJoy); joy.addEventListener('pointercancel', endJoy);
 const ROT = () => document.body.classList.contains('rot90');
+/* ---------- 손짓 (핑): 같은 편에게 위치 알리기 ---------- */
+let pingCd = 0;
+function sendPing(x, z) {
+  if (!game || game.ended || game.intro > 0) return;
+  const t = performance.now(); if (t - pingCd < 3000) { say('손짓은 3초에 한 번', '#a89e90', 1.2); return; }
+  pingCd = t; send({ type: 'ping', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 });
+}
+function pingLook() { // PC: 보고 있는 곳 (벽 앞까지, 최대 16칸)
+  const g = game; if (!g) return; if (g.mapOn) return;
+  const w = g.world, N = w.N, dx = Math.cos(g.cam.yaw), dz = Math.sin(g.cam.yaw);
+  let d = .5; for (; d < 16; d += .1) { const x = g.cam.x + dx * d, z = g.cam.z + dz * d; if (x < 0 || z < 0 || x >= N || z >= N || w.wall[(z | 0) * N + (x | 0)]) break; }
+  d = Math.max(.6, d - .35); sendPing(g.cam.x + dx * d, g.cam.z + dz * d);
+}
+function onPing(m) {
+  const g = game; if (!g) return;
+  (g.tpings || (g.tpings = [])).push({ x: m.x, z: m.z, t: performance.now(), a: m.a, me: m.a === myId });
+  if (g.tpings.length > 8) g.tpings.shift();
+  at(m.x, m.z, 60, () => { osc('sine', 1320, .12, { vol: .12 }); osc('sine', 1760, .12, { vol: .08, delay: .09 }); });
+}
+// 지도를 연 채로 누르면 그 자리에 손짓
+cv.addEventListener('pointerdown', e => {
+  if (!game || !game.mapOn) return;
+  const r = cv.getBoundingClientRect(); let cx, cy;
+  if (ROT()) { cx = (e.clientY - r.top) / r.height * W; cy = (r.right - e.clientX) / r.width * H; } else { cx = (e.clientX - r.left) / r.width * W; cy = (e.clientY - r.top) / r.height * H; }
+  const S = 230, ox = (W - S) / 2, oy = (H - S) / 2 + 6, k = S / game.world.N;
+  if (cx < ox || cy < oy || cx > ox + S || cy > oy + S) return;
+  e.stopImmediatePropagation(); e.preventDefault(); initAudio();
+  sendPing((cx - ox) / k, (cy - oy) / k);
+}, { capture: true });
+function pingCol(g) { return g.role === 'dream' ? '255,110,110' : '120,235,255'; }
+function drawPingsMap(g, ox, oy, k, big) {
+  if (!g.tpings) return; const tn = performance.now(), c = ctx, col = pingCol(g);
+  for (const p of g.tpings) {
+    const a = (tn - p.t) / 1000; if (a > 4) continue;
+    const x = ox + p.x * k, y = oy + p.z * k, ph = (a * 1.6) % 1;
+    c.strokeStyle = `rgba(${col},${1 - ph})`; c.lineWidth = big ? 2 : 1.4; c.beginPath(); c.arc(x, y, (big ? 4 : 2) + ph * (big ? 14 : 8), 0, 7); c.stroke();
+    c.fillStyle = `rgba(${col},${a < 3.5 ? 1 : (4 - a) * 2})`; c.beginPath(); c.moveTo(x, y - (big ? 5 : 3)); c.lineTo(x + (big ? 4 : 2.5), y); c.lineTo(x, y + (big ? 5 : 3)); c.lineTo(x - (big ? 4 : 2.5), y); c.closePath(); c.fill();
+    if (big) { c.font = `10px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; c.fillStyle = `rgb(${col})`; c.fillText(p.me ? '나' : nameOf(p.a), x, y - 11); }
+  }
+  g.tpings = g.tpings.filter(p => tn - p.t < 4000);
+}
+function drawPingsWorld(g) { // 화면 속: 벽 너머로도 보이는 표시
+  if (!g.tpings || g.mapOn) return; const tn = performance.now(), c = ctx, col = pingCol(g), cam = g.cam, hor = H / 2 + (cam.bob || 0);
+  for (const p of g.tpings) {
+    const a = (tn - p.t) / 1000; if (a > 4) continue;
+    const dx = p.x - cam.x, dz = p.z - cam.z, d = Math.hypot(dx, dz); let rel = Math.atan2(dz, dx) - cam.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+    const al = a < 3.4 ? 1 : (4 - a) / .6;
+    if (Math.abs(rel) < 1.0 && Math.abs(Math.tan(rel)) < FOVP * 1.02) {
+      const x = W / 2 + Math.tan(rel) / FOVP * W / 2, depth = Math.max(.4, d * Math.cos(rel)), y = clamp(hor - .6 * H / depth, 24, H - 40), bob = Math.sin(a * 8) * 2;
+      c.save(); c.globalAlpha = al; c.fillStyle = `rgb(${col})`; c.strokeStyle = 'rgba(0,0,0,.8)'; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(x, y + bob); c.lineTo(x + 5, y - 7 + bob); c.lineTo(x, y - 14 + bob); c.lineTo(x - 5, y - 7 + bob); c.closePath(); c.stroke(); c.fill();
+      c.font = `10px 'Nanum Gothic Coding', monospace`; c.textAlign = 'center'; const s = `${p.me ? '나' : nameOf(p.a)} · ${Math.round(d)}m`;
+      c.fillStyle = '#000'; c.fillText(s, x + 1, y - 18 + bob); c.fillStyle = `rgb(${col})`; c.fillText(s, x, y - 19 + bob); c.restore();
+    } else { // 화면 밖: 가장자리 화살표
+      const sx = rel > 0 ? W - 14 : 14; c.save(); c.globalAlpha = al * (.6 + .4 * Math.sin(a * 10)); c.fillStyle = `rgb(${col})`;
+      c.beginPath(); if (rel > 0) { c.moveTo(sx + 7, H / 2); c.lineTo(sx - 3, H / 2 - 7); c.lineTo(sx - 3, H / 2 + 7); } else { c.moveTo(sx - 7, H / 2); c.lineTo(sx + 3, H / 2 - 7); c.lineTo(sx + 3, H / 2 + 7); } c.closePath(); c.fill(); c.restore();
+    }
+  }
+}
 function moveJoy(e) {
   const r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2;
   let dx = (e.clientX - cx) / rad, dy = (e.clientY - cy) / rad; if (ROT()) { const t = dx; dx = dy; dy = -t; } const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
@@ -1633,6 +1694,7 @@ function drawMinimap(g) {
   g.world.traces.forEach((t, i) => { if (g.tr[i] || (g.seen && !g.seen[(t.z | 0) * N + (t.x | 0)])) return; c.fillStyle = t.color === '#4a64c8' ? '#8095ff' : t.color; c.fillRect(OX + t.x * k - 2, OY + t.z * k - 2, 4, 4); });
   if (g.door) { c.fillStyle = '#fff'; c.beginPath(); c.arc(OX + g.door.x * k, OY + g.door.z * k, 2.5 + Math.sin(now * 5), 0, 7); c.fill(); }
   mapMarkers(g, OX, OY, k, false);
+  drawPingsMap(g, OX, OY, k, false);
   c.restore();
   c.save(); c.translate(OX + cam.x * k, OY + cam.z * k); c.rotate(cam.yaw);
   c.fillStyle = g.role === 'dream' ? '#ff5050' : '#ffffff';
@@ -1662,6 +1724,7 @@ function drawMap(g, cam) {
   for (const L of g.world.labels || []) ctx.fillText(L.t, ox + L.x * k, oy + L.z * k);
   if (g.door) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(ox + g.door.x * k, oy + g.door.z * k, 5 + Math.sin(now * 5) * 1.5, 0, 7); ctx.fill(); ctx.fillText('문', ox + g.door.x * k, oy + g.door.z * k - 11); }
   mapMarkers(g, ox, oy, k, true);
+  drawPingsMap(g, ox, oy, k, true);
   ctx.textBaseline = 'middle';
   ctx.save(); ctx.translate(ox + cam.x * k, oy + cam.z * k); ctx.rotate(cam.yaw);
   ctx.fillStyle = g.role === 'dream' ? '#ff5050' : '#ffffff';
@@ -1669,7 +1732,7 @@ function drawMap(g, cam) {
   ctx.fillStyle = '#cfc6b6'; ctx.font = `12px 'Nanum Myeongjo', serif`; ctx.textAlign = 'center';
   ctx.fillText(g.role === 'dream' ? `꿈의 지도 — ${CFG.REVEAL_EVERY}초마다 앨리스가 드러난다` : g.seen ? '가 본 곳만 보인다 — 파란 점: 동료, 빨간 점: 잡힌 동료' : '망가진 꿈의 지도 — 파란 점: 동료, 빨간 점: 잡힌 동료', W / 2, oy - 14);
   ctx.font = `10px 'Nanum Gothic Coding', monospace`; ctx.fillStyle = '#8d8478';
-  ctx.fillText(device === 'phone' ? '지도 버튼으로 닫기' : 'M 으로 닫기', W / 2, oy + S + 14);
+  ctx.fillText(device === 'phone' ? '지도를 누르면 동료에게 손짓 · 지도 버튼으로 닫기' : '지도를 클릭하면 동료에게 손짓 · M 으로 닫기', W / 2, oy + S + 14);
 }
 
 /* =========================================================
@@ -1969,11 +2032,11 @@ function drawBrief(c, g, alpha, count) {
   y += 6; sh('─  조 작  ─', lc, y, '#8d8478', F(11)); y += 17;
   const segs = phone
     ? (dream
-      ? [[['왼쪽 원'], '이동'], [['화면 끌기'], '시점'], [['잡기'], '잡기 · 가두기'], [['대시'], `돌진 (${g.fate ? 5 : CFG.DASH_CD}초)`], ...(g.stealth ? [[['은신'], '10초 은신']] : []), [['지도'], '지도']]
-      : [[['왼쪽 원'], '이동'], [['화면 끌기'], '시점'], [['행동'], '꾹: 줍기 · 구출'], [['행동'], '연타: 몸부림'], ...(g.fate ? [[['운명'], '운명 쓰기']] : []), [['지도'], '지도']])
+      ? [[['왼쪽 원'], '이동'], [['화면 끌기'], '시점'], [['잡기'], '잡기 · 가두기'], [['대시'], `돌진 (${g.fate ? 5 : CFG.DASH_CD}초)`], ...(g.stealth ? [[['은신'], '10초 은신']] : []), [['지도'], '지도 · 눌러서 손짓']]
+      : [[['왼쪽 원'], '이동'], [['화면 끌기'], '시점'], [['행동'], '꾹: 줍기 · 구출'], [['행동'], '연타: 몸부림'], ...(g.fate ? [[['운명'], '운명 쓰기']] : []), [['지도'], '지도 · 눌러서 손짓']])
     : (dream
-      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '시점'], [['E'], '잡기 · 가두기'], [['Shift'], `돌진 (${g.fate ? 5 : CFG.DASH_CD}초)`], ...(g.stealth ? [[['F'], '은신']] : []), [['M'], '지도'], [['B'], '밝기'], [['[', ']'], '감도'], [['Enter'], '채팅']]
-      : [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '시점'], [['E'], '꾹: 줍기 · 구출'], [['E'], '연타: 몸부림'], ...(g.fate ? [[['F'], '운명 쓰기']] : []), [['M'], '지도'], [['B'], '밝기'], [['Enter'], '채팅']]);
+      ? [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '시점'], [['E'], '잡기 · 가두기'], [['Shift'], `돌진 (${g.fate ? 5 : CFG.DASH_CD}초)`], ...(g.stealth ? [[['F'], '은신']] : []), [['M'], '지도'], [['G'], '손짓'], [['B'], '밝기'], [['[', ']'], '감도'], [['Enter'], '채팅']]
+      : [[['W', 'A', 'S', 'D'], '이동'], [['마우스'], '시점'], [['E'], '꾹: 줍기 · 구출'], [['E'], '연타: 몸부림'], ...(g.fate ? [[['F'], '운명 쓰기']] : []), [['M'], '지도'], [['G'], '손짓'], [['B'], '밝기'], [['Enter'], '채팅']]);
   // 한 칸의 폭을 재서 줄을 채우고, 넘치면 다음 줄로
   c.font = F(11);
   const segW = ([ks, d]) => ks.reduce((a, k) => a + Math.max(15, c.measureText(k).width + 10) + 3, 0) + 3 + c.measureText(d).width;
@@ -2083,6 +2146,7 @@ function drawHud(g, tags) {
   }
   // 이름표
   c.font = KRS; c.textAlign = 'center';
+  drawPingsWorld(g);
   for (const t of tags) { c.globalAlpha = clamp(t.a * 1.4, 0, 1); c.fillStyle = '#000'; c.fillText(t.name, t.x + 1, t.y + 1); c.fillStyle = '#e8e0d0'; c.fillText(t.name, t.x, t.y); drawTitleTag(c, t.title, t.x, t.y - 11); }
   c.globalAlpha = 1;
   // OSD
