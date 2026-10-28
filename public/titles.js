@@ -17,6 +17,7 @@
     { id: 'strug', how: '멀티에서 잡힌 뒤 몸부림으로 10번 빠져나오기', pk: 'strug', pn: 10, name: '몸부림 장인', col: '#f0e090' },
     { id: 'hot', how: '멀티에서 꿈으로 빛기둥에 5번 튕겨 나가기', pk: 'burn', pn: 5, name: '앗뜨거!', col: '#fff3b0' },
     { id: 'fool', how: '하드 3장에서 틀린 지목으로 「아니야.」 30번 듣기', pk: 'no3', pn: 30, name: '바보야?', col: '#3aa860' },
+    { id: 'ghost', how: '하드 1~4장에서 사진에만 찍히는 것 12개를 모두 찍기 (사진첩)', name: '심령사진가', col: '#d6e2ec' },
     { id: 'remote', how: '최종장에서 리모컨 찾는 데 3분 넘게 걸리기', name: '리모컨 어디 갔어', col: '#8e8e8e' }
   ];
   const BY = {}; for (const t of LIST) BY[t.id] = t;

@@ -76,6 +76,7 @@ body{
 #tSlash{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(90,14,14,.5)!important; border-color:rgba(230,130,130,.55)!important}
 #tPoint{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(60,50,10,.5)!important; border-color:rgba(230,210,130,.55)!important}
 #tBack{right:28%; bottom:6%; width:12%; font-size:clamp(9px,2.4vw,12px)}
+#tCam{right:4%; bottom:calc(10% + 23vw); width:13%; font-size:clamp(14px,4vw,22px)}
 #tAct{right:4%; bottom:10%; width:21%; font-size:clamp(12px,3.4vw,18px); background:rgba(90,14,14,.5)!important; border-color:rgba(230,130,130,.55)!important}
 #tJoy{position:absolute; left:4%; bottom:7%; width:27%; aspect-ratio:1; border-radius:50%; border:2px solid rgba(230,220,205,.3); background:rgba(10,8,9,.3); pointer-events:auto; touch-action:none}
 #tJoyKnob{position:absolute; left:50%; top:50%; width:42%; aspect-ratio:1; border-radius:50%; background:rgba(230,220,205,.35); transform:translate(-50%,-50%)}
@@ -117,6 +118,7 @@ body.rot90 .rot{display:none!important}
       <button type="button" id="tSlash" data-scene="ch1">베기</button>
       <button type="button" id="tPoint" data-scene="ch3">지목</button>
       <button type="button" id="tAct" data-scene="h3d">베기</button>
+      <button type="button" id="tCam" data-scene="cam">📷</button>
       <div id="tJoy" hidden><div id="tJoyKnob"></div></div>
     </div>
     <div id="ttlBox" hidden><div class="ttlHead">칭  호<small>이름 옆에 달 칭호를 고르세요 · 올려 두거나 누르면 획득 조건이 보여요</small></div><div id="ttlPanel"></div><button type="button" id="ttlBack">← 돌아가기</button></div>
@@ -133,8 +135,8 @@ body.rot90 .rot{display:none!important}
 <p class="rot">가로 모드 버튼을 누르면 화면이 더 커져요</p>
 </div>
 
-<script src="titles.js?v=2"></script>
-<script src="hard.js?v=22"></script>
+<script src="titles.js?v=3"></script>
+<script src="hard.js?v=23"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -572,6 +574,52 @@ function CuteJump(next, dur = 1.1){
 const TITLES = window.InjooTitles || null;
 let titleToast = null;
 window.addEventListener('injoo-title', e => { titleToast = { t: now, d: e.detail }; sfx.bell(); vib && vib([40, 40, 80]); });
+// 사진첩: 사진에만 찍히는 것들 (하드 1~4장)
+const PHOTO_HINT = { c1a:'숲 ─ 촛불 길 밖, 나무 사이에서 누군가 보고 있다', c1b:'숲 ─ 쓰러진 것들은 정말 사라졌을까', c1c:'숲 ─ 한참 걸은 뒤 지나온 길을 돌아보면', c2a:'극장 ─ 빈 좌석이 하나 더 있다', c2b:'극장 ─ 오르골 옆에서 아직 누가 노래한다', c2c:'극장 ─ 무대 막 뒤', c3a:'여왕의 방 ─ 침대 밑', c3b:'여왕의 방 ─ 초상화의 진짜 주인', c3c:'여왕의 방 ─ 등 뒤의 문틈', c4a:'다과회 ─ 빈 손님 자리', c4b:'다과회 ─ 부엌 찬장 틈', c4c:'다과회 ─ 지하 철창 앞' };
+const PHOTO_NAME = { c1a:'붉은 드레스의 소녀', c1b:'땅에서 솟은 손', c1c:'길 위의 나', c2a:'보이지 않는 관객', c2b:'노래하는 푸른 앨리스', c2c:'막 뒤의 얼굴', c3a:'침대 밑의 눈', c3b:'진짜 여왕', c3c:'문틈의 누군가', c4a:'빈자리의 쌍둥이', c4b:'찬장 속 아이', c4c:'철창 앞의 그림자' };
+function AlbumScene(){
+  const ids = HARD.PHOTO_IDS, all = HARD.photos.all(), imgs = {};
+  for (const id of ids) if (all[id]){ const im = new Image(); im.src = all[id]; imgs[id] = im; }
+  let sel = 0, big = false;
+  const CW = 80, CH = 60, GX = (W - (4 * CW + 3 * 10)) / 2, GY = 58, cell = i => ({ x: GX + (i / 3 | 0) * (CW + 10), y: GY + (i % 3) * (CH + 18) });
+  const n = ids.filter(i => all[i]).length;
+  return {
+    noPause:true,
+    enter(){ setFx({ noise:.1, flicker:.03 }); },
+    key(k){
+      if (big){ big = false; sfx.tick(); return; }
+      if (k === 'Escape' || k === 'Backspace'){ go(Title()); return; }
+      if (k === 'ArrowLeft' || k === 'a'){ sel = (sel + 9) % 12; sfx.tick(); }
+      else if (k === 'ArrowRight' || k === 'd'){ sel = (sel + 3) % 12; sfx.tick(); }
+      else if (k === 'ArrowUp' || k === 'w'){ sel = (sel + 11) % 12; sfx.tick(); }
+      else if (k === 'ArrowDown' || k === 's'){ sel = (sel + 1) % 12; sfx.tick(); }
+      else if ((k === 'Enter' || k === ' ') && all[ids[sel]]){ big = true; sfx.clunk(); }
+    },
+    pointer(t, x, y){
+      if (t !== 'down') return;
+      if (big){ big = false; return; }
+      if (y > 268 && Math.abs(x - W / 2) < 60){ go(Title()); return; }
+      for (let i = 0; i < 12; i++){ const c = cell(i); if (x >= c.x && x <= c.x + CW && y >= c.y && y <= c.y + CH){ if (sel === i && all[ids[i]]) big = true; sel = i; sfx.tick(); } }
+    },
+    draw(){
+      g.fillStyle = '#070506'; g.fillRect(-20, -20, W + 40, H + 40);
+      txt('사  진  첩', W / 2, 28, { size:16, color:'#e8e0d0', w:800 });
+      txt(`${n} / 12`, W / 2, 44, { size:10, color:'#8d8478', font:MONO });
+      ['1장 숲', '2장 극장', '3장 여왕의 방', '4장 다과회'].forEach((t, c) => txt(t, GX + c * (CW + 10) + CW / 2, GY - 6, { size:9, color:'#a89e90', font:MONO }));
+      ids.forEach((id, i) => {
+        const c = cell(i), on = i === sel;
+        g.fillStyle = all[id] ? '#e8e2d2' : '#1a1614'; g.fillRect(c.x - 3, c.y - 3, CW + 6, CH + 10);
+        if (imgs[id] && imgs[id].complete) g.drawImage(imgs[id], c.x, c.y, CW, CH);
+        else { g.fillStyle = '#0c0a09'; g.fillRect(c.x, c.y, CW, CH); txt('?', c.x + CW / 2, c.y + CH / 2 + 6, { size:18, color:'#4a4038', font:MONO }); }
+        if (on){ g.strokeStyle = '#e8c070'; g.lineWidth = 2; g.strokeRect(c.x - 4.5, c.y - 4.5, CW + 9, CH + 13); }
+      });
+      const id = ids[sel];
+      txt(all[id] ? `「 ${PHOTO_NAME[id]} 」` : PHOTO_HINT[id], W / 2, 262, { size:11, color: all[id] ? '#e8e0d0' : '#8d8478', font:MONO });
+      txt(TOUCH ? '사진을 두 번 누르면 크게 · 아래를 누르면 돌아가기' : '방향키 고르기 · Enter 크게 보기 · Esc 돌아가기', W / 2, 284, { size:9, color:'#6a6258', font:MONO });
+      if (big && imgs[id]){ g.fillStyle = 'rgba(0,0,0,.85)'; g.fillRect(0, 0, W, H); g.fillStyle = '#e8e2d2'; g.fillRect(W / 2 - 146, 34, 292, 232); g.drawImage(imgs[id], W / 2 - 140, 40, 280, 210); txt(`「 ${PHOTO_NAME[id]} 」`, W / 2, 262, { size:11, color:'#2a2222', font:MONO, shadow:false }); }
+    }
+  };
+}
 // 칭호 고르기 (메인 화면)
 let ttlMounted = false;
 function TitlesScene(){
@@ -841,6 +889,7 @@ function Title(opt = {}){
     items = [{ toggle:true }, { l:'▶  처음부터 재생', f:() => { hard = modeHard; startChapter(1); } }];
     if (progress > 1 || completed) items.push({ l:'▶  이어하기', f:() => go(ChapterSelect()) });
     items.push({ l:'▶  멀티플레이 — 망가진 꿈', f:() => { try{ localStorage.setItem('injoo_m_chicken', JSON.stringify(chicken)); }catch(e){} stopTrack(.3); location.href = 'multi/'; } });
+    if (HARD && HARD.photos) items.push({ l:'▶  사진첩', f:() => go(AlbumScene()) });
     if (TITLES) items.push({ l:'▶  칭호', f:() => go(TitlesScene()) });
     items.push({ l:'▶  기록 · 설정', f:() => go(Options()) });
     if (sel >= items.length) sel = items.length - 1;
@@ -1634,6 +1683,7 @@ function frame(ts){
   drawTitleToast();
   touchUI.hidden = !TOUCH;
   if (TOUCH) for (const b of touchBtns) b.hidden = paused || !(scene && scene.touch === b.dataset.scene);
+  if (TOUCH) document.getElementById('tCam').hidden = paused || !(scene && scene.camOn && scene.camOn());
   if (TOUCH){ tJoy.hidden = paused || !(scene && scene.touch === 'h3d' && !scene.noJoy); tActBtn.textContent = (scene && scene.act) || '행동'; if (scene && scene.noAct) tActBtn.hidden = true; }
   g.setTransform(1, 0, 0, 1, 0, 0);
   if (paused) drawPause();
@@ -1657,7 +1707,7 @@ function vkey(id, k) {
   btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('lostpointercapture', up);
   btn.addEventListener('contextmenu', e => e.preventDefault());
 }
-vkey('tWalk', 'ArrowUp'); vkey('tSlash', ' '); vkey('tBack', 'ArrowDown'); vkey('tPoint', ' '); vkey('tAct', ' ');
+vkey('tWalk', 'ArrowUp'); vkey('tSlash', ' '); vkey('tBack', 'ArrowDown'); vkey('tPoint', ' '); vkey('tAct', ' '); vkey('tCam', 'p');
 const tActBtn = document.getElementById('tAct');
 // 하드 모드 이동용 가상 조이스틱
 const joy = { x:0, y:0 }, tJoy = document.getElementById('tJoy'), tJoyKnob = document.getElementById('tJoyKnob');
@@ -1729,7 +1779,7 @@ const HARD = window.InjooHard ? window.InjooHard({
 go(Boot());
 requestAnimationFrame(frame);
 ['touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => { initAudio(); }, { passive:true }));
-window.__injoo = { TitlesScene:() => TitlesScene(), dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, Options, ChapterSelect, saveCode, loadCode, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
+window.__injoo = { TitlesScene:() => TitlesScene(), AlbumScene:() => AlbumScene(), dbg:()=>JSON.stringify({ name:music.name, cute:!!TRACKS.cute.el, chicken }), go, Ch1, Ch2, Ch3, Ch4, Room, Title, startChapter, HARD, Options, ChapterSelect, saveCode, loadCode, setHard(v){ hard = !!v; }, setChicken(v){ chicken = !!v; }, get scene(){ return scene; } };
 })();
 </script>
 

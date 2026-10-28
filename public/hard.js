@@ -450,6 +450,133 @@ function bigScare() { sfx.screech(); if (!chicken()) { osc('sawtooth', 1200, .9,
 /* =========================================================
    하드 1장 : 붉은 길 — 촛불 길을 따라 숲을 베어 나간다
    ========================================================= */
+/* =========================================================
+   낡은 필름 카메라 — 하드 1~4장. 눈에는 안 보이고 사진에만 찍히는 것들
+   ========================================================= */
+const GHOSTS = {
+  // 각 그림: (x, 화면 x, 바닥 y, 1m 당 픽셀)
+  girl(x, sx, by, s) { // 붉은 드레스 소녀
+    const w = s * .45, h = s * 1.45;
+    x.fillStyle = 'rgba(150,20,24,.85)'; x.beginPath(); x.moveTo(sx - w * .2, by - h * .62); x.lineTo(sx + w * .2, by - h * .62); x.lineTo(sx + w * .55, by); x.lineTo(sx - w * .55, by); x.closePath(); x.fill();
+    E2(x, sx, by - h * .8, w * .32, w * .4, 'rgba(225,215,200,.92)');
+    x.fillStyle = 'rgba(8,6,6,.95)'; x.fillRect(sx - w * .36, by - h * .98, w * .72, h * .12); for (let i = 0; i < 7; i++) x.fillRect(sx - w * .36 + i * w * .11, by - h * .9, w * .07, h * (.25 + (i % 3) * .08));
+    E2(x, sx - w * .1, by - h * .8, w * .05, w * .06, '#000'); E2(x, sx + w * .1, by - h * .8, w * .05, w * .06, '#000');
+  },
+  hands(x, sx, by, s) { // 땅에서 솟은 하얀 손들
+    for (let i = 0; i < 5; i++) { const ox = (i - 2) * s * .14, hh = s * (.35 + (i % 3) * .12); x.fillStyle = 'rgba(232,228,220,.85)'; x.fillRect(sx + ox - s * .03, by - hh, s * .06, hh); for (let f = 0; f < 4; f++) x.fillRect(sx + ox - s * .045 + f * s * .03, by - hh - s * .07, s * .018, s * .08); }
+  },
+  self(x, sx, by, s) { // 길 한가운데 서 있는 나의 뒷모습
+    const w = s * .5, h = s * 1.6;
+    x.fillStyle = 'rgba(30,26,28,.92)'; x.beginPath(); x.moveTo(sx - w * .5, by); x.lineTo(sx - w * .45, by - h * .62); x.quadraticCurveTo(sx, by - h * .7, sx + w * .45, by - h * .62); x.lineTo(sx + w * .5, by); x.closePath(); x.fill();
+    E2(x, sx, by - h * .78, w * .28, w * .33, 'rgba(20,16,16,.95)');
+  },
+  aud(x, sx, by, s) { // 빈 좌석에 앉은 투명한 관객
+    E2(x, sx, by - s * .95, s * .16, s * .2, 'rgba(210,214,230,.55)'); E2(x, sx - s * .06, by - s * .97, s * .035, s * .05, 'rgba(0,0,0,.9)'); E2(x, sx + s * .06, by - s * .97, s * .035, s * .05, 'rgba(0,0,0,.9)');
+    x.fillStyle = 'rgba(190,196,220,.4)'; x.fillRect(sx - s * .2, by - s * .75, s * .4, s * .35);
+  },
+  singer(x, sx, by, s) { // 노래하는 푸른 앨리스
+    const h = s * 1.5;
+    x.fillStyle = 'rgba(60,90,200,.7)'; x.beginPath(); x.moveTo(sx - s * .1, by - h * .6); x.lineTo(sx + s * .1, by - h * .6); x.lineTo(sx + s * .32, by); x.lineTo(sx - s * .32, by); x.closePath(); x.fill();
+    E2(x, sx, by - h * .76, s * .15, s * .19, 'rgba(220,226,240,.85)'); E2(x, sx, by - h * .72, s * .045, s * .07, 'rgba(10,10,30,.95)');
+    x.fillStyle = 'rgba(240,240,255,.8)'; x.fillRect(sx - s * .18, by - h * .9, s * .36, s * .05);
+  },
+  peek(x, sx, by, s) { // 막 뒤에서 반쯤 내민 얼굴
+    E2(x, sx, by - s * 1.3, s * .17, s * .22, 'rgba(226,220,206,.9)'); x.fillStyle = 'rgba(40,40,120,.95)'; x.fillRect(sx, by - s * 1.6, s * .3, s * .7);
+    E2(x, sx - s * .07, by - s * 1.32, s * .04, s * .05, '#000');
+  },
+  bed(x, sx, by, s) { // 침대 밑의 눈
+    x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(sx - s * .5, by - s * .25, s, s * .2);
+    for (const o of [-.08, .08]) { E2(x, sx + o * s, by - s * .15, s * .05, s * .03, 'rgba(236,230,214,.95)'); E2(x, sx + o * s, by - s * .15, s * .018, s * .025, '#000'); }
+  },
+  queen(x, sx, by, s) { // 초상화 자리의 진짜 여왕
+    E2(x, sx, by - s * .9, s * .2, s * .27, 'rgba(200,214,196,.8)'); x.fillStyle = 'rgba(180,150,40,.9)'; x.beginPath(); x.moveTo(sx - s * .18, by - s * 1.12); for (let i = 0; i <= 4; i++) x.lineTo(sx - s * .18 + i * s * .09, by - s * (i % 2 ? 1.2 : 1.32)); x.lineTo(sx + s * .18, by - s * 1.12); x.closePath(); x.fill();
+    E2(x, sx - s * .07, by - s * .92, s * .04, s * .055, '#000'); E2(x, sx + s * .07, by - s * .92, s * .04, s * .055, '#000');
+    x.fillStyle = 'rgba(110,8,8,.9)'; x.fillRect(sx - s * .08, by - s * .88, s * .02, s * .2); x.fillRect(sx + s * .06, by - s * .88, s * .02, s * .26);
+  },
+  door(x, sx, by, s) { // 문틈의 키 큰 누군가
+    x.fillStyle = 'rgba(8,6,8,.9)'; x.fillRect(sx - s * .12, by - s * 1.9, s * .24, s * 1.9);
+    E2(x, sx, by - s * 1.72, s * .1, s * .13, 'rgba(200,190,176,.8)'); E2(x, sx - s * .035, by - s * 1.74, s * .022, s * .03, '#000'); E2(x, sx + s * .035, by - s * 1.74, s * .022, s * .03, '#000');
+  },
+  twin(x, sx, by, s) { // 빈자리에 앉은 쌍둥이
+    x.fillStyle = 'rgba(200,170,50,.7)'; x.fillRect(sx - s * .17, by - s * .7, s * .34, s * .4);
+    E2(x, sx, by - s * .85, s * .14, s * .17, 'rgba(230,222,206,.85)'); x.fillStyle = 'rgba(70,46,20,.9)'; x.fillRect(sx - s * .15, by - s * 1.0, s * .3, s * .08);
+    E2(x, sx - s * .05, by - s * .86, s * .03, s * .04, '#000'); E2(x, sx + s * .05, by - s * .86, s * .03, s * .04, '#000');
+  },
+  child(x, sx, by, s) { // 찬장 틈의 아이
+    x.fillStyle = 'rgba(0,0,0,.75)'; x.fillRect(sx - s * .2, by - s * 1.15, s * .4, s * .55);
+    E2(x, sx, by - s * .9, s * .12, s * .15, 'rgba(226,218,204,.88)'); E2(x, sx - s * .04, by - s * .92, s * .03, s * .045, '#000'); E2(x, sx + s * .04, by - s * .92, s * .03, s * .045, '#000');
+  },
+  shadow(x, sx, by, s) { // 철창 앞의 그림자
+    x.fillStyle = 'rgba(4,2,2,.92)'; x.beginPath(); x.moveTo(sx - s * .3, by); x.lineTo(sx - s * .18, by - s * 1.7); x.quadraticCurveTo(sx, by - s * 2.05, sx + s * .18, by - s * 1.7); x.lineTo(sx + s * .3, by); x.closePath(); x.fill();
+    E2(x, sx - s * .06, by - s * 1.68, s * .03, s * .02, '#ff2a20'); E2(x, sx + s * .06, by - s * 1.68, s * .03, s * .02, '#ff2a20');
+  }
+};
+const PHOTO_IDS = ['c1a', 'c1b', 'c1c', 'c2a', 'c2b', 'c2c', 'c3a', 'c3b', 'c3c', 'c4a', 'c4b', 'c4c'];
+const photos = {
+  all() { try { return JSON.parse(localStorage.getItem('injoo_photos') || '{}'); } catch (_) { return {}; } },
+  has(id) { return !!photos.all()[id]; },
+  save(id, url) { const a = photos.all(); if (a[id]) return false; a[id] = url; try { localStorage.setItem('injoo_photos', JSON.stringify(a)); } catch (_) { return false; } return true; }
+};
+// 장면(S)에 카메라를 붙인다. o = { e, cam, ents(): [{ id, x, z, g, y0 }], allow(): bool, onFlash() }
+function withCamera(S, o) {
+  let film = 12, shot = false, pop = null, cueT = 0, humT = 0, cue = 0;
+  const key0 = S.key, upd0 = S.update, draw0 = S.draw;
+  const pc = document.createElement('canvas'); pc.width = 200; pc.height = 150; const px = pc.getContext('2d');
+  const seen = (en, cam, proj) => { // 화면 가운데 쪽 · 9칸 안 · 벽에 안 가림
+    const [tx, ty] = proj(en.x, en.z); if (ty < .35 || ty > 9) return null;
+    const sx = W / 2 * (1 + tx / ty); if (Math.abs(sx - W / 2) > W * .3) return null;
+    if (!o.e.los(cam.x, cam.z, en.x, en.z)) return null;
+    return { sx, ty };
+  };
+  S.camOn = () => o.allow() && film > 0;
+  const enter0 = S.enter; S.enter = function () { if (enter0) enter0.call(this); setTimeout(() => { if (api.scene() === S) say(TOUCH ? '낡은 필름 카메라를 챙겼다. (📷 버튼)' : '낡은 필름 카메라를 챙겼다. (P)', 2.6); }, 4200); };
+  S.key = function (k) { if (k === 'p') { this.shoot(); return; } if (key0) return key0.call(this, k); };
+  S.shoot = function () {
+    if (!o.allow()) return; if (film <= 0) { say('필름이 다 떨어졌다.', 1.4); return; }
+    film--; shot = true; sfx.clunk(); nz(.08, { type: 'highpass', f: 3000, vol: .3 });
+  };
+  S.update = function (dt) {
+    if (upd0) upd0.call(this, dt);
+    if (pop) { pop.t += dt; if (pop.t > (pop.got ? 4.4 : 2.6)) pop = null; }
+    cueT -= dt; if (cueT <= 0 && o.allow() && o.e.proj) { cueT = .25; cue = 0; for (const en of o.ents()) if (!photos.has(en.id) && seen(en, o.cam, o.e.proj)) cue = 1; }
+    if (cue && !chicken()) { humT -= dt; if (humT <= 0) { humT = 1.6; osc('sine', 52, 1.2, { vol: .07, a: .3 }); if (Math.random() < .5) fx.glitch = Math.max(fx.glitch || 0, .25); } }
+  };
+  S.draw = function () {
+    if (draw0) draw0.call(this);
+    if (shot) {
+      shot = false;
+      px.drawImage(g.canvas, 0, 0, W, H, 0, 0, 200, 150);
+      let hit = null; const proj = o.e.proj;
+      if (proj) for (const en of o.ents()) { const s0 = seen(en, o.cam, proj); if (s0 && (!hit || s0.ty < hit.ty)) hit = { en, ...s0 }; }
+      const k = 200 / W;
+      if (hit) { const sc = H / Math.max(hit.ty, .3), hor = H / 2 + (o.cam.bob || 0), by = hor + (.5 - (hit.en.y0 || 0)) * sc; px.save(); px.scale(k, k); GHOSTS[hit.en.g](px, hit.sx, by, sc); px.restore(); }
+      // 사진 느낌: 바랜 색 · 입자 · 빛 번짐
+      const id = px.getImageData(0, 0, 200, 150), d = id.data;
+      for (let i = 0; i < d.length; i += 4) { const v = (d[i] * .35 + d[i + 1] * .5 + d[i + 2] * .15) * 1.25 + 18 + (Math.random() - .5) * 26; d[i] = v * 1.05; d[i + 1] = v * .96; d[i + 2] = v * .82; }
+      px.putImageData(id, 0, 0);
+      const fl = px.createRadialGradient(100, 75, 5, 100, 75, 120); fl.addColorStop(0, 'rgba(255,255,240,.25)'); fl.addColorStop(1, 'rgba(0,0,0,.45)'); px.fillStyle = fl; px.fillRect(0, 0, 200, 150);
+      const img = document.createElement('canvas'); img.width = 200; img.height = 150; img.getContext('2d').drawImage(pc, 0, 0);
+      let got = false;
+      if (hit && !photos.has(hit.en.id)) { got = photos.save(hit.en.id, img.toDataURL('image/jpeg', .72)); }
+      pop = { img, t: 0, got, flash: 1 };
+      if (o.onFlash) o.onFlash();
+      if (got) { setTimeout(() => { if (!chicken()) { sfx.sting(); sfx.whisper(1.2); } else sfx.bell(); say('…뭔가 찍혔다.', 2.4); }, 700); const n = PHOTO_IDS.filter(i => photos.has(i)).length; if (n >= PHOTO_IDS.length) { const TI = TITLES(); TI && TI.give('ghost'); } }
+    }
+    if (pop) {
+      if (pop.flash > 0) { g.fillStyle = `rgba(255,255,248,${pop.flash})`; g.fillRect(0, 0, W, H); pop.flash = Math.max(0, pop.flash - .12); }
+      const big = pop.got && pop.t < 2.6, k = big ? Math.min(1, pop.t * 3) : 1;
+      const pw = big ? 220 : 104, ph = pw * .75, x0 = big ? (W - pw) / 2 : W - pw - 12, y0 = big ? (H - ph) / 2 - 8 : H - ph - 46;
+      g.save(); g.globalAlpha = big ? k : Math.min(1, (pop.got ? 4.4 : 2.6) - pop.t); g.translate(x0 + pw / 2, y0 + ph / 2); g.rotate(big ? -.02 : .05);
+      g.fillStyle = '#e8e2d2'; g.fillRect(-pw / 2 - 5, -ph / 2 - 5, pw + 10, ph + 18);
+      const dev = Math.min(1, pop.t / 1.2); g.drawImage(pop.img, -pw / 2, -ph / 2, pw, ph); g.fillStyle = `rgba(20,16,12,${1 - dev})`; g.fillRect(-pw / 2, -ph / 2, pw, ph);
+      g.restore();
+      if (big && pop.t > 1) txt('사진첩에 남았다', W / 2, y0 + ph + 26, { size: 10, color: '#c8c0b0', font: MONO });
+    }
+    if (o.allow()) { g.font = `14px ${api.OSDF || MONO}`; g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = 'rgba(0,0,0,.7)'; g.fillText(`FILM ${film}`, W - 13, H - 47); g.fillStyle = film ? '#e8e2d2' : '#a05050'; g.fillText(`FILM ${film}`, W - 14, H - 48); }
+  };
+  return S;
+}
+
 function HCh1() {
   buildSprites();
   const N = 72, R = rng((Math.random() * 1e9) | 0);
@@ -702,7 +829,10 @@ function HCh1() {
       if (phase === 'horde') { g.fillStyle = `rgba(0,0,0,${clamp(horde.t * .5, 0, .6)})`; g.fillRect(0, 0, W, H); }
     }
   };
-  return S;
+  // 사진에만 찍히는 것: 길 밖의 소녀 · 베어 넘긴 자리의 손 · 출발점의 나
+  const GP = (() => { const i = (PL * .42) | 0, p = path[i], q = path[i + 1], a = Math.atan2(q.z - p.z, q.x - p.x); for (const sd of [1, -1]) { const x = clamp(p.x - Math.sin(a) * 4.3 * sd, 3, N - 3), z = clamp(p.z + Math.cos(a) * 4.3 * sd, 3, N - 3); if (!e.treeHit(x, z, .3)) return { x, z }; } return { x: p.x, z: p.z }; })();
+  return withCamera(S, { e, cam, allow: () => phase === 'walk',
+    ents: () => [{ id: 'c1a', g: 'girl', x: GP.x, z: GP.z }, ...foes.filter(f => !f.alive).map(f => ({ id: 'c1b', g: 'hands', x: f.x, z: f.z })), ...(Math.hypot(cam.x - path[0].x, cam.z - path[0].z) > 8 ? [{ id: 'c1c', g: 'self', x: path[0].x, z: path[0].z }] : [])] });
 }
 
 
@@ -1012,7 +1142,11 @@ function HCh2() {
       }
     }
   };
-  return S;
+  // 사진에만 찍히는 것: 빈 좌석의 관객 · 오르골 옆의 푸른 앨리스 · 막 뒤의 얼굴
+  const AUD = (() => { const c = seats.filter(s => !s.who && !s.letter && s.z > 16 && s.z < 30); return c[Math.random() * c.length | 0] || seats[40]; })();
+  return withCamera(S, { e, cam, allow: () => phase === 'walk' && !letterOpen,
+    ents: () => [{ id: 'c2a', g: 'aud', x: AUD.x, z: AUD.z }, { id: 'c2b', g: 'singer', x: 21.8, z: 7.0 }, { id: 'c2c', g: 'peek', x: 4.6, z: 6.2 }],
+    onFlash: () => { for (const m of aw) stepTo(m, .9); creak(0); } });
 }
 
 
@@ -1348,7 +1482,7 @@ function HCh4(opt = {}) {
       guests.forEach((gu, i) => {
         if (gu.up) list.push({ spr: ch ? SP.cGuestT : SP.guestRun[gu.v], x: gu.x, z: gu.z, w: ch ? .8 : .62, h: ch ? .95 : 1.75, y0: ch ? .35 : 0, shake: phase === 'chase' && !ch ? 1.5 : 0, glow: phase === 'shut' ? .55 : 0 });
         else {
-          const stare = gu.stare || i === peek;
+          const stare = gu.stare || i === peek || (gu.fl || 0) > now();
           const bobY = phase === 'feast' ? Math.abs(Math.sin(now() * 6 + i)) * .04 : 0;
           list.push({ spr: ch ? (stare ? SP.cGuestT : SP.cGuest) : (stare ? SP.guestStare[gu.v] : SP.guestEat[gu.v]), x: gu.x, z: gu.z, w: ch ? .75 : .62, h: ch ? .9 : 1.05, y0: (ch ? .3 : .02) - bobY });
         }
@@ -1368,7 +1502,10 @@ function HCh4(opt = {}) {
       if (scareT > 0) scareOverlay(scareT, 1.3, true);
     }
   };
-  return S;
+  // 사진에만 찍히는 것: 빈자리의 쌍둥이 · 찬장 틈의 아이 · 철창 앞의 그림자
+  return withCamera(S, { e, cam, allow: () => phase === 'collect' && !sitT,
+    ents: () => [{ id: 'c4a', g: 'twin', x: EMPTY.x, z: EMPTY.z }, { id: 'c4b', g: 'child', x: 14.5, z: 6.5 }, { id: 'c4c', g: 'shadow', x: 23.5, z: 38.4 }],
+    onFlash: () => { const t = now() + 1; for (const gu of guests) gu.fl = t; } });
 }
 
 
@@ -1945,7 +2082,10 @@ function HCh3() {
       }
     }
   };
-  return S;
+  // 사진에만 찍히는 것: 침대 밑의 눈 · 초상화 자리의 여왕 · 문틈의 누군가
+  return withCamera(S, { e, cam, allow: () => phase === 'search' && secret !== 'open',
+    ents: () => [{ id: 'c3a', g: 'bed', x: BED.x - .3, z: BED.z - .2 }, { id: 'c3b', g: 'queen', x: 7.5, z: 2.15 }, { id: 'c3c', g: 'door', x: 6.5, z: 9.75 }],
+    onFlash: () => { time = Math.max(1, time - 3); } });
 }
 
 /* =========================================================
@@ -2293,6 +2433,6 @@ function LivingRoom(next, opt = {}) {
   };
 }
 
-return { HCh1, HCh2, HCh3, HCh4, LivingRoom, TapeScene, RedWords, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
+return { HCh1, HCh2, HCh3, HCh4, LivingRoom, photos, PHOTO_IDS, GHOSTS, TapeScene, RedWords, Engine, buildSprites, canvasSprite, fpControls, fpPointer, exitLock, scareOverlay, bigScare, SP, rng, E2, P2, ghostOn };
 };
 })();
