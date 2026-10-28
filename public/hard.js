@@ -549,7 +549,7 @@ function withCamera(S, o) {
       let hit = null; const proj = o.e.proj;
       if (proj) for (const en of o.ents()) { const s0 = seen(en, o.cam, proj); if (s0 && (!hit || s0.ty < hit.ty)) hit = { en, ...s0 }; }
       const k = 200 / W;
-      if (hit) { const sc = H / Math.max(hit.ty, .3), hor = H / 2 + (o.cam.bob || 0), by = hor + (.5 - (hit.en.y0 || 0)) * sc; px.save(); px.scale(k, k); GHOSTS[hit.en.g](px, hit.sx, by, sc); px.restore(); }
+      if (hit) { const sc = H / Math.max(hit.ty, .3), hor = H / 2 + (o.cam.bob || 0), by = hor + (.5 - (hit.en.y0 || 0)) * sc; px.save(); px.scale(k, k); if (chicken()) { px.globalAlpha = .85; ghostOn(px, hit.sx, by - sc * .75, sc * .28, { col: '#fff4fa', boo: true }); } else GHOSTS[hit.en.g](px, hit.sx, by, sc); px.restore(); }
       // 사진 느낌: 바랜 색 · 입자 · 빛 번짐
       const id = px.getImageData(0, 0, 200, 150), d = id.data;
       for (let i = 0; i < d.length; i += 4) { const v = (d[i] * .35 + d[i + 1] * .5 + d[i + 2] * .15) * 1.25 + 18 + (Math.random() - .5) * 26; d[i] = v * 1.05; d[i + 1] = v * .96; d[i + 2] = v * .82; }
@@ -560,7 +560,7 @@ function withCamera(S, o) {
       if (hit && !photos.has(hit.en.id)) { got = photos.save(hit.en.id, img.toDataURL('image/jpeg', .72)); }
       pop = { img, t: 0, got, flash: 1 };
       if (o.onFlash) o.onFlash();
-      if (got) { setTimeout(() => { if (!chicken()) { sfx.sting(); sfx.whisper(1.2); } else sfx.bell(); say('…뭔가 찍혔다.', 2.4); }, 700); const n = PHOTO_IDS.filter(i => photos.has(i)).length; if (n >= PHOTO_IDS.length) { const TI = TITLES(); TI && TI.give('ghost'); } }
+      if (got) { setTimeout(() => { if (!chicken()) { sfx.sting(); sfx.whisper(1.2); } else sfx.bell(); say('…뭔가 찍혔다.', 2.4); }, 700); const n = PHOTO_IDS.filter(i => photos.has(i)).length, TI = TITLES(); if (TI) { TI.inc('psy', n - TI.count('psy')); if (n >= PHOTO_IDS.length) TI.give('ghost'); } }
     }
     if (pop) {
       if (pop.flash > 0) { g.fillStyle = `rgba(255,255,248,${pop.flash})`; g.fillRect(0, 0, W, H); pop.flash = Math.max(0, pop.flash - .12); }
@@ -570,7 +570,7 @@ function withCamera(S, o) {
       g.fillStyle = '#e8e2d2'; g.fillRect(-pw / 2 - 5, -ph / 2 - 5, pw + 10, ph + 18);
       const dev = Math.min(1, pop.t / 1.2); g.drawImage(pop.img, -pw / 2, -ph / 2, pw, ph); g.fillStyle = `rgba(20,16,12,${1 - dev})`; g.fillRect(-pw / 2, -ph / 2, pw, ph);
       g.restore();
-      if (big && pop.t > 1) txt('사진첩에 남았다', W / 2, y0 + ph + 26, { size: 10, color: '#c8c0b0', font: MONO });
+      if (big && pop.t > 1) txt('사진첩에 남았다', W / 2, y0 - 12, { size: 10, color: '#c8c0b0', font: MONO });
     }
     if (o.allow()) { g.font = `14px ${api.OSDF || MONO}`; g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = 'rgba(0,0,0,.7)'; g.fillText(`FILM ${film}`, W - 13, H - 47); g.fillStyle = film ? '#e8e2d2' : '#a05050'; g.fillText(`FILM ${film}`, W - 14, H - 48); }
   };
@@ -832,7 +832,7 @@ function HCh1() {
   // 사진에만 찍히는 것: 길 밖의 소녀 · 베어 넘긴 자리의 손 · 출발점의 나
   const GP = (() => { const i = (PL * .42) | 0, p = path[i], q = path[i + 1], a = Math.atan2(q.z - p.z, q.x - p.x); for (const sd of [1, -1]) { const x = clamp(p.x - Math.sin(a) * 4.3 * sd, 3, N - 3), z = clamp(p.z + Math.cos(a) * 4.3 * sd, 3, N - 3); if (!e.treeHit(x, z, .3)) return { x, z }; } return { x: p.x, z: p.z }; })();
   return withCamera(S, { e, cam, allow: () => phase === 'walk',
-    ents: () => [{ id: 'c1a', g: 'girl', x: GP.x, z: GP.z }, ...foes.filter(f => !f.alive).map(f => ({ id: 'c1b', g: 'hands', x: f.x, z: f.z })), ...(Math.hypot(cam.x - path[0].x, cam.z - path[0].z) > 8 ? [{ id: 'c1c', g: 'self', x: path[0].x, z: path[0].z }] : [])] });
+    ents: () => [{ id: 'c1a', g: 'girl', x: GP.x, z: GP.z }, ...foes.filter(f => !f.alive).map(f => ({ id: 'c1b', g: 'hands', x: f.x, z: f.z })), ...(Math.hypot(cam.x - path[0].x, cam.z - path[0].z) > 5 ? [{ id: 'c1c', g: 'self', x: path[0].x, z: path[0].z }] : [])] });
 }
 
 
@@ -1503,8 +1503,8 @@ function HCh4(opt = {}) {
     }
   };
   // 사진에만 찍히는 것: 빈자리의 쌍둥이 · 찬장 틈의 아이 · 철창 앞의 그림자
-  return withCamera(S, { e, cam, allow: () => phase === 'collect' && !sitT,
-    ents: () => [{ id: 'c4a', g: 'twin', x: EMPTY.x, z: EMPTY.z }, { id: 'c4b', g: 'child', x: 14.5, z: 6.5 }, { id: 'c4c', g: 'shadow', x: 23.5, z: 38.4 }],
+  return withCamera(S, { e, cam, allow: () => (phase === 'collect' || phase === 'chase' || phase === 'knight') && !sitT,
+    ents: () => [{ id: 'c4a', g: 'twin', x: EMPTY.x, z: EMPTY.z }, { id: 'c4b', g: 'child', x: 14.5, z: 6.5 }, { id: 'c4c', g: 'shadow', x: 23.9, z: 44.4 }],
     onFlash: () => { const t = now() + 1; for (const gu of guests) gu.fl = t; } });
 }
 

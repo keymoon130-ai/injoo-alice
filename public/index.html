@@ -136,7 +136,7 @@ body.rot90 .rot{display:none!important}
 </div>
 
 <script src="titles.js?v=3"></script>
-<script src="hard.js?v=23"></script>
+<script src="hard.js?v=24"></script>
 <script id="game">
 (function(){
 'use strict';
@@ -483,7 +483,7 @@ window.addEventListener('keydown', e => {
     else if (k === 'Enter' || k === ' ') pauseChoose(pauseSel);
     return;
   }
-  if ((k === 'Escape' || k === 'p') && canPause()) { e.preventDefault(); setPause(true); return; }
+  if ((k === 'Escape' || (k === 'p' && !(scene && scene.camOn && scene.camOn()))) && canPause()) { e.preventDefault(); setPause(true); return; }
   const was = keys[k]; keys[k] = true;
   if (!was && scene && scene.key) scene.key(k, true);
 });
@@ -574,49 +574,74 @@ function CuteJump(next, dur = 1.1){
 const TITLES = window.InjooTitles || null;
 let titleToast = null;
 window.addEventListener('injoo-title', e => { titleToast = { t: now, d: e.detail }; sfx.bell(); vib && vib([40, 40, 80]); });
-// 사진첩: 사진에만 찍히는 것들 (하드 1~4장)
-const PHOTO_HINT = { c1a:'숲 ─ 촛불 길 밖, 나무 사이에서 누군가 보고 있다', c1b:'숲 ─ 쓰러진 것들은 정말 사라졌을까', c1c:'숲 ─ 한참 걸은 뒤 지나온 길을 돌아보면', c2a:'극장 ─ 빈 좌석이 하나 더 있다', c2b:'극장 ─ 오르골 옆에서 아직 누가 노래한다', c2c:'극장 ─ 무대 막 뒤', c3a:'여왕의 방 ─ 침대 밑', c3b:'여왕의 방 ─ 초상화의 진짜 주인', c3c:'여왕의 방 ─ 등 뒤의 문틈', c4a:'다과회 ─ 빈 손님 자리', c4b:'다과회 ─ 부엌 찬장 틈', c4c:'다과회 ─ 지하 철창 앞' };
-const PHOTO_NAME = { c1a:'붉은 드레스의 소녀', c1b:'땅에서 솟은 손', c1c:'길 위의 나', c2a:'보이지 않는 관객', c2b:'노래하는 푸른 앨리스', c2c:'막 뒤의 얼굴', c3a:'침대 밑의 눈', c3b:'진짜 여왕', c3c:'문틈의 누군가', c4a:'빈자리의 쌍둥이', c4b:'찬장 속 아이', c4c:'철창 앞의 그림자' };
+// 사진첩: 사진에만 찍히는 심령사진 (하드 1~4장) — 장별로, 칸마다 꼬아 놓은 수수께끼
+const PHOTO_NAME = { c1a:'붉은 드레스 소녀', c1b:'하얀 손들', c1c:'내 뒷모습', c2a:'투명한 관객', c2b:'푸른 앨리스', c2c:'막 뒤의 얼굴', c3a:'침대 밑의 눈', c3b:'진짜 여왕', c3c:'문틈의 누군가', c4a:'빈자리의 쌍둥이', c4b:'찬장 틈의 아이', c4c:'검사 뒤의 그림자' };
+const PHOTO_RIDDLE = {
+  c1a:'촛불이 닿지 않는 곳에도 이 길을 먼저 걸은 사람이 있었다. 불빛 바깥을 오래 바라보라.',
+  c1b:'죽은 자들의 영혼은 그리 쉽게 떠나지 않는다. 그 피가 더 붉을수록.',
+  c1c:'앞만 보고 걷는 자는 제 등을 보지 못한다. 처음 섰던 곳을 돌아보라.',
+  c2a:'만석이라던 객석에 빈자리가 있다면, 그건 비어 있는 게 아니다.',
+  c2b:'오르골은 혼자 울리지 않는다. 연주가 시작되기 전, 무대를 담아라.',
+  c2c:'모든 배우가 무대에 오르는 건 아니다. 왼쪽 막은 늘 조금 무겁다.',
+  c3a:'잠든 이가 위에만 있는 건 아니다. 낮게, 더 낮게.',
+  c3b:'그림은 그린 이가 보고 싶은 얼굴만 남긴다. 렌즈는 그렇지 않다.',
+  c3c:'닫히지 않은 문은 누군가 지나갔다는 뜻이거나, 아직 지나가는 중이라는 뜻이다.',
+  c4a:'초대장은 둘에게 갔다. 그런데 비어 있는 자리는 하나뿐이다.',
+  c4b:'다과회에 초대받지 못한 아이는 부엌에서 기다린다. 찬장 안이 가장 따뜻하니까.',
+  c4c:'검사는 홀로 갇히지 않았다. 문이 열린 뒤에야 그 뒤가 보인다.'
+};
+const ALBUM_CH = [{ t:'1장 ♠ 붉은 길', c:'#d04040' }, { t:'2장 ♦ 푸른 노래', c:'#6a84e0' }, { t:'3장 ♥ 초록의 여왕', c:'#4aa860' }, { t:'4장 ♣ 노란 쌍둥이', c:'#d0b040' }];
 function AlbumScene(){
   const ids = HARD.PHOTO_IDS, all = HARD.photos.all(), imgs = {};
   for (const id of ids) if (all[id]){ const im = new Image(); im.src = all[id]; imgs[id] = im; }
-  let sel = 0, big = false;
-  const CW = 80, CH = 60, GX = (W - (4 * CW + 3 * 10)) / 2, GY = 58, cell = i => ({ x: GX + (i / 3 | 0) * (CW + 10), y: GY + (i % 3) * (CH + 18) });
-  const n = ids.filter(i => all[i]).length;
+  let tab = 0, sel = 0, big = false;
+  const TW_ = 88, TX0 = (W - TW_ * 4) / 2, CW = 104, CH = 78, GX = (W - (3 * CW + 2 * 14)) / 2, GY = 70;
+  const cell = i => ({ x: GX + i * (CW + 14), y: GY });
+  const n = ids.filter(i => all[i]).length, cur = () => ids[tab * 3 + sel];
+  const wrap = (t, maxW) => { g.font = `11px ${MONO}`; const out = []; let line = ''; for (const ch of t){ if (g.measureText(line + ch).width > maxW && line){ out.push(line); line = ''; } line += ch; } if (line) out.push(line); return out; };
   return {
     noPause:true,
     enter(){ setFx({ noise:.1, flicker:.03 }); },
     key(k){
       if (big){ big = false; sfx.tick(); return; }
       if (k === 'Escape' || k === 'Backspace'){ go(Title()); return; }
-      if (k === 'ArrowLeft' || k === 'a'){ sel = (sel + 9) % 12; sfx.tick(); }
-      else if (k === 'ArrowRight' || k === 'd'){ sel = (sel + 3) % 12; sfx.tick(); }
-      else if (k === 'ArrowUp' || k === 'w'){ sel = (sel + 11) % 12; sfx.tick(); }
-      else if (k === 'ArrowDown' || k === 's'){ sel = (sel + 1) % 12; sfx.tick(); }
-      else if ((k === 'Enter' || k === ' ') && all[ids[sel]]){ big = true; sfx.clunk(); }
+      if (k === 'ArrowLeft' || k === 'a'){ sel = (sel + 2) % 3; sfx.tick(); }
+      else if (k === 'ArrowRight' || k === 'd'){ sel = (sel + 1) % 3; sfx.tick(); }
+      else if (k === 'ArrowUp' || k === 'w' || k === 'q'){ tab = (tab + 3) % 4; sfx.tick(); }
+      else if (k === 'ArrowDown' || k === 's' || k === 'e' || k === 'Tab'){ tab = (tab + 1) % 4; sfx.tick(); }
+      else if ((k === 'Enter' || k === ' ') && all[cur()]){ big = true; sfx.clunk(); }
     },
     pointer(t, x, y){
+      if (big){ if (t === 'down') big = false; return; }
+      for (let i = 0; i < 3; i++){ const c = cell(i); if (x >= c.x && x <= c.x + CW && y >= c.y && y <= c.y + CH){ if (t === 'down'){ if (sel === i && all[cur()]){ big = true; sfx.clunk(); return; } sfx.tick(); } if (sel !== i && t === 'move') sel = i; else sel = i; return; } }
       if (t !== 'down') return;
-      if (big){ big = false; return; }
-      if (y > 268 && Math.abs(x - W / 2) < 60){ go(Title()); return; }
-      for (let i = 0; i < 12; i++){ const c = cell(i); if (x >= c.x && x <= c.x + CW && y >= c.y && y <= c.y + CH){ if (sel === i && all[ids[i]]) big = true; sel = i; sfx.tick(); } }
+      if (y > 40 && y < 58){ const k = Math.floor((x - TX0) / TW_); if (k >= 0 && k < 4){ tab = k; sel = 0; sfx.tick(); } return; }
+      if (y > 236 && y < 264 && Math.abs(x - W / 2) < 120){ go(Title()); }
     },
     draw(){
       g.fillStyle = '#070506'; g.fillRect(-20, -20, W + 40, H + 40);
-      txt('사  진  첩', W / 2, 28, { size:16, color:'#e8e0d0', w:800 });
-      txt(`${n} / 12`, W / 2, 44, { size:10, color:'#8d8478', font:MONO });
-      ['1장 숲', '2장 극장', '3장 여왕의 방', '4장 다과회'].forEach((t, c) => txt(t, GX + c * (CW + 10) + CW / 2, GY - 6, { size:9, color:'#a89e90', font:MONO }));
-      ids.forEach((id, i) => {
-        const c = cell(i), on = i === sel;
-        g.fillStyle = all[id] ? '#e8e2d2' : '#1a1614'; g.fillRect(c.x - 3, c.y - 3, CW + 6, CH + 10);
-        if (imgs[id] && imgs[id].complete) g.drawImage(imgs[id], c.x, c.y, CW, CH);
-        else { g.fillStyle = '#0c0a09'; g.fillRect(c.x, c.y, CW, CH); txt('?', c.x + CW / 2, c.y + CH / 2 + 6, { size:18, color:'#4a4038', font:MONO }); }
-        if (on){ g.strokeStyle = '#e8c070'; g.lineWidth = 2; g.strokeRect(c.x - 4.5, c.y - 4.5, CW + 9, CH + 13); }
+      txt('사  진  첩', W / 2, 26, { size:16, color:'#e8e0d0', w:800 });
+      ALBUM_CH.forEach((ch, k) => {
+        const x = TX0 + k * TW_, on = k === tab, got = [0, 1, 2].filter(i => all[ids[k * 3 + i]]).length;
+        g.fillStyle = on ? 'rgba(40,32,28,.95)' : 'rgba(18,14,12,.9)'; g.fillRect(x + 2, 41, TW_ - 4, 17);
+        if (on){ g.fillStyle = ch.c; g.fillRect(x + 2, 56, TW_ - 4, 2); }
+        txt(`${ch.t.slice(0, 2)} ${ch.t.split(' ')[1]}  ${got}/3`, x + TW_ / 2, 53, { size:9, color: on ? ch.c : '#7a7066', font:MONO });
       });
-      const id = ids[sel];
-      txt(all[id] ? `「 ${PHOTO_NAME[id]} 」` : PHOTO_HINT[id], W / 2, 262, { size:11, color: all[id] ? '#e8e0d0' : '#8d8478', font:MONO });
-      txt(TOUCH ? '사진을 두 번 누르면 크게 · 아래를 누르면 돌아가기' : '방향키 고르기 · Enter 크게 보기 · Esc 돌아가기', W / 2, 284, { size:9, color:'#6a6258', font:MONO });
-      if (big && imgs[id]){ g.fillStyle = 'rgba(0,0,0,.85)'; g.fillRect(0, 0, W, H); g.fillStyle = '#e8e2d2'; g.fillRect(W / 2 - 146, 34, 292, 232); g.drawImage(imgs[id], W / 2 - 140, 40, 280, 210); txt(`「 ${PHOTO_NAME[id]} 」`, W / 2, 262, { size:11, color:'#2a2222', font:MONO, shadow:false }); }
+      txt(ALBUM_CH[tab].t, W / 2, GY - 4, { size:10, color:ALBUM_CH[tab].c, font:MONO });
+      for (let i = 0; i < 3; i++){
+        const id = ids[tab * 3 + i], c = cell(i), on = i === sel;
+        g.fillStyle = all[id] ? '#e8e2d2' : '#1a1614'; g.fillRect(c.x - 4, c.y - 4, CW + 8, CH + 12);
+        if (imgs[id] && imgs[id].complete) g.drawImage(imgs[id], c.x, c.y, CW, CH);
+        else { g.fillStyle = '#0c0a09'; g.fillRect(c.x, c.y, CW, CH); txt('?', c.x + CW / 2, c.y + CH / 2 + 7, { size:22, color:'#4a4038', font:MONO }); }
+        if (on){ g.strokeStyle = ALBUM_CH[tab].c; g.lineWidth = 2; g.strokeRect(c.x - 5.5, c.y - 5.5, CW + 11, CH + 15); }
+      }
+      // 고른 칸: 찍었으면 이름, 그리고 수수께끼
+      const id = cur(); let y = GY + CH + 30;
+      if (all[id]){ txt(`「 ${PHOTO_NAME[id]} 」`, W / 2, y, { size:12, color:'#e8e0d0', w:800 }); y += 18; }
+      for (const l of wrap(PHOTO_RIDDLE[id], 300)){ txt(l, W / 2, y, { size:11, color: all[id] ? '#b8b0a2' : '#8d8478', font:MONO }); y += 15; }
+      txt(`모은 심령사진 ${n} / 12`, W / 2, 244, { size:10, color:'#a89e90', font:MONO });
+      txt(TOUCH ? '위 탭: 장 고르기 · 사진을 두 번 누르면 크게 · 여기를 누르면 돌아가기' : '↑↓ 장 · ←→ 사진 · 올려 두면 수수께끼 · Enter 크게 · Esc 돌아가기', W / 2, 258, { size:9, color:'#6a6258', font:MONO });
+      if (big && imgs[id]){ g.fillStyle = 'rgba(0,0,0,.88)'; g.fillRect(0, 0, W, H); g.fillStyle = '#e8e2d2'; g.fillRect(W / 2 - 146, 30, 292, 236); g.drawImage(imgs[id], W / 2 - 140, 36, 280, 210); txt(`「 ${PHOTO_NAME[id]} 」`, W / 2, 260, { size:11, color:'#2a2222', font:MONO, shadow:false }); }
     }
   };
 }
